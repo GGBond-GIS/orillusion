@@ -5,6 +5,7 @@ import { Vector3 } from '../../math/Vector3';
 import { Vector3Ex } from '../../util/Vector3Ex';
 import { clamp } from '../../math/MathUtil';
 import { PointerEvent3D } from '../../event/eventConst/PointerEvent3D';
+import { CameraType } from '../../core/CameraType';
 
 /**
  * Orbit Camera Controller
@@ -190,6 +191,7 @@ export class OrbitController extends ComponentBase {
         }
         if (changed) {
             this._spherical.setCoords(this._position.x - this._target.x, this._position.y - this._target.y, this._position.z - this._target.z)
+            this.updateCamera();
         } else if (!this._isMouseDown && this.autoRotate) {
             this._spherical.theta -= this.autoRotateSpeed * Math.PI / 180;
             this.updateCamera();
@@ -207,10 +209,19 @@ export class OrbitController extends ComponentBase {
      * @internal
      */
     private onWheel(e: PointerEvent3D) {
-        e.deltaY = clamp(e.deltaY, -this._spherical.radius, this._spherical.radius)
-        this._spherical.radius += e.deltaY * this.zoomFactor;
+        let deltaY = clamp(e.deltaY, -this._spherical.radius, this._spherical.radius)
+        this._spherical.radius += deltaY * this.zoomFactor;
         this._spherical.radius = clamp(this._spherical.radius, this.minDistance, this.maxDistance);
         this.updateCamera();
+
+        if(this._camera.type === CameraType.ortho){
+            this._camera.frustumSize += e.deltaY * this.zoomFactor
+            if(this._camera.frustumSize < this._minDistance)
+                this._camera.frustumSize = this._minDistance
+            else if(this._camera.frustumSize > this._maxDistance)
+                this._camera.frustumSize = this._maxDistance
+            this._camera.updateProjection()
+        }
     }
     /**
      * @internal

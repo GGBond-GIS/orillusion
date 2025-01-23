@@ -67,7 +67,6 @@ export class TextGeometry extends ExtrudeGeometry {
                     break;
             }
         }
-
         if (shape2D) {
             this.shapes.push(shape2D);
         }

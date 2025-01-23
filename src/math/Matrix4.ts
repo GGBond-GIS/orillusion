@@ -703,7 +703,7 @@ export class Matrix4 {
     public orthoOffCenter(l: number, r: number, b: number, t: number, zn: number, zf: number) {
         let data = this.rawData;
 
-        data[0] = 2 / (r - l);
+        data[0] = -2 / (r - l);
         data[1] = 0;
         data[2] = 0;
         data[3] = 0;

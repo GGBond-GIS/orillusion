@@ -626,11 +626,10 @@ export class RenderNode extends ComponentBase {
     }
 
     public destroy(force?: boolean) {
-
         super.destroy(force);
-        this._geometry = null;
-        this._materials = null;
-        this._combineShaderRefection = null;
+        this._geometry = undefined;
+        this._materials.length = 0;
+        this._combineShaderRefection = undefined;
     }
 
 }

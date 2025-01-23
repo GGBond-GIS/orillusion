@@ -88,14 +88,14 @@ export class PassGenerate {
                 if (useMorphNormals) {
                     shadowPass.setDefine(`USE_MORPHNORMALS`, useMorphNormals);
                 }
-                // shadowMaterialPass.shaderState.cullMode = material.getShader().cullMode;
-                if (colorPass.cullMode == `none`) {
-                    shadowPass.shaderState.cullMode = `none`;
-                } else if (colorPass.cullMode == `back`) {
-                    shadowPass.shaderState.cullMode = `front`;
-                } else if (colorPass.cullMode == `front`) {
-                    shadowPass.shaderState.cullMode = `back`;
-                }
+                // shadowPass.shaderState.cullMode = colorPass.cullMode;
+                // if (colorPass.cullMode == `none`) {
+                //     shadowPass.shaderState.cullMode = `none`;
+                // } else if (colorPass.cullMode == `back`) {
+                //     shadowPass.shaderState.cullMode = `front`;
+                // } else if (colorPass.cullMode == `front`) {
+                //     shadowPass.shaderState.cullMode = `back`;
+                // }
                 shadowPass.preCompile(renderNode.geometry);
                 shader.addRenderPass(shadowPass);
             }

@@ -1,3 +1,26 @@
+## [0.8.4](https://github.com/Orillusion/orillusion/compare/v0.8.3...v0.8.4) (2024-11-27)
+
+
+### Bug Fixes
+
+* **destroy:** render error after obj.destroy() ([1e79847](https://github.com/Orillusion/orillusion/commit/1e798475f06dea6ee078469147c8f5da10d85ff0))
+* **extrudeGeometry:** fix shape in CCW order ([a7c8d01](https://github.com/Orillusion/orillusion/commit/a7c8d01bfe956530dd774024acff005fa2d5163f))
+* **frameRate:** render on small frameRate ([8b685b9](https://github.com/Orillusion/orillusion/commit/8b685b99ffbf345355bce7f977484a4ce091c25c))
+* **geometry:** CylinderGeometry non-manifold ([#451](https://github.com/Orillusion/orillusion/issues/451)) ([bf14c61](https://github.com/Orillusion/orillusion/commit/bf14c612caae5e36661151c019990e3d9fffa5c6))
+* **graphic3d:** fix graphic clear & destroy ([eff6082](https://github.com/Orillusion/orillusion/commit/eff6082495e85b14ca7baf313d2693e295eda06f))
+* **graphics3D:** fix buildCircle with custom up ([8e0354a](https://github.com/Orillusion/orillusion/commit/8e0354adbdb2043a41541f06c437cd1acf850b30))
+* **pick:** add pick info in bound mode ([3fba2c5](https://github.com/Orillusion/orillusion/commit/3fba2c55db3ac0320811f8792392e5042c32811d))
+* **pick:** add worldNormal in bound pick ([4b5bc9c](https://github.com/Orillusion/orillusion/commit/4b5bc9c2d4bad5778fe24156763af0fe9347d2ec))
+* resolve issue with resume() being invoked multiple times ([9b2d7d1](https://github.com/Orillusion/orillusion/commit/9b2d7d1eb23059dabdbd2e289c7464d231c0e597))
+* **type:** refine PointerEvents types ([3029b5c](https://github.com/Orillusion/orillusion/commit/3029b5cc940ed140dcd4d05b4a3b76a8c270cda5))
+
+
+### Features
+
+* [WIP] double precision matrix support ([52ab9c5](https://github.com/Orillusion/orillusion/commit/52ab9c53d54f29b4c8de751ae616a1e0218b00a9))
+* **ExtrudeGeometry:** add anchor point offset ([#452](https://github.com/Orillusion/orillusion/issues/452)) ([fc2303d](https://github.com/Orillusion/orillusion/commit/fc2303da4d948551d102309cbeb9d9dda762cb83))
+
+
 ## [0.8.3](https://github.com/Orillusion/orillusion/compare/v0.8.2...v0.8.3) (2024-08-28)
 
 

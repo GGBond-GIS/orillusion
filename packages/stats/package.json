@@ -1,6 +1,6 @@
 {
     "name": "@orillusion/stats",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "author": "Orillusion",
     "description": "Orillusion Stats Plugin",
     "main": "./dist/stats.umd.js",

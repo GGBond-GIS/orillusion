@@ -152,6 +152,14 @@ export class Material {
         this._defaultSubShader.topology = value;
     }
 
+    public set baseColor(color: Color) {
+        this.shader.setUniformColor(`baseColor`, color);
+    }
+
+    public get baseColor() {
+        return this.shader.getUniformColor("baseColor");
+    }
+
     /**
      * get render pass by renderType
      * @param passType 
@@ -183,7 +191,7 @@ export class Material {
     destroy(force: boolean) {
         this.name = null;
         this.instanceID = null;
-        this._shader.destroy();
+        this._shader.destroy(force);
         this._shader = null;
     }
 

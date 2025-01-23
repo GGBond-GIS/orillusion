@@ -427,7 +427,8 @@ export class Engine3D {
      * Resume the engine render
      */
     public static resume() {
-        this._requestAnimationFrameID = requestAnimationFrame((t) => this.render(t));
+        if(this._requestAnimationFrameID === 0)
+            this._requestAnimationFrameID = requestAnimationFrame((t) => this.render(t));
     }
 
     /**
@@ -437,20 +438,20 @@ export class Engine3D {
     private static async render(time: number) {
         if (this._frameRateValue > 0) {
             let delta = time - this._time;
-            while(delta < this._frameRateValue){
+            if(delta < this._frameRateValue){
                 let t = performance.now()
-                await Promise.resolve().then(()=>{
-                    time += (performance.now() - t)
-                    delta = time - this._time
+                await new Promise(res=>{
+                    setTimeout(()=>{
+                        time += (performance.now() - t)
+                        res(true)
+                    }, this._frameRateValue - delta)  
                 })
             }
             this._time = time;
-            await this.updateFrame(time);
-        } else {
-            await this.updateFrame(time);
         }
+        await this.updateFrame(time);
+        this._requestAnimationFrameID = 0;
         this.resume()
-
     }
 
     private static async updateFrame(time: number) {

@@ -6,6 +6,13 @@ export class CubeSky_Shader {
     #include "WorldMatrixUniform"
     #include "GlobalUniform"
 
+    struct uniformData {
+      fixOrthProj: mat4x4<f32>,
+      enableFixOrthProj: f32,
+      exposure: f32,
+      roughness: f32
+  };
+
     struct VertexOutput {
       @location(auto) fragUV: vec2<f32>,
       @location(auto) vClipPos: vec4<f32>,
@@ -15,6 +22,9 @@ export class CubeSky_Shader {
     };
 
     var<private> ORI_VertexOut: VertexOutput ;
+
+    @group(2) @binding(0)
+    var<uniform> global: uniformData;
 
     @vertex
     fn main( 
@@ -31,6 +41,9 @@ export class CubeSky_Shader {
       ORI_VertexOut.vWorldPos = modelMat * vec4<f32>(position.xyz,1.0) ;
       
       var fixProjMat = globalUniform.projMat ;
+      if(global.enableFixOrthProj > 0.5){
+        fixProjMat = global.fixOrthProj;
+      }
       fixProjMat[2].z = 1.0 ;//99999.0 / (99999.0 - 1.0) ;
       fixProjMat[3].z = -1.0 ;//(-1.0 * 99999.0) / (99999.0 - 1.0) ;
 
@@ -40,6 +53,7 @@ export class CubeSky_Shader {
       fixViewMat[3].z = 0.0 ;
 
       var clipPos = fixProjMat * fixViewMat * ORI_VertexOut.vWorldPos;
+      clipPos.z = clipPos.w;
       ORI_VertexOut.vClipPos = clipPos ;
       ORI_VertexOut.member = clipPos;
       return ORI_VertexOut;
@@ -54,6 +68,8 @@ export class CubeSky_Shader {
     #include "FragmentOutput"
 
     struct uniformData {
+        fixOrthProj: mat4x4<f32>,
+        enableFixOrthProj: f32,
         exposure: f32,
         roughness: f32
     };
@@ -77,7 +93,11 @@ export class CubeSky_Shader {
 
         // let o_Target: vec4<f32> = globalUniform.hdrExposure * vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure ;
         let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure;
-        let finalMatrix = globalUniform.projMat * globalUniform.viewMat ;
+        var fixProjMat = globalUniform.projMat ;
+        if(global.enableFixOrthProj > 0.5){
+          fixProjMat = global.fixOrthProj;
+        }
+        let finalMatrix = fixProjMat * globalUniform.viewMat ;
         let nMat = mat3x3<f32>(finalMatrix[0].xyz,finalMatrix[1].xyz,finalMatrix[2].xyz) ;
         let ORI_NORMALMATRIX = transpose(inverse( nMat ));
        

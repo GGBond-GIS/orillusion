@@ -21,6 +21,6 @@ export class SkyGBufferPass extends RenderShaderPass {
         shaderState.frontFace = `ccw`;
         shaderState.cullMode = GPUCullMode.front;
         shaderState.depthWriteEnabled = false;
-        shaderState.depthCompare = GPUCompareFunction.less;
+        shaderState.depthCompare = GPUCompareFunction.less_equal;
     }
 }

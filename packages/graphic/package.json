@@ -1,6 +1,6 @@
 {
     "name": "@orillusion/graphic",
-    "version": "0.2.2",
+    "version": "0.2.7",
     "author": "Orillusion",
     "description": "Orillusion Graphic Plugin",
     "main": "./dist/graphic.umd.js",

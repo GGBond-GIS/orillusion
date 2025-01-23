@@ -1,6 +1,6 @@
 {
     "name": "@orillusion/media-extention",
-    "version": "0.3.6",
+    "version": "0.3.7",
     "author": "Orillusion",
     "description": "Orillusion Media Material Extention",
     "main": "./dist/media.umd.js",

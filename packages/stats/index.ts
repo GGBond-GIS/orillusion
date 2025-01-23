@@ -4,7 +4,7 @@ import { ComponentBase } from "@orillusion/core"
  * Performance info stats
  * @group Plugin
  */
-export class Stats extends ComponentBase {
+class Stats extends ComponentBase {
     /**
      * Stats DOM container
      * with default class="stats"  
@@ -153,3 +153,6 @@ function worker() {
         }
     }
 }
+
+export {Stats}
+export default Stats

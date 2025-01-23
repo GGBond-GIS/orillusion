@@ -463,7 +463,7 @@ export class GPUBufferBase {
         }
     }
 
-    public destroy(force?: boolean) {
+    public destroy() {
         if (this.memoryNodes) {
             this.memoryNodes.forEach((v) => {
                 v.destroy();

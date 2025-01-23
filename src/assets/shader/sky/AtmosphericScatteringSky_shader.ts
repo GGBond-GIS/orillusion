@@ -245,7 +245,7 @@ export class AtmosphericScatteringSky_shader {
 
         var sky: vec3<f32> = (insctrTotalMie + insctrTotalRayleigh) * setting.sunRadiance;
         if(uniformBuffer.displaySun > 0.5){
-          var angle:f32 = saturate((1.0 - phaseTheta) * setting.sunRadius);
+          var angle:f32 = clamp((1.0 - phaseTheta) * setting.sunRadius, 0.0000001, 0.9999999);
           var cosAngle:f32 = cos(angle * PI * 0.5);
           var edge:f32 = 0.0;
           if(angle >= 0.9){

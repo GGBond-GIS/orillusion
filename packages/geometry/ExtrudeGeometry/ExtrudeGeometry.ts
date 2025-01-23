@@ -20,7 +20,7 @@ export class ExtrudeGeometry extends GeometryBase {
     protected verticesArray: number[] = [];
     protected uvArray: number[] = [];
 
-    constructor(shapes?: Shape2D[], options?) {
+    constructor(shapes?: Shape2D[], options?: ExtrudeGeometryArgs) {
         super();
         this.options = options;
         this.shapes = shapes;
@@ -73,8 +73,10 @@ export class ExtrudeGeometry extends GeometryBase {
         }
 
         const indices = new Uint32Array(this.verticesArray.length / 3);
-        for (let i = 0; i < indices.length; i++) {
+        for (let i = 0; i < indices.length; i+=3) {
             indices[i] = i;
+            indices[i + 1] = i + 2;
+            indices[i + 2] = i + 1;
         }
 
         this.setIndices(indices);
@@ -123,7 +125,6 @@ export class ExtrudeGeometry extends GeometryBase {
         const shapePoints = shape.extractPoints(curveSegments);
         let vertices = shapePoints.shape;
         const holes = shapePoints.holes;
-        const reverse = !ShapeUtils.isClockWise(vertices);
 
         for (let i = 0; i < vertices.length; i++) {
             const p = vertices[i];
@@ -139,14 +140,16 @@ export class ExtrudeGeometry extends GeometryBase {
             }
         }
 
-
+        // make sure shape is CW
+        const reverse = !ShapeUtils.isClockWise(vertices);
         if (reverse) {
             vertices = vertices.reverse();
-            for (let i = 0; i < holes.length; i++) {
-                const hole = holes[i];
-                if (ShapeUtils.isClockWise(hole)) {
-                    holes[i] = hole.reverse();
-                }
+        }
+        // make sure hole is CCW
+        for (let i = 0; i < holes.length; i++) {
+            const hole = holes[i];
+            if (ShapeUtils.isClockWise(hole)) {
+                holes[i] = hole.reverse();
             }
         }
 
@@ -288,7 +291,7 @@ export class ExtrudeGeometry extends GeometryBase {
             self.addGroup(start, verticesArray.length / 3 - start, 1);
         }
 
-        function sidewalls(contour: Vector2[], layeroffset: number) {
+        function sidewalls(contour: Vector2[], layeroffset: number, isClockWise = false) {
             let i = contour.length;
             while (--i >= 0) {
                 const j = i;
@@ -303,7 +306,7 @@ export class ExtrudeGeometry extends GeometryBase {
                         c = layeroffset + k + slen2,
                         d = layeroffset + j + slen2;
 
-                    f4(a, b, c, d);
+                    f4(a, b, c, d, isClockWise);
                 }
             }
         }
@@ -314,10 +317,16 @@ export class ExtrudeGeometry extends GeometryBase {
             placeholder.push(z);
         }
 
-        function f3(a: number, b: number, c: number) {
-            addVertex(a);
-            addVertex(b);
-            addVertex(c);
+        function f3(a: number, b: number, c: number, isClockWise = false) {
+            if(isClockWise){
+                addVertex(a);
+                addVertex(b);
+                addVertex(c);
+            }else{
+                addVertex(a);
+                addVertex(c);
+                addVertex(b);
+            }
 
             const nextIndex = verticesArray.length / 3;
             const uvs = WorldUVGenerator.generateTopUV(verticesArray, nextIndex - 3, nextIndex - 2, nextIndex - 1);
@@ -327,14 +336,24 @@ export class ExtrudeGeometry extends GeometryBase {
             addUV(uvs[2]);
         }
 
-        function f4(a: number, b: number, c: number, d: number) {
-            addVertex(a);
-            addVertex(b);
-            addVertex(d);
+        function f4(a: number, b: number, c: number, d: number, isClockWise = false) {
+            if(isClockWise){
+                addVertex(a);
+                addVertex(b);
+                addVertex(d);
 
-            addVertex(b);
-            addVertex(c);
-            addVertex(d);
+                addVertex(b);
+                addVertex(c);
+                addVertex(d);
+            }else{
+                addVertex(a);
+                addVertex(d);
+                addVertex(b);
+
+                addVertex(b);
+                addVertex(d);
+                addVertex(c);
+            }
 
             const nextIndex = verticesArray.length / 3;
             const uvs = WorldUVGenerator.generateSideWallUV(verticesArray, nextIndex - 6, nextIndex - 3, nextIndex - 2, nextIndex - 1);

@@ -14,6 +14,7 @@ import { Vector3 } from '../../math/Vector3';
 import { SphereGeometry } from '../../shape/SphereGeometry';
 import { Object3D } from '../../core/entities/Object3D';
 import { SphereReflection } from './SphereReflection';
+import { CameraType } from '../../core/CameraType';
 
 /**
  *
@@ -61,6 +62,8 @@ export class SkyRenderer extends MeshRenderer {
 
     public nodeUpdate(view: View3D, passType: PassType, renderPassState: RendererPassState, clusterLightingBuffer?: ClusterLightingBuffer) {
         super.nodeUpdate(view, passType, renderPassState, clusterLightingBuffer);
+        const { type, aspect, near, far } = view.camera;
+        this.skyMaterial.fixOrthProj(type == CameraType.ortho, aspect, near, far);
     }
 
     public renderPass2(view: View3D, passType: PassType, rendererPassState: RendererPassState, clusterLightingBuffer: ClusterLightingBuffer, encoder: GPURenderPassEncoder, useBundle: boolean = false) {

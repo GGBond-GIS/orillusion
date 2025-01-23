@@ -70,7 +70,8 @@ export class Camera3D extends ComponentBase {
     /**
      * orth view size
      */
-    public frustumSize: number = 100;
+    public frustumSize: number = 0;
+    public frustumDepth: number = 0;
 
     /**
      * camera view port size
@@ -176,8 +177,10 @@ export class Camera3D extends ComponentBase {
         if (this.type == CameraType.perspective) {
             this.perspective(this.fov, this.aspect, this.near, this.far);
         }else if(this.type == CameraType.ortho) {
-            if(this.frustumSize)
-                this.ortho(this.frustumSize, this.near, this.far);
+            if(this.frustumSize && this.frustumDepth)
+                this.ortho(this.frustumSize, this.frustumDepth);
+            else if(this.frustumSize)
+                this.ortho2(this.frustumSize, this.near, this.far);
             else
                 this.orthoOffCenter(this.left, this.right, this.bottom, this.top, this.near, this.far);
         }  
@@ -233,25 +236,54 @@ export class Camera3D extends ComponentBase {
         this.far = far;
         this._projectionMatrix.perspective(this.fov, this.aspect, this.near, this.far);
         this.type = CameraType.perspective;
+        
+        // update jitter offset
+        if(this._useJitterProjection){
+            this._jitterOffsetX = this._projectionMatrix.get(0, 2);
+            this._jitterOffsetY = this._projectionMatrix.get(1, 2);
+        }
     }
 
     /**
-     * set an orthographic camera with a frustumSize
-     * @param frustumSize the frustum size 
-     * @param near camera near plane
-     * @param far camera far plane
+     * set an orthographic camera with a frustumSize(viewHeight) and frustumSizeDepth
+     * @param frustumSize the frustum view height
+     * @param frustumSizeDepth the frustum view depth
      */
-    public ortho(frustumSize: number, near: number, far: number) {
+    public ortho(frustumSize: number, frustumDepth: number) {
         this.frustumSize = frustumSize;
-        let w = frustumSize * 0.5 * this.aspect;
-        let h = frustumSize * 0.5;
+        this.frustumDepth = frustumDepth;
+        
+        let w = frustumSize * this.aspect;
+        let h = frustumSize;
         let left = -w / 2;
         let right = w / 2;
         let top = h / 2;
         let bottom = -h / 2;
+
+        let dis = Vector3.distance(this.object3D.localPosition, this.lookTarget)
+        let near = dis - frustumDepth
+        let far = dis + frustumDepth
+
         this.orthoOffCenter(left, right, bottom, top, near, far);
     }
+    /**
+     * set an orthographic camera with a frustumSize(viewHeight) and specific near & far
+     * @param frustumSize the frustum view height
+     * @param near camera near plane
+     * @param far camera far plane
+     */
+    public ortho2(frustumSize: number, near: number, far: number) {
+        this.frustumSize = frustumSize;
+        let w = frustumSize * this.aspect;
+        let h = frustumSize;
+        let left = -w / 2;
+        let right = w / 2;
+        let top = h / 2;
+        let bottom = -h / 2;
 
+        this.orthoOffCenter(left, right, bottom, top, near, far);
+    }
+    
     /**
      * set an orthographic camera with specified frustum space
      * @param left camera left plane
@@ -270,6 +302,12 @@ export class Camera3D extends ComponentBase {
         this.bottom = bottom;
         this.type = CameraType.ortho;
         this._projectionMatrix.orthoOffCenter(this.left, this.right, this.bottom, this.top, this.near, this.far);
+
+        // update jitter offset
+        if(this._useJitterProjection){
+            this._jitterOffsetX = this._projectionMatrix.get(0, 2);
+            this._jitterOffsetY = this._projectionMatrix.get(1, 2);
+        }
     }
 
     /**
@@ -497,6 +535,7 @@ export class Camera3D extends ComponentBase {
         this.enableCSM && this.csm?.update(this._projectionMatrix, this._pvMatrixInv, this.near, this.far, shadow);
     }
 
+    // for jitter projection
     private _haltonSeq: HaltonSeq;
     private _jitterOffsetList: Vector2[];
     private _useJitterProjection: boolean = false;
@@ -504,6 +543,8 @@ export class Camera3D extends ComponentBase {
     private _sampleIndex: number = 0;
     private _jitterX: number = 0;
     private _jitterY: number = 0;
+    private _jitterOffsetX: number;
+    private _jitterOffsetY: number;
 
     public get jitterFrameIndex() {
         return this._jitterFrameIndex;
@@ -539,21 +580,23 @@ export class Camera3D extends ComponentBase {
 
     private getJitteredProjectionMatrix() {
         let setting = Engine3D.setting.render.postProcessing.taa;
-        let mat = this._projectionMatrix;
         let temporalJitterScale: number = setting.temporalJitterScale;
         let offsetIndex = this._jitterFrameIndex % setting.jitterSeedCount;
         let num1 = this._jitterOffsetList[offsetIndex].x * temporalJitterScale;
         let num2 = this._jitterOffsetList[offsetIndex].y * temporalJitterScale;
 
-        let jitX = mat.get(0, 2);
-        let jitY = mat.get(1, 2);
-
         this._jitterX = num1 / this.viewPort.width;
         this._jitterY = num2 / this.viewPort.height;
-        jitX += this._jitterX;
-        jitY += this._jitterY;
-        mat.set(0, 2, jitX);
-        mat.set(1, 2, jitY);
+
+        // set offset xy if not set
+        if(!this._jitterOffsetX || !this._jitterOffsetY){
+            this._jitterOffsetX = this._projectionMatrix.get(0, 2);
+            this._jitterOffsetY = this._projectionMatrix.get(1, 2);
+        }
+        let offsetX = this._jitterOffsetX + this._jitterX;
+        let offsetY = this._jitterOffsetY + this._jitterY;
+        this._projectionMatrix.set(0, 2, offsetX);
+        this._projectionMatrix.set(1, 2, offsetY);
 
         this._jitterFrameIndex++;
     }

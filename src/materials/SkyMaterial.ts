@@ -1,6 +1,5 @@
 import { Engine3D } from "../Engine3D";
 import { Texture } from "../gfx/graphics/webGpu/core/texture/Texture";
-import { PassType } from "../gfx/renderJob/passRenderer/state/PassType";
 import { SkyShader } from "../loader/parser/prefab/mats/shader/SkyShader";
 import { Vector3 } from "../math/Vector3";
 import { Material } from "./Material";
@@ -11,13 +10,18 @@ import { Material } from "./Material";
  */
 export class SkyMaterial extends Material {
 
+    private _skyShader: SkyShader;
     constructor() {
         super();
 
-        this.shader = new SkyShader();
+        this.shader = this._skyShader = new SkyShader();
         this.shader.setUniformVector3(`eyesPos`, new Vector3());
         this.shader.setUniformFloat(`exposure`, 1.0);
         this.shader.setUniformFloat(`roughness`, 0.0);
+    }
+
+    public fixOrthProj(enable: boolean, aspect: number, near: number, far: number) {
+        this._skyShader.fixOrthProj(enable, aspect, near, far);
     }
 
     /**
@@ -61,6 +65,6 @@ export class SkyMaterial extends Material {
     }
     public set roughness(value: number) {
         let defaultShader = this._shader.getDefaultColorShader();
-        if (`roughness` in defaultShader.uniforms) defaultShader.uniforms[`roughness`].value = value;
+        defaultShader.uniforms[`roughness`].value = value;
     }
 }

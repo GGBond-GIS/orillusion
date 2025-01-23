@@ -54,8 +54,10 @@ export let Lambert_shader: string = /*wgsl*/ `
           }
         }
         
-        ORI_ShadingInput.BaseColor = lightColor * materialUniform.baseColor ;
-        ORI_ShadingInput.BaseColor.w = 1.0 ;
+        ORI_ShadingInput.BaseColor = lightColor * materialUniform.baseColor;
+        if(ORI_ShadingInput.BaseColor.w > 1.0){
+            ORI_ShadingInput.BaseColor.w = 1.0;
+        }
         UnLit();
 
         // let n = globalUniform.near ;
