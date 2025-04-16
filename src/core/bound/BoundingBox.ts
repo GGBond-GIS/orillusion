@@ -84,7 +84,7 @@ export class BoundingBox implements IBound {
     }
 
     public inFrustum(obj: Object3D, frustum: Frustum) {
-        return frustum.containsBox(obj.bound);
+        return frustum.containsBoundingBox(obj.bound);
     }
 
     public merge(bound: BoundingBox) {

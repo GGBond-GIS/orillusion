@@ -3,6 +3,7 @@ import { Matrix4 } from '../../math/Matrix4';
 import { Object3D } from '../entities/Object3D';
 import { Vector3 } from '../../math/Vector3';
 import { BoundingBox } from './BoundingBox';
+import { IBound } from './IBound';
 
 /**
  * @internal
@@ -133,7 +134,48 @@ export class Frustum {
         return true;
     }
 
-    public containsSphere(object3D: Object3D) {
+    public isVisible(object3D: Object3D): boolean {
+        if (object3D.bound instanceof BoundingSphere) {
+            const worldPos = object3D.transform.worldPosition;
+            const sr = object3D.bound.radius;
+            const scx = object3D.bound.center.x + worldPos.x;
+            const scy = object3D.bound.center.y + worldPos.y;
+            const scz = object3D.bound.center.z + worldPos.z;
+    
+            for (let plane of this.planes) {
+                const d = plane.x * scx + plane.y * scy + plane.z * scz + plane.w;
+                if (d <= -sr) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return this.containsBoundingBox(object3D.bound);
+    }
+
+    public containsBoundingBox(bound: IBound): boolean {
+        const box = bound as BoundingBox;
+        for (const plane of this.planes) {
+            const a = plane.x;
+            const b = plane.y;
+            const c = plane.z;
+            const d = plane.w;
+    
+            const x = a > 0 ? box.max.x : box.min.x;
+            const y = b > 0 ? box.max.y : box.min.y;
+            const z = c > 0 ? box.max.z : box.min.z;
+    
+            const distance = a * x + b * y + c * z + d;
+    
+            if (distance < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public containsSphere(object3D: Object3D): number {
         let sphere: BoundingSphere = object3D.bound as BoundingSphere;
         let c: number = 0;
         let d: number;
@@ -151,37 +193,6 @@ export class Frustum {
             if (d > sr) c++;
         }
 
-        return c === 6 ? 2 : 1;
-    }
-
-    public containsBox(box): number {
-        let c = 0;
-        let d;
-
-        let r = Math.max(box.size.x, box.size.y, box.size.z);
-        let sr = r * 2;
-        let scx = box.center.x;
-        let scy = box.center.y;
-        let scz = box.center.z;
-
-        for (let plane of this.planes) {
-            d = plane.x * scx + plane.y * scy + plane.z * scz + plane.w;
-            if (d <= -sr) return 0;
-            if (d > sr) c++;
-        }
-
-        return c === 6 ? 2 : 1;
-    }
-
-    public containsBox2(box): number {
-        let c = 0;
-        let d;
-        let r = 1.74 * Math.max(box.extents.x, box.extents.y, box.extents.z);//sqrt(3)
-        for (let plane of this.planes) {
-            d = plane.x * box.center.x + plane.y * box.center.y + plane.z * box.center.z + plane.w;
-            if (d <= -r) return 0;
-            if (d > r) c++;
-        }
         return c === 6 ? 2 : 1;
     }
 }
