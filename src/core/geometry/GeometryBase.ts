@@ -315,14 +315,14 @@ export class GeometryBase {
         this.subGeometries = null;
         this.morphTargetDictionary = null;
 
-        this._bounds.destroy();
+        this._bounds?.destroy();
         this._bounds = null;
 
         this._attributeMap = null;
         this._attributes = null;
 
-        this._indicesBuffer.destroy();
-        this._vertexBuffer.destroy();
+        this._indicesBuffer?.destroy();
+        this._vertexBuffer?.destroy();
 
         this._indicesBuffer = null;
         this._vertexBuffer = null;

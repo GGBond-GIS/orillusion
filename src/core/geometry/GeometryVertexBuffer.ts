@@ -11,7 +11,7 @@ export class GeometryVertexBuffer {
 
     public vertexCount: number = 0;
     public vertexGPUBuffer: VertexGPUBuffer;
-    public geometryType: GeometryVertexType = GeometryVertexType.compose;
+    public geometryType: GeometryVertexType = GeometryVertexType.split;
     private _vertexBufferLayouts: VertexBufferLayout[];
     private _attributeSlotLayouts: VertexAttribute[][];
     private _attributeLocation: { [attribute: string]: number };
