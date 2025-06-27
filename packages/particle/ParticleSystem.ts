@@ -145,6 +145,8 @@ export class ParticleSystem extends RenderNode {
     private _frame: number = -1;
     private _time: number = 0;
     public onCompute(view: View3D, command: GPUCommandEncoder) {
+        if (!this.particleSimulator)
+            return;
         if (this._frame == -1) {
             this._frame = Time.frame;
             this._time += this.preheatTime;

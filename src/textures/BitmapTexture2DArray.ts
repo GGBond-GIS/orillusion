@@ -15,8 +15,9 @@ export class BitmapTexture2DArray extends Texture implements ITexture {
 
     private _bitmapTextures: BitmapTexture2D[];
 
-    constructor(width: number, height: number, numberLayer: number) {
+    constructor(width: number, height: number, numberLayer: number, usage: number = 0) {
         super(width, height, numberLayer);
+        this.usage |= usage;
 
         // this.visibility = GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE;
 
@@ -115,7 +116,7 @@ export class BitmapTexture2DArray extends Texture implements ITexture {
             format: this.format,
             size: { width: this.width, height: this.height, depthOrArrayLayers: this.numberLayer },
             dimension: '2d',
-            usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING,
+            usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING | this.usage,
         }
         // this.gpuTexture = webGPUContext.device.createTexture(this.textureDescriptor);
         this.gpuTexture = this.getGPUTexture();

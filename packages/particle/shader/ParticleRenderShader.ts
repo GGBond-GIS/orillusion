@@ -36,8 +36,15 @@ export let ParticleRenderShader = /* wgsl */ `
                 vec4<f32>(0.0, 0.0, 1.0, 0.0),
                 vec4<f32>(0.0, 0.0, 0.0, 1.0)
             );
+            if (globalUniform.useRTE != 0) {
+                let rtePos = SubtractSplitDoubles(vec3f(0, 0, 0), vec3f(0, 0, 0), globalUniform.cameraPositionH, globalUniform.cameraPositionL);
+                ORI_MATRIX_M[3] = vec4<f32>(rtePos, 1.0);
+            }
         } else {
             ORI_MATRIX_M = models.matrix[particleGlobalData.instance_index];
+            if (globalUniform.useRTE != 0) {
+                UpdateWorldMatrixToRTE_PrivatePtr(u32(particleGlobalData.instance_index), &ORI_MATRIX_M);
+            }
         }
 
         var vertexPosition = vertex.position;
