@@ -1,6 +1,5 @@
-import { WasmMatrix } from '@orillusion/wasm-matrix/WasmMatrix';
 import { test, expect, end, delay } from '../util'
-import { Color, ComputeGPUBuffer, Matrix4, Vector2, Vector3, Vector4, webGPUContext } from '@orillusion/core';
+import { WasmMatrix, Color, ComputeGPUBuffer, Matrix4, Vector2, Vector3, Vector4, webGPUContext } from '@orillusion/core';
 
 await test('ComputeGPUBuffer ', async () => {
     let suc = await webGPUContext.init();

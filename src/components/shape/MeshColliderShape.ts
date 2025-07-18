@@ -1,4 +1,10 @@
-import { GeometryBase, Matrix4, Ray, Triangle, Vector3, ColliderShape, ColliderShapeType, HitInfo, VertexAttributeName } from '@orillusion/core';
+import { GeometryBase } from "../../core/geometry/GeometryBase";
+import { VertexAttributeName } from "../../core/geometry/VertexAttributeName";
+import { Matrix4 } from "../../math/Matrix4";
+import { Ray } from "../../math/Ray";
+import { Triangle } from "../../math/Triangle";
+import { Vector3 } from "../../math/Vector3";
+import { ColliderShape, ColliderShapeType, HitInfo } from "./ColliderShape";
 
 
 /**

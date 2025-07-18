@@ -1,4 +1,3 @@
-// import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { ShaderLib } from "../../../../../assets/shader/ShaderLib";
 import { GPUCullMode } from "../../../../../gfx/graphics/webGpu/WebGPUConst";
 import { Texture } from "../../../../../gfx/graphics/webGpu/core/texture/Texture";

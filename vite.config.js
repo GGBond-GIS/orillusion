@@ -21,7 +21,7 @@ export default defineConfig(option => ({
     plugins: option.command === 'build' ? undefined : [{
         name: 'autoIndex',
         configureServer(server) {
-            const tsFile = /\/src\/.*.ts$/
+            const tsFile = /\/src\/.*\.ts$(?<!\.d\.ts$)/
             async function dir(folder, ts = []) {
                 let files = await readdir(folder)
                 for (let f of files) {

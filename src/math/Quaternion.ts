@@ -1,4 +1,4 @@
-import { FloatArray } from '@orillusion/wasm-matrix/WasmMatrix';
+import { FloatArray } from '../components/matrix/WasmMatrix';
 import { DEGREES_TO_RADIANS, RADIANS_TO_DEGREES } from './MathUtil';
 import { Orientation3D } from './Orientation3D';
 import { Vector3 } from './Vector3';

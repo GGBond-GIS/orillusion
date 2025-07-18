@@ -1,4 +1,4 @@
-import { FloatArray } from '@orillusion/wasm-matrix/WasmMatrix';
+import { FloatArray } from '../../../../../components/matrix/WasmMatrix';
 import { webGPUContext } from '../../Context3D';
 import { ArrayBufferData } from './ArrayBufferData';
 import { GPUBufferBase } from './GPUBufferBase';

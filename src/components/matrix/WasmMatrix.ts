@@ -1,4 +1,4 @@
-import { Engine3D, Matrix4 } from '../../src';
+import { Engine3D, Matrix4 } from '../..';
 import matrix from './matrix';
 
 export type FloatArray = Float32Array | Float64Array;

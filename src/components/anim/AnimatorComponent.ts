@@ -1,4 +1,4 @@
-import { FloatArray } from "@orillusion/wasm-matrix/WasmMatrix";
+import { FloatArray } from "../matrix/WasmMatrix";
 import { Engine3D, Matrix4, MeshRenderer, Object3D, PrefabAvatarData, Quaternion, RenderNode, RendererMask, RendererMaskUtil, SkinnedMeshRenderer2, StorageGPUBuffer, Time, Vector3, Vector4, View3D } from "../..";
 import { PropertyAnimationClip } from "../../math/AnimationCurveClip";
 import { RegisterComponent } from "../../util/SerializeDecoration";

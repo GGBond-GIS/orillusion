@@ -1,6 +1,5 @@
-import { WasmMatrix } from '@orillusion/wasm-matrix/WasmMatrix';
 import { test, expect, end, delay } from '../util'
-import { Matrix4, Vector3 } from '@orillusion/core';
+import { WasmMatrix, Matrix4, Vector3 } from '@orillusion/core';
 
 await test('Matrix4', async () => {
     await WasmMatrix.init(Matrix4.allocCount);

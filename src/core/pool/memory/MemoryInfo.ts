@@ -1,4 +1,4 @@
-import { FloatArray } from '@orillusion/wasm-matrix/WasmMatrix';
+import { FloatArray } from '../../../components/matrix/WasmMatrix';
 import { Color } from '../../../math/Color';
 import { Quaternion } from '../../../math/Quaternion';
 import { Vector2 } from '../../../math/Vector2';

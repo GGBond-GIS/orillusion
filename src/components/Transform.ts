@@ -1,4 +1,4 @@
-import { WasmMatrix } from "@orillusion/wasm-matrix/WasmMatrix";
+import { WasmMatrix } from "./matrix/WasmMatrix";
 import { Scene3D } from "../core/Scene3D";
 import { View3D } from "../core/View3D";
 import { Object3D } from "../core/entities/Object3D";

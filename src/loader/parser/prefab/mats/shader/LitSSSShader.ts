@@ -1,6 +1,5 @@
 import { Color } from "../../../../../math/Color";
 import { Vector4 } from "../../../../../math/Vector4";
-// import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { RegisterShader } from "../../../../../util/SerializeDecoration";
 import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 import { PBRLitSSSShader } from "../../../../../assets/shader/materials/PBRLitSSSShader";
