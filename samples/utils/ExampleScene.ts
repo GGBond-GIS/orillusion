@@ -38,7 +38,13 @@ type ExampleSceneParam = {
 
         kelvin: number,
         intensity: number,
-        castShadow: boolean
+        castShadow: boolean,
+        shadowBias: number,
+        shadowCSMBias: number,
+        shadowBoundWidth: number,
+        shadowBoundHeight: number,
+        shadowBoundFar: number,
+        enableCSM: boolean,
     },
 }
 
@@ -64,8 +70,8 @@ export function createSceneParam(): ExampleSceneParam {
         light: {
             position: {
                 x: 0,
-                y: 30,
-                z: -40,
+                y: 25,
+                z: 0,
             },
             euler: {
                 x: 20,
@@ -75,7 +81,13 @@ export function createSceneParam(): ExampleSceneParam {
 
             kelvin: 5355,
             intensity: 2,
-            castShadow: true
+            castShadow: true,
+            shadowBias: 0.013,
+            shadowCSMBias: 0.001,
+            shadowBoundWidth: 512,
+            shadowBoundHeight: 512,
+            shadowBoundFar: 512,
+            enableCSM: true,
         }
     }
     return param;
@@ -95,6 +107,14 @@ function createDirectLight(param: ExampleSceneParam): DirectLight {
     directLight.lightColor = KelvinUtil.color_temperature_to_rgb(param.light.kelvin);
     directLight.castShadow = param.light.castShadow;
     directLight.intensity = param.light.intensity;
+    directLight.shadowBias = param.light.shadowBias;
+    directLight.shadowBoundWidth = param.light.shadowBoundWidth;
+    directLight.shadowBoundHeight = param.light.shadowBoundHeight;
+    directLight.shadowBoundFar = param.light.shadowBoundFar
+    if (param.light.enableCSM) {
+        directLight.shadowCSMBias = param.light.shadowCSMBias;
+    }
+    directLight.enableCSM = param.light.enableCSM;
 
     return directLight;
 }

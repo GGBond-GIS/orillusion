@@ -35,13 +35,15 @@ class Smaple_VertexAnimation {
         GUIHelp.init();
         // add light
         let lightObj3D = this.lightObj = new Object3D();
+        lightObj3D.y = 56;
+        lightObj3D.rotationX = 53.2;
+        lightObj3D.rotationY = 220;
+        lightObj3D.rotationZ = 5.58;
         let directLight = lightObj3D.addComponent(DirectLight);
         directLight.intensity = 3;
         directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
         directLight.castShadow = true;
-        lightObj3D.rotationX = 53.2;
-        lightObj3D.rotationY = 220;
-        lightObj3D.rotationZ = 5.58;
+        directLight.shadowBias = 0.5;
         GUIUtil.renderDirLight(directLight);
 
         this.scene.addChild(lightObj3D);

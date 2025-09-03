@@ -85,6 +85,16 @@ export class Shader {
         }
     }
 
+    public getDefine(arg0: string): boolean {
+        for (const pass of this.passShader) {
+            for (const rd of pass[1]) {
+                if (rd.defineValue[arg0] != null)
+                    return rd.defineValue[arg0];
+            }
+        }
+        return false;
+    }
+
     public hasDefine(arg0: string) {
         for (const pass of this.passShader) {
             for (const rd of pass[1]) {

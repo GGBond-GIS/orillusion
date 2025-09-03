@@ -1,9 +1,10 @@
-﻿import {B3DMLoaderBase} from "./B3DMLoaderBase";
-import {B3DMParseUtil} from "../B3DMParser";
+﻿import { B3DMLoaderBase } from "./B3DMLoaderBase";
+import { B3DMParseUtil } from "../B3DMParser";
 import { Transform } from "../../../components/Transform";
 import { Matrix4 } from "../../../math/Matrix4";
 import { Orientation3D } from "../../../math/Orientation3D";
 import { Vector3 } from "../../../math/Vector3";
+import { Object3D } from "../../../core/entities/Object3D";
 
 
 export class B3DMLoader extends B3DMLoaderBase {
@@ -17,14 +18,22 @@ export class B3DMLoader extends B3DMLoaderBase {
         B3DMLoader.tempMatrix ||= new Matrix4().identity();
     }
 
-    async parse(buffer: ArrayBuffer) {
+
+    async parse(buffer: ArrayBuffer, customLoader?: (array: ArrayBuffer) => Promise<Object3D | null>) {
         const b3dm = await super.parse(buffer);
         this.gltfBuffer = b3dm.glbBytes.slice().buffer;
+        if (customLoader) {
+            let ret = await customLoader(this.gltfBuffer);
+            if (ret) {
+                return ret;
+            }
+        }
+
         let glbLoader = new B3DMParseUtil();
 
         let model = await glbLoader.parseBinary(this.gltfBuffer);
 
-        let {batchTable, featureTable} = b3dm;
+        let { batchTable, featureTable } = b3dm;
 
         const rtcCenter = featureTable.getData('RTC_CENTER');
         if (rtcCenter) {

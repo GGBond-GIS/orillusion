@@ -12,6 +12,7 @@ class Sample_Fog {
         Engine3D.setting.shadow.shadowBound = 1000;
 
         await Engine3D.init();
+        await GUIHelp.init();
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
@@ -45,6 +46,9 @@ class Sample_Fog {
             lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             lc.castShadow = true;
             lc.intensity = 5;
+            lc.enableCSM = true;
+            lc.shadowCSMBias = 0.007;
+            GUIUtil.renderDirLight(lc);
             this.scene.addChild(this.lightObj);
         }
 

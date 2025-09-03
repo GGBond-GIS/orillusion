@@ -5,10 +5,10 @@ import { ParserFormat } from './ParserFormat';
 export class B3DMParser extends ParserBase {
     static format: ParserFormat = ParserFormat.JSON;
 
-    public async parseBuffer(buffer: ArrayBuffer) {
+    public async parseBuffer(buffer: ArrayBuffer, customLoader?: (array: ArrayBuffer) => Promise<Object3D | null>) {
         let loader = new B3DMLoader();
         loader.adjustmentTransform = this.userData;
-        this.data = await loader.parse(buffer);
+        this.data = await loader.parse(buffer, customLoader);
     }
 
     /**

@@ -106,6 +106,8 @@ export class Engine3D {
      * engine setting
      */
     public static setting: EngineSetting = {
+        useRTE: false,
+        RTEScale: 1.0,
         doublePrecision: false,
         
         occlusionQuery: {
@@ -248,6 +250,10 @@ export class Engine3D {
             csmMargin: 0.1,
             csmScatteringExp: 0.7,
             csmAreaScale: 0.4,
+            maxCascades: 4,
+            maxShadowMapNum: 8,
+            maxShadowMapWidth: 2048,
+            maxShadowMapHeight: 2048,
             debug: false,
         },
         gi: {
@@ -533,7 +539,7 @@ export class Engine3D {
             await this._renderLoop();
         }
 
-        WasmMatrix.updateAllContinueTransform(0, Matrix4.useCount, 16);
+        WasmMatrix.updateAllContinueTransform(0, Matrix4.useCount, Time.delta, Engine3D.setting.useRTE ? Engine3D.setting.RTEScale : 0.0);
         /****** auto update global matrix share buffer write to gpu *****/
         let globalMatrixBindGroup = GlobalBindGroup.modelMatrixBindGroup;
         globalMatrixBindGroup.writeBuffer(Matrix4.useCount * 16);

@@ -94,7 +94,7 @@ export class Navi3DMesh {
 
     private initEdgesAndTriangles(triangleIndexList: Array<Array<number>>): void {
         var indexOrderList: Array<number>;
-
+        
         var edge0: Navi3DEdge;
         var edge1: Navi3DEdge;
         var edge2: Navi3DEdge;
@@ -117,7 +117,8 @@ export class Navi3DMesh {
 
     private tryCreateEdge(pointAId: number, pointBId: number): Navi3DEdge {
         if (pointAId == pointBId) {
-            throw new Error("edge point index error!!!");
+            // throw new Error("edge point index error!!!");
+            return null;
         }
         if (pointAId > pointBId) {
             var tempId: number = pointAId;

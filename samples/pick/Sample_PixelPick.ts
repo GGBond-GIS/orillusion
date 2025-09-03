@@ -2,12 +2,15 @@ import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { MaterialStateComponent } from "@samples/pick/MaterialStateComponent";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 import { createExampleScene } from "@samples/utils/ExampleScene";
-import { Scene3D, Engine3D, MeshRenderer, ColliderComponent, PointerEvent3D, SphereGeometry, Object3D, LitMaterial, Color, FXAAPost, PostProcessingComponent, BloomPost } from "@orillusion/core";
+import { Scene3D, Engine3D, MeshRenderer, ColliderComponent, PointerEvent3D, SphereGeometry, Object3D, LitMaterial, Color, FXAAPost, PostProcessingComponent, BloomPost, BoxGeometry, Vector3, UnLitMaterial } from "@orillusion/core";
+import { Graphic3D, Graphic3DLineRenderer } from "@orillusion/graphic";
 
 class Sample_PixelPick {
     scene: Scene3D;
+    g: Graphic3D;
 
     async run() {
+        Engine3D.setting.useRTE = true;
         Engine3D.setting.pick.enable = true;
         Engine3D.setting.pick.mode = `pixel`;
         // init Engine3D
@@ -16,10 +19,16 @@ class Sample_PixelPick {
         let exampleScene = createExampleScene();
         this.scene = exampleScene.scene;
 
+        this.g = new Graphic3D();
+        this.g.getComponents(Graphic3DLineRenderer).forEach(mr=>{
+            mr.materials[0].depthCompare = 'always';
+        })
+        this.scene.addChild(this.g);
+
         Engine3D.startRenderView(exampleScene.view);
 
-        let postProcessing = this.scene.getOrAddComponent(PostProcessingComponent);
-        let bloomPost = postProcessing.addPost(BloomPost);
+        // let postProcessing = this.scene.getOrAddComponent(PostProcessingComponent);
+        // let bloomPost = postProcessing.addPost(BloomPost);
 
         GUIHelp.init();
         GUIUtil.renderDirLight(exampleScene.light, false);
@@ -81,6 +90,21 @@ class Sample_PixelPick {
             // register collider component
             obj.addComponent(ColliderComponent);
         }
+
+        {
+            let obj = new Object3D();
+            obj.rotationY = 45;
+
+            let mr = obj.addComponent(MeshRenderer);
+            mr.geometry = new BoxGeometry(10, 10, 10);
+            mr.material = new LitMaterial();
+
+            obj.addComponent(MaterialStateComponent);
+
+            obj.addComponent(ColliderComponent);
+
+            scene.addChild(obj);
+        }
     }
 
     private getPickObject(e: PointerEvent3D): Object3D {
@@ -108,6 +132,7 @@ class Sample_PixelPick {
         if (obj) {
             let msc = obj.getComponent(MaterialStateComponent);
             msc.changeColor(new Color(1.2, 0, 0.5, 1), 120);
+            this.g.drawLines('WorldNormal', [e.data.worldPos, e.data.worldPos.clone().addScaledVector(e.data.worldNormal, 2)], Color.COLOR_BLUE);
         }
     }
 

@@ -50,6 +50,7 @@ export class Sample_AnimCurve {
         /******** light *******/
         {
             this.lightObj3D = new Object3D();
+            this.lightObj3D.y = 95;
             this.lightObj3D.rotationX = 35;
             this.lightObj3D.rotationY = 110;
             this.lightObj3D.rotationZ = 0;
@@ -57,6 +58,7 @@ export class Sample_AnimCurve {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
+            directLight.shadowBias = 1;
             this.scene.addChild(this.lightObj3D);
 
             GUIUtil.renderDirLight(directLight);

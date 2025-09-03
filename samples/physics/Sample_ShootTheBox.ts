@@ -45,6 +45,8 @@ class Sample_ShootTheBox {
         let light = lightObj.addComponent(DirectLight);
         light.intensity = 4;
         light.castShadow = true;
+        light.enableCSM = true;
+        light.shadowCSMBias = 0.005;
         lightObj.rotationX = 60;
         lightObj.rotationY = 140;
         sky.relativeTransform = light.transform;

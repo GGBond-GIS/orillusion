@@ -56,6 +56,9 @@ export class Matrix4 {
      * matrix do use share bytesArray
      */
     public static dynamicMatrixBytes: FloatArray;
+    public static dynamicMatrixBytes_32bit: Float32Array;
+
+    public static matrixWorldPositionHLDatas: Float32Array;
 
     /**
      * cache all use do matrix 
@@ -126,6 +129,8 @@ export class Matrix4 {
         this.allocCount = allocCount;
 
         Matrix4.dynamicMatrixBytes = WasmMatrix.matrixBuffer;
+        Matrix4.dynamicMatrixBytes_32bit = WasmMatrix.matrixBuffer_32bit;
+        Matrix4.matrixWorldPositionHLDatas = WasmMatrix.matrixWorldPositionHLBuffer;
         Matrix4.buffer = Matrix4.dynamicMatrixBytes.buffer;
         Matrix4.wasmMatrixPtr = WasmMatrix.matrixBufferPtr;
 

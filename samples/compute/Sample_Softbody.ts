@@ -78,14 +78,18 @@ export class Demo_Softbody {
         {
             var lightObj = new Object3D();
             lightObj.x = 0;
-            lightObj.y = 0;
+            lightObj.y = 0.8;
             lightObj.z = 0;
             lightObj.rotationX = 45;
             lightObj.rotationY = 0;
             lightObj.rotationZ = 0;
             let lc = lightObj.addComponent(DirectLight);
-            lc.castShadow = true;
             lc.intensity = 3;
+            lc.castShadow = true;
+            lc.shadowBias = 0.2;
+            lc.shadowBoundWidth = 16;
+            lc.shadowBoundHeight = 16;
+            lc.shadowBoundFar = 16;
             scene.addChild(lightObj);
         }
 

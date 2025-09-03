@@ -1,4 +1,4 @@
-import { Engine3D, LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, PlaneGeometry, Time, Vector3, VertexAttributeName, View3D } from '@orillusion/core';
+import { Engine3D, LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, PlaneGeometry, Time, Vector3, VertexAttributeName, View3D, GeometryVertexType } from '@orillusion/core';
 import { ClothSimulatorConfig } from "./ClothSimulatorConfig";
 import { ClothSimulatorPipeline } from "./ClothSimulatorPipeline";
 
@@ -30,6 +30,7 @@ export class ClothSimulator extends MeshRenderer {
             clothVertexBuffer: null,
         };
         this.mClothGeometry = new PlaneGeometry(1, 1, 20, 20, Vector3.Z_AXIS);
+        this.mClothGeometry.geometryType = GeometryVertexType.compose;
         this.mConfig.clothVertex = this.mClothGeometry.getAttribute(VertexAttributeName.position).data as Float32Array;
         this.mConfig.clothFaceTriIds = this.mClothGeometry.getAttribute(VertexAttributeName.indices).data as Uint16Array;
         this.mConfig.NUMPARTICLES = this.mConfig.clothVertex.length / 3;
@@ -60,7 +61,7 @@ export class ClothSimulator extends MeshRenderer {
         var mat = new LitMaterial();
         mat.roughness = 0.8;
         mat.baseMap = Engine3D.res.redTexture;
-        mat.cullMode = 'none'
+        mat.doubleSide = true;
         this.material = mat;
     }
 

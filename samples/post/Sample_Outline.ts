@@ -70,6 +70,8 @@ export class Sample_Outline {
             lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355)
             lc.castShadow = true
             lc.intensity = 5
+            lc.enableCSM = true;
+            lc.shadowCSMBias = 0.005;
             scene.addChild(this.lightObj)
             GUIUtil.renderDirLight(lc);
         }

@@ -17,6 +17,13 @@ export type EngineSetting = {
     doublePrecision: boolean;
 
     /**
+     * use Render based on camera position
+     */
+    useRTE: boolean;
+
+    RTEScale: number;
+
+    /**
      * @internal
      */
     occlusionQuery: OcclusionQuerySetting;

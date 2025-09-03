@@ -73,6 +73,7 @@ export class PassGenerate {
             let shadowPassList = shader.getSubShaders(PassType.SHADOW);
             if (!shadowPassList || shadowPassList.length < (i + 1)) {
                 let shadowPass = new CastShadowMaterialPass();
+                shadowPass.doubleSide = colorPass.doubleSide;
                 shadowPass.setTexture(`baseMap`, colorPass.getTexture(`baseMap`));
                 shadowPass.setUniform(`alphaCutoff`, colorPass.getUniform(`alphaCutoff`));
                 // shadowPass.setDefine("USE_ALPHACUT", colorPass.shaderState.alphaCutoff < 1.0);

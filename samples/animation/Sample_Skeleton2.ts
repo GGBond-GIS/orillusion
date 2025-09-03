@@ -44,8 +44,8 @@ class Sample_Skeleton2 {
         {
             this.lightObj3D = new Object3D();
             this.lightObj3D.x = 0;
-            this.lightObj3D.y = 30;
-            this.lightObj3D.z = -40;
+            this.lightObj3D.y = 150;
+            this.lightObj3D.z = 100;
             this.lightObj3D.rotationX = 144;
             this.lightObj3D.rotationY = 0;
             this.lightObj3D.rotationZ = 0;
@@ -53,6 +53,10 @@ class Sample_Skeleton2 {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
+            directLight.shadowBias = 0.2;
+            directLight.shadowBoundWidth = 512;
+            directLight.shadowBoundHeight = 512;
+            directLight.shadowBoundFar = 512;
             GUIHelp.init();
             GUIUtil.renderDirLight(directLight);
             scene.addChild(this.lightObj3D);

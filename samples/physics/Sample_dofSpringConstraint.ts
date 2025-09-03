@@ -37,7 +37,10 @@ class Sample_dofSpringConstraint {
         // Create directional light
         let lightObj3D = new Object3D();
         lightObj3D.localRotation = new Vector3(36, -130, 60);
-        lightObj3D.addComponent(DirectLight).castShadow = true;
+        let dl = lightObj3D.addComponent(DirectLight)
+        dl.castShadow = true;
+        dl.enableCSM = true;
+        dl.shadowCSMBias = 0.005;
         scene.addChild(lightObj3D);
 
         // Initialize sky

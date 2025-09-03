@@ -39,6 +39,7 @@ class Sample_ShadowToggle {
     // create direction light
     private initLight() {
         let lightObj3D = new Object3D();
+        lightObj3D.y = 70;
         lightObj3D.rotationX = 46;
         lightObj3D.rotationY = 62;
         lightObj3D.rotationZ = 0;
@@ -46,6 +47,7 @@ class Sample_ShadowToggle {
         sunLight.intensity = 4;
         sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
+        sunLight.shadowBias = 1;
 
         this.scene.addChild(lightObj3D);
         GUIUtil.renderDirLight(sunLight, false);

@@ -140,14 +140,14 @@ export class PickFire extends CEventDispatcher {
     private _lastFocus: ColliderComponent;
 
     private getPickInfo() {
-        if(Engine3D.setting.pick.mode == `pixel`)
+        if(Engine3D.setting.pick.mode == `pixel`) {
             return {
                 worldPos: this._pickCompute.getPickWorldPosition(),
                 worldNormal: this._pickCompute.getPickWorldNormal(),
                 screenUv: this._pickCompute.getPickScreenUV(),
                 meshID: this._pickCompute.getPickMeshID(),
             };
-        else{
+        } else {
             let intersection = this._interestList[0]
             return {
                 worldPos: intersection.intersectPoint,

@@ -12,12 +12,15 @@ export function CreateFloatArray(buffer: ArrayBufferLike, byteOffset?: number, l
 export class WasmMatrix {
 
     public static matrixBuffer: FloatArray;
+    public static matrixBuffer_32bit: Float32Array;
     public static matrixSRTBuffer: FloatArray;
     public static matrixContinuedSRTBuffer: FloatArray;
+    public static matrixWorldPositionHLBuffer: Float32Array;
     public static matrixStateBuffer: Int32Array;
     static matrixBufferPtr: number;
     static matrixSRTBufferPtr: number;
     static matrixContinuedSRTBufferPtr: number;
+    static matrixWorldPositionHLBufferPtr: number;
     static matrixStateBufferPtr: number;
     static wasm: typeof matrix;
     static stateStruct: number = 4;
@@ -41,16 +44,20 @@ export class WasmMatrix {
         this.matrixSRTBufferPtr = this.wasm._getSRTPtr();
         this.matrixStateBufferPtr = this.wasm._getInfoPtr();
         this.matrixContinuedSRTBufferPtr = this.wasm._getContinuedSRTPtr();
+        this.matrixWorldPositionHLBufferPtr = this.wasm._getWorldPositionHLPtr();
 
         if (this.useDoublePrecision) {
             this.matrixBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixBufferPtr, 16 * count);
+            this.matrixBuffer_32bit = new Float32Array(16 * count);
             this.matrixSRTBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixSRTBufferPtr, (3 * 3) * count);
             this.matrixContinuedSRTBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixContinuedSRTBufferPtr, (3 * 3) * count);
+            this.matrixWorldPositionHLBuffer = new Float32Array(this.wasm.HEAPF32.buffer, this.matrixWorldPositionHLBufferPtr, (4 * 2) * count);
             Matrix4.blockBytes = Matrix4.block * 8;
         } else {
             this.matrixBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixBufferPtr, 16 * count);
             this.matrixSRTBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixSRTBufferPtr, (3 * 3) * count);
             this.matrixContinuedSRTBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixContinuedSRTBufferPtr, (3 * 3) * count);
+            this.matrixWorldPositionHLBuffer = new Float32Array(this.wasm.HEAPF32.buffer, this.matrixWorldPositionHLBufferPtr, (4 * 2) * count);
             Matrix4.blockBytes = Matrix4.block * 4;
         }
 
@@ -59,8 +66,8 @@ export class WasmMatrix {
         Matrix4.allocMatrix(count);
     }
 
-    public static updateAllContinueTransform(start: number, end: number, dt: number) {
-        this.wasm._updateAllMatrixContinueTransform(start, end, dt);
+    public static updateAllContinueTransform(start: number, end: number, dt: number, RTEScale: number) {
+        this.wasm._updateAllMatrixContinueTransform(start, end, dt, RTEScale);
     }
 
     public static setParent(matIndex: number, x: number, depthOrder: number) {

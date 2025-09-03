@@ -15,6 +15,7 @@ class Sample_CSM {
         Engine3D.setting.shadow.autoUpdate = true;
         Engine3D.setting.shadow.shadowSize = 2048;
         Engine3D.setting.shadow.shadowBound = 512;
+        Engine3D.setting.useRTE = true;
         await Engine3D.init({ renderLoop: () => { this.loop(); } });
 
         GUIHelp.init();
@@ -29,8 +30,8 @@ class Sample_CSM {
         mainCamera.object3D.z = -15;
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(-15, -35, 200);
 
-        sky.relativeTransform = this.initLight('mainLight', 3, 45);
-        this.initLight('subLight', 2, 10);
+        sky.relativeTransform = this.initLight('mainLight', 3, 45, true).transform;
+        this.initLight('csmLight2', 2, 22.5, true);
         this.initScene();
 
         let view = new View3D();
@@ -42,7 +43,7 @@ class Sample_CSM {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        mainCamera.enableCSM = true;
+        // mainCamera.enableCSM = true;
         GUIHelp.addFolder('CSM')
         GUIHelp.add(mainCamera, 'enableCSM');
         GUIHelp.add(Engine3D.setting.shadow, 'csmScatteringExp', 0.5, 1.0, 0.01);
@@ -54,7 +55,7 @@ class Sample_CSM {
     }
 
     // create direction light
-    private initLight(name: string, intensity: number, rotY: number) {
+    private initLight(name: string, intensity: number, rotY: number, enableCSM: boolean) {
         let lightObj3D = new Object3D();
         lightObj3D.name = name;
         lightObj3D.rotationX = 46;
@@ -64,11 +65,13 @@ class Sample_CSM {
         sunLight.intensity = intensity;
         sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
+        sunLight.enableCSM = enableCSM;
+        sunLight.shadowCSMBias = 0.005;
 
         GUIUtil.renderDirLight(sunLight);
         this.scene.addChild(lightObj3D);
         this.light = sunLight;
-        return sunLight.transform;
+        return sunLight;
     }
 
     initScene() {
@@ -123,28 +126,28 @@ class Sample_CSM {
     private _shadowPos: Vector3 = new Vector3();
     private _shadowCameraTarget: Vector3 = new Vector3();
     loop() {
-        let viewCamera = this.viewCamera;
-        let light = this.light;
-        let view = this.view;
-        if (!this.boxRenderer || !this.viewCamera.csm)
-            return;
+        // let viewCamera = this.viewCamera;
+        // let light = this.light;
+        // let view = this.view;
+        // if (!this.boxRenderer || !this.viewCamera.csm)
+        //     return;
 
 
-        let csmBound = this.viewCamera.csm.children[0].bound;
-        //update box
-        let size = this.viewCamera.getCSMShadowWorldExtents(0) * 2;
-        this.boxRenderer.object3D.scaleX = size;
-        this.boxRenderer.object3D.scaleY = size;
-        this.boxRenderer.object3D.scaleZ = this.viewCamera.csm.children[0].shadowCamera.far;
+        // let csmBound = this.viewCamera.csm.children[0].bound;
+        // //update box
+        // let size = this.viewCamera.getCSMShadowWorldExtents(0) * 2;
+        // this.boxRenderer.object3D.scaleX = size;
+        // this.boxRenderer.object3D.scaleY = size;
+        // this.boxRenderer.object3D.scaleZ = this.viewCamera.csm.children[0].shadowCamera.far;
 
-        this.boxRenderer.object3D.localRotation = light.transform.localRotation;
-        this.boxRenderer.object3D.localPosition = csmBound.center;
+        // this.boxRenderer.object3D.localRotation = light.transform.localRotation;
+        // this.boxRenderer.object3D.localPosition = csmBound.center;
 
-        // light direction
-        this._shadowPos.copy(light.direction).normalize(viewCamera.far);
-        csmBound.center.add(this._shadowPos, this._shadowCameraTarget);
-        csmBound.center.subtract(this._shadowPos, this._shadowPos);
-        this.graphic3D.drawLines('shadowLine', [this._shadowPos, this._shadowCameraTarget], new Color(1, 1, 0, 1));
+        // // light direction
+        // this._shadowPos.copy(light.direction).normalize(viewCamera.far);
+        // csmBound.center.add(this._shadowPos, this._shadowCameraTarget);
+        // csmBound.center.subtract(this._shadowPos, this._shadowPos);
+        // this.graphic3D.drawLines('shadowLine', [this._shadowPos, this._shadowCameraTarget], new Color(1, 1, 0, 1));
     }
 
 }

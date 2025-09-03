@@ -43,6 +43,8 @@ class Sample_TextureSample {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
+            directLight.enableCSM = true;
+            directLight.shadowCSMBias = 0.005;
             GUIHelp.init();
             GUIUtil.renderDirLight(directLight, false);
             this.scene.addChild(this.lightObj3D);

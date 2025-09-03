@@ -200,6 +200,10 @@ export class Material {
         this.shader.setDefine(define, value);
     }
 
+    public getDefine(define: string): boolean {
+        return this.shader.getDefine(define);
+    }
+
     public setTexture(propertyName: string, texture: Texture) {
         this._shader.setTexture(propertyName, texture);
     }

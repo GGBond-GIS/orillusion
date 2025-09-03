@@ -73,6 +73,7 @@ class Sample_GI {
         /******** light *******/
         {
             this.lightObj3D = new Object3D();
+            this.lightObj3D.y = 200;
             this.lightObj3D.rotationX = 35;
             this.lightObj3D.rotationY = 110;
             this.lightObj3D.rotationZ = 0;
@@ -80,6 +81,10 @@ class Sample_GI {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
+            directLight.shadowBias = 1;
+            directLight.shadowBoundWidth = 512;
+            directLight.shadowBoundHeight = 512;
+            directLight.shadowBoundFar = 512;
             this.scene.addChild(this.lightObj3D);
 
             GUIUtil.renderDirLight(directLight);

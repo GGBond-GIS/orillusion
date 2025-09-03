@@ -90,9 +90,13 @@ struct VertexAttributes{
 @vertex
 fn main(vertex:VertexAttributes) -> VertexOutput {
     worldMatrix = models.matrix[vertex.index];
-    let shadowMatrix: mat4x4<f32> = globalUniform.projMat * globalUniform.viewMat ;
+    let shadowMatrix: mat4x4<f32> = globalUniform.projMat * globalUniform.viewMat;
     var vertexPosition = vertex.position.xyz;
     var vertexNormal = vertex.normal.xyz;
+
+    if (globalUniform.useRTE != 0) {
+        UpdateWorldMatrixToRTE_PrivatePtr(u32(vertex.index), &worldMatrix);
+    }
 
     #if USE_MORPHTARGETS
      ${MorphTarget_shader.getMorphTargetCalcVertex()}    
@@ -196,8 +200,12 @@ struct VertexAttributes{
 @vertex
 fn main(vertex:VertexAttributes) -> VertexOutput {
     worldMatrix = models.matrix[vertex.index];
-    let shadowMatrix: mat4x4<f32> = globalUniform.projMat * globalUniform.viewMat ;
+    let shadowMatrix: mat4x4<f32> = globalUniform.projMat * globalUniform.viewMat;
     var vertexPosition = vertex.position.xyz;
+
+    if (globalUniform.useRTE != 0) {
+        UpdateWorldMatrixToRTE_PrivatePtr(u32(vertex.index), &worldMatrix);
+    }
 
     #if USE_METAHUMAN
         ${MorphTarget_shader.getMorphTargetCalcVertex()}
@@ -230,6 +238,8 @@ fn main(vertex:VertexAttributes) -> VertexOutput {
  * @internal
  */
 export let shadowCastMap_frag: string = /*wgsl*/ `
+    #include "GlobalUniform"
+
     #if USE_ALPHACUT
       @group(1) @binding(0)
       var baseMapSampler: sampler;
@@ -242,18 +252,11 @@ export let shadowCastMap_frag: string = /*wgsl*/ `
       @builtin(frag_depth) out_depth: f32
     };
 
-    struct MaterialUniform {
-      lightWorldPos: vec3<f32>,
-      cameraFar: f32,
-    };
-
-    @group(2) @binding(0)
-    var<uniform> materialUniform: MaterialUniform;
-
     @fragment
     fn main(@location(auto) fragUV: vec2<f32> , @location(auto) worldPos:vec3<f32> ) -> FragmentOutput {
-        var distance = length(worldPos.xyz - materialUniform.lightWorldPos ) ;
-        distance = distance / materialUniform.cameraFar ;
+        let lightWorldPos = globalUniform.CameraPos;
+        var distance = length(worldPos.xyz - lightWorldPos) ;
+        distance = distance / globalUniform.far;
         var fragOut:FragmentOutput; 
 
       #if USE_ALPHACUT

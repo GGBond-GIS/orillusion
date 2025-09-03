@@ -920,6 +920,7 @@ export class RenderShaderPass extends ShaderPassBase {
         this.defineValue[`USE_CSM`] = CSM.Cascades > 1;
         this.defineValue[`USE_IES_PROFILE`] = IESProfiles.use;
 
+        this.defineValue[`USE_RTE`] = Engine3D.setting.useRTE;
     }
 
     private genReflection() {

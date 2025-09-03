@@ -21,6 +21,7 @@ import { ReflectionRenderer } from '../passRenderer/cubeRenderer/ReflectionRende
 import { PassType } from '../passRenderer/state/PassType';
 import { ProfilerUtil } from '../../../util/ProfilerUtil';
 import { FXAAPost } from '../post/FXAAPost';
+import { Camera3D } from '../../../core/Camera3D';
 
 /**
  * render jobs 
@@ -203,6 +204,8 @@ export class RendererJob {
      */
     public renderFrame() {
         let view = this._view;
+
+        Camera3D.mainCamera = view.camera;
 
         ProfilerUtil.startView(view);
 

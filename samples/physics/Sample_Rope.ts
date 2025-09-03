@@ -19,6 +19,8 @@ class Sample_Rope {
         let sunLight = lightObj3D.addComponent(DirectLight);
         sunLight.intensity = 2;
         sunLight.castShadow = true;
+        sunLight.enableCSM = true;
+        sunLight.shadowCSMBias = 0.005;
         lightObj3D.rotationX = 24;
         lightObj3D.rotationY = -151;
         view.scene.addChild(lightObj3D);

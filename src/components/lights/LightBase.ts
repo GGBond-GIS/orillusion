@@ -24,6 +24,11 @@ export class LightBase extends ComponentBase implements ILight {
      * light size
      */
     public size: number = 1;
+    /**
+     * light shadow map size
+     */
+    public shadowMapWidth: number = Engine3D.setting.shadow.shadowSize;
+    public shadowMapHeight: number = Engine3D.setting.shadow.shadowSize;
 
     /**
      * light source data
@@ -49,6 +54,8 @@ export class LightBase extends ComponentBase implements ILight {
 
     protected _castGI: boolean = false;
     protected _castShadow: boolean = false;
+    protected _shadowBoundWidth: number = Engine3D.setting.shadow.shadowBound;
+    protected _shadowBoundHeight: number = Engine3D.setting.shadow.shadowBound;
     private _iesProfiles: IESProfiles;
 
     constructor() {
@@ -60,9 +67,11 @@ export class LightBase extends ComponentBase implements ILight {
 
         this.lightData = new LightData();
         this.lightData.lightMatrixIndex = this.transform.worldMatrix.index;
+        this.lightData.shadowBias = new Array<number>(Engine3D.setting.shadow.maxCascades);
     }
 
     protected onChange() {
+        if (!this.object3D) return;
         if (this.bindOnChange) this.bindOnChange();
         this.transform.object3D.bound.setFromCenterAndSize(this.transform.worldPosition, new Vector3(this.size, this.size, this.size));
         if (this._castGI) {

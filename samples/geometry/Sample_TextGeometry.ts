@@ -1,4 +1,5 @@
 import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, webGPUContext, HoverCameraController, Object3D, DirectLight, KelvinUtil, LitMaterial, MeshRenderer, Vector3 } from "@orillusion/core";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { TextGeometry, FontParser } from "@orillusion/geometry";
 import { Graphic3D } from "@orillusion/graphic";
 
@@ -49,13 +50,15 @@ class Sample_TextGeometry {
         }
 
         let lightObj3D = this.lightObj = new Object3D();
+        lightObj3D.y = 50;
+        lightObj3D.rotationX = 53.2;
+        lightObj3D.rotationY = 220;
+        lightObj3D.rotationZ = 5.58;
         let sunLight = lightObj3D.addComponent(DirectLight);
         sunLight.intensity = 3;
         sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
-        lightObj3D.rotationX = 53.2;
-        lightObj3D.rotationY = 220;
-        lightObj3D.rotationZ = 5.58;
+        sunLight.shadowBias = 0.5;
         scene.addChild(lightObj3D);
     }
 }

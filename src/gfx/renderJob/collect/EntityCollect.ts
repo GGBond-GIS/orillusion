@@ -10,6 +10,7 @@ import { BoundingBox } from '../../../core/bound/BoundingBox';
 import { GeometryBase } from '../../../core/geometry/GeometryBase';
 import { Octree } from '../../../core/tree/octree/Octree';
 import { Vector3 } from '../../../math/Vector3';
+import { Time } from '../../../util/Time';
 import { zSorterUtil } from '../../../util/ZSorterUtil';
 import { RenderLayerUtil, RenderLayer } from '../config/RenderLayer';
 import { Probe } from '../passRenderer/ddgi/Probe';

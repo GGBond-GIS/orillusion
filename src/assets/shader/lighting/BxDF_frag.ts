@@ -185,9 +185,9 @@ export let BxDF_frag: string = /*wgsl*/ `
 
         var viewColor = vec4<f32>( retColor.rgb * fragData.Albedo.w, fragData.Albedo.a) ;
 
-        let finalMatrix = globalUniform.projMat * globalUniform.viewMat ;
-        let nMat = mat3x3<f32>(finalMatrix[0].xyz,finalMatrix[1].xyz,finalMatrix[2].xyz) ;
-        let ORI_NORMALMATRIX = transpose(inverse( nMat ));
+        // let finalMatrix = globalUniform.projMat * globalUniform.viewMat ;
+        // let nMat = mat3x3<f32>(finalMatrix[0].xyz,finalMatrix[1].xyz,finalMatrix[2].xyz) ;
+        // let ORI_NORMALMATRIX = transpose(inverse( nMat ));
 
         var vNormal = ORI_VertexVarying.vWorldNormal.rgb ;
 
@@ -206,6 +206,18 @@ export let BxDF_frag: string = /*wgsl*/ `
           ORI_FragmentOutput.gBuffer = gBuffer ;
           ORI_FragmentOutput.color = viewColor ;
         #endif
+
+          // var uvx = ORI_VertexVarying.fragCoord.x / globalUniform.windowWidth;
+          // var uvy = ORI_VertexVarying.fragCoord.y / globalUniform.windowHeight;
+          // // var shadowDepth =  textureSampleLevel(shadowMap, shadowMapSampler, vec2<f32>(uvx, uvy), 0, 0);
+
+          // let pointLight = lightBuffer[1];
+          // let dir = normalize(ORI_VertexVarying.vWorldPos.xyz - pointLight.position.xyz);
+          // var shadowDepth =  textureSampleLevel(pointShadowMap, pointShadowMapSampler, dir.xyz, 0, 0);
+          // // shadowDepth = log2(shadowDepth);
+          // ORI_FragmentOutput.color.x = shadowDepth;
+          // ORI_FragmentOutput.color.y = shadowDepth;
+          // ORI_FragmentOutput.color.z = shadowDepth;
   }
 
   `

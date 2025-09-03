@@ -170,9 +170,20 @@ export class GeometryBase {
         }
     }
 
+    public setVertexs(data: ArrayBufferData) {
+        let vertexInfo: VertexAttributeData = {
+            attribute: VertexAttributeName.position,
+            data: data,
+        }
+        this._attributeMap.set(vertexInfo.attribute, vertexInfo);
+        this._attributes.push(vertexInfo.attribute);
+    }
+
     public setAttribute(attribute: VertexAttributeName | string, data: ArrayBufferData) {
         if (attribute == VertexAttributeName.indices) {
             this.setIndices(data);
+        } else if (attribute == VertexAttributeName.position) {
+            this.setVertexs(data);
         } else {
             let vertexInfo: VertexAttributeData = {
                 attribute: attribute,

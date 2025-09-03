@@ -3,8 +3,8 @@ import { CSM } from "../../../../core/csm/CSM";
 /**
  * @internal
  */
-export let GlobalUniform: string = /*wgsl*/ `
-
+export function GlobalUniform(maxShadowMapNum: number): string {
+  return /* wgsl */`
   #include "MathShader"
 
   struct GlobalUniform {
@@ -14,7 +14,7 @@ export let GlobalUniform: string = /*wgsl*/ `
     cameraWorldMatrix: mat4x4<f32>,
     pvMatrixInv : mat4x4<f32>,
     viewToWorld : mat4x4<f32>,
-    shadowMatrix: array<mat4x4<f32>, 8u>,
+    shadowMatrix: array<mat4x4<f32>, ${maxShadowMapNum}>,
 
     csmShadowBias: vec4<f32>,
 
@@ -72,6 +72,13 @@ export let GlobalUniform: string = /*wgsl*/ `
 
     frustumPlanes: array<vec4f, 6u>,
 
+    cameraPositionH: vec3<f32>,
+    maxModelsCount: u32,
+
+    cameraPositionL: vec3<f32>,
+    cameraMatrixIndex: u32,
+
+    useRTE: u32,
   };
 
   @group(0) @binding(0)
@@ -115,5 +122,5 @@ export let GlobalUniform: string = /*wgsl*/ `
     var viewNormal = globalUniform.viewMat * vec4f(worldNormal,0.0) ;
     return normalize(viewNormal.xyz);
   }
-`
-
+  `
+};

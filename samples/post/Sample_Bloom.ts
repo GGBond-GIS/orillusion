@@ -51,6 +51,8 @@ class Sample_Bloom {
 			lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
 			lc.castShadow = true;
 			lc.intensity = 3;
+			lc.enableCSM = true;
+			lc.shadowCSMBias = 0.003;
 			this.scene.addChild(this.lightObj);
 		}
 

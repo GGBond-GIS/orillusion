@@ -1,6 +1,7 @@
 import { BoxGeometry, Camera3D, DirectLight, Engine3D, LitMaterial, KelvinUtil, MeshRenderer, Object3D, Scene3D, Vector3, Color, OrbitController, View3D, AtmosphericComponent } from '@orillusion/core';
 import { PositionAudio, AudioListener } from '@orillusion/media-extention'
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
+import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Static_Audio {
     lightObj: Object3D;
@@ -17,9 +18,6 @@ export class Static_Audio {
         Engine3D.setting.shadow.autoUpdate = true;
         Engine3D.setting.shadow.updateFrameRate = 1;
         Engine3D.setting.shadow.type = 'HARD';
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBound = 200;
-        Engine3D.setting.shadow.shadowBias = 0.002;
 
         await Engine3D.init({
             renderLoop: this.loop.bind(this)
@@ -119,6 +117,9 @@ export class Static_Audio {
         /******** light *******/
         {
             this.lightObj = new Object3D();
+            this.lightObj.x = -200;
+            this.lightObj.y = 200;
+            this.lightObj.z = 0;
             this.lightObj.rotationX = 35;
             this.lightObj.rotationY = 110;
             this.lightObj.rotationZ = 0;
@@ -126,6 +127,9 @@ export class Static_Audio {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
+            directLight.enableCSM = true;
+            directLight.shadowCSMBias = 0.0008;
+            GUIUtil.renderDirLight(directLight);
             this.scene.addChild(this.lightObj);
         }
     }

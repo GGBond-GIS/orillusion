@@ -1,8 +1,10 @@
 import { Engine3D, LitMaterial, MeshRenderer, BoxGeometry, Object3D, Scene3D, View3D, Object3DUtil, Vector3, AtmosphericComponent, DirectLight, SphereGeometry, CameraUtil, HoverCameraController, BitmapTexture2D, VertexAttributeName, Color, CylinderGeometry, TorusGeometry, ComponentBase } from "@orillusion/core";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { TerrainGeometry } from "@orillusion/geometry";
 import { Graphic3D } from "@orillusion/graphic";
 import { Ammo, CollisionShapeUtil, Physics, Rigidbody } from "@orillusion/physics";
 import { Stats } from "@orillusion/stats";
+import { GUIUtil } from "@samples/utils/GUIUtil";
 import dat from "dat.gui";
 
 class Sample_MultipleShapes {
@@ -16,15 +18,13 @@ class Sample_MultipleShapes {
         await Engine3D.init({
             renderLoop: () => Physics.update()
         });
+        await GUIHelp.init();
 
         this.gui = new dat.GUI();
 
         // shadow settings
         Engine3D.setting.shadow.shadowBias = 0.01;
         Engine3D.setting.shadow.shadowSize = 1024 * 4;
-        Engine3D.setting.shadow.csmMargin = 0.1;
-        Engine3D.setting.shadow.csmScatteringExp = 0.8;
-        Engine3D.setting.shadow.csmAreaScale = 0.1;
         Engine3D.setting.shadow.updateFrameRate = 1;
 
         this.scene = new Scene3D();
@@ -54,6 +54,10 @@ class Sample_MultipleShapes {
         light.lightColor = Color.COLOR_WHITE;
         light.castShadow = true;
         light.intensity = 2.2;
+        light.shadowBias = 0.005;
+        light.enableCSM = true;
+        // light.cascadeNum = 1;
+        GUIUtil.renderDirLight(light);
         this.scene.addChild(light.object3D);
 
         // init sky
@@ -73,7 +77,7 @@ class Sample_MultipleShapes {
         await this.initTerrain();
         this.createStaticPlanes();
 
-        this.scene.addComponent(BoxGenerator);
+        // this.scene.addComponent(BoxGenerator);
     }
 
     async initTerrain() {

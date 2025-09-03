@@ -45,6 +45,8 @@ export class Sample_GTAO {
 		lc.castShadow = true;
 		lc.intensity = 5;
 		lc.indirect = 0.3;
+		lc.enableCSM = true;
+		lc.shadowCSMBias = 0.003;
 		this.scene.addChild(this.lightObj);
 		GUIUtil.renderDirLight(lc);
 		sky.relativeTransform = this.lightObj.transform;

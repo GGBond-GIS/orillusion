@@ -51,12 +51,20 @@ export let Inline_vert: string = /*wgsl*/ `
         ORI_MATRIX_PV = ORI_MATRIX_P * ORI_MATRIX_V ;
         ORI_MATRIX_PVInv = globalUniform.pvMatrixInv ;
         ORI_CAMERAMATRIX = globalUniform.cameraWorldMatrix ;
-
+        
         ORI_MATRIX_M = models.matrix[u32(vertex.index)];
-            
+        
         #if USE_INSTANCEDRAW
             let modelID = instanceDrawID.matrixIDs[vertex.index];
             ORI_MATRIX_M = models.matrix[modelID];
         #endif
+
+        if (globalUniform.useRTE != 0) {
+            #if USE_INSTANCEDRAW
+                UpdateWorldMatrixToRTE_PrivatePtr(u32(modelID), &ORI_MATRIX_M);
+            #else
+                UpdateWorldMatrixToRTE_PrivatePtr(u32(vertex.index), &ORI_MATRIX_M);
+            #endif
+        }
     }
 `

@@ -3,6 +3,8 @@ import { Stats } from "@orillusion/stats";
 import { ActivationState, CollisionShapeUtil, DebugDrawMode, FixedConstraint, HingeConstraint, Physics, PointToPointConstraint, Rigidbody, SliderConstraint, ClothSoftbody, RopeSoftbody } from "@orillusion/physics";
 import dat from "dat.gui";
 import { Graphic3D } from "@orillusion/graphic";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
+import { GUIUtil } from "@samples/utils/GUIUtil";
 
 /**
  * Sample class demonstrating the use of multiple constraints in a physics simulation.
@@ -15,6 +17,7 @@ class Sample_MultipleConstraints {
         // init physics and engine
         await Physics.init({ useSoftBody: true, useDrag: true });
         await Engine3D.init({ renderLoop: () => Physics.update() });
+        await GUIHelp.init();
 
         this.gui = new dat.GUI();
 
@@ -35,10 +38,14 @@ class Sample_MultipleConstraints {
 
         // create directional light
         let light = new Object3D();
+        light.y = 50;
         light.localRotation = new Vector3(36, -130, 60);
         let dl = light.addComponent(DirectLight);
         dl.castShadow = true;
         dl.intensity = 3;
+        dl.enableCSM = true;
+        dl.shadowCSMBias = 0.002;
+        GUIUtil.renderDirLight(dl);
         this.scene.addChild(light);
 
         // init sky

@@ -7,6 +7,8 @@ export let Lambert_shader: string = /*wgsl*/ `
     #include "ClusterLight"
     #include "UnLit_frag"
     #include "UnLitMaterialUniform_frag"
+    #include "EnvMap_frag"
+    #include "ReflectionCG"
 
     @group(1) @binding(0)
     var baseMapSampler: sampler;
@@ -23,9 +25,9 @@ export let Lambert_shader: string = /*wgsl*/ `
         var transformUV2 = materialUniform.transformUV2;
 
         var uv = transformUV1.zw * ORI_VertexVarying.fragUV0 + transformUV1.xy; 
-        let baseColor = textureSample(baseMap,baseMapSampler,uv) ;
-        if(baseColor.w < materialUniform.alphaCutoff){
-            discard ;
+        let baseMapColor = textureSample(baseMap,baseMapSampler,uv);
+        if(baseMapColor.a < materialUniform.alphaCutoff) {
+            discard;
         }
 
         var lightColor = vec4<f32>(0.0);
@@ -41,11 +43,10 @@ export let Lambert_shader: string = /*wgsl*/ `
             case PointLightType: {
             }
             case DirectLightType: {
-                var normal = ORI_VertexVarying.vWorldNormal ;
-                let intensity = (light.intensity/10.0);
-                let att = max(dot(normal,-light.direction),0.0) * intensity ;
-                lightColor += baseColor * att * 0.5 + baseColor * 0.5 ; 
-                // lightColor = baseColor * 0.5; 
+                var normal = ORI_VertexVarying.vWorldNormal;
+                let intensity = light.intensity;
+                let att = max(dot(normal,-light.direction),0.0) * intensity;
+                lightColor += vec4f(light.lightColor * att, 1.0);
             }
             case SpotLightType: {
             }
@@ -53,10 +54,13 @@ export let Lambert_shader: string = /*wgsl*/ `
             }
           }
         }
+
+        let irradiance: vec3f = getReflectionsEnv(ORI_VertexVarying.vWorldNormal, ORI_VertexVarying.vWorldPos.xyz, 1.0);
+        let color = lightColor * baseMapColor * materialUniform.baseColor;
         
-        ORI_ShadingInput.BaseColor = lightColor * materialUniform.baseColor;
-        if(ORI_ShadingInput.BaseColor.w > 1.0){
-            ORI_ShadingInput.BaseColor.w = 1.0;
+        ORI_ShadingInput.BaseColor = vec4f(color.rgb + irradiance, baseMapColor.a);
+        if(ORI_ShadingInput.BaseColor.a > 1.0){
+            ORI_ShadingInput.BaseColor.a = 1.0;
         }
         UnLit();
 

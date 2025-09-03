@@ -53,6 +53,8 @@ export class Sample_TAA {
 			lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
 			lc.castShadow = true;
 			lc.intensity = 4;
+			lc.enableCSM = true;
+			lc.shadowCSMBias = 0.004;
 			this.scene.addChild(this.lightObj);
 		}
 

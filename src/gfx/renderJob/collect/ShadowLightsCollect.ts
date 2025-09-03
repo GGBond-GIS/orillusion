@@ -1,3 +1,5 @@
+import { Engine3D } from '../../..';
+import { DirectLight } from '../../../components/lights/DirectLight';
 import { ILight } from '../../../components/lights/ILight';
 import { LightType } from '../../../components/lights/LightData';
 import { Scene3D } from '../../../core/Scene3D';
@@ -105,6 +107,7 @@ export class ShadowLightsCollect {
             }
             if (!light.shadowCamera) {
                 light.shadowCamera = CameraUtil.createCamera3DObject(null, 'shadowCamera');
+                light.shadowCamera.shadowLight = light;
                 light.shadowCamera.isShadowCamera = true;
                 let shadowBound = -1000;
                 light.shadowCamera.orthoOffCenter(shadowBound, -shadowBound, shadowBound, -shadowBound, 1, 10000);
@@ -172,9 +175,17 @@ export class ShadowLightsCollect {
         if (directionLightList) {
             let j = 0;
             for (let i = 0; i < directionLightList.length; i++) {
-                const light = directionLightList[i];
+                const light = directionLightList[i] as DirectLight;
                 shadowLights[i] = light.lightData.index;
-                light.lightData.castShadowIndex = j++;
+                if (light.enableCSM) {
+                    light.lightData.castShadowIndex = j;
+                    j += light.lightData.csmShadowMapNum;
+                } else {
+                    light.lightData.castShadowIndex = j++;
+                }
+            }
+            if (j > Engine3D.setting.shadow.maxShadowMapNum) {
+                console.error('ShadowLightsCollect: max shadow map num reached, please increase Engine3D.setting.shadow.maxShadowMapNum');
             }
             nDirShadowEnd = directionLightList.length;
         }

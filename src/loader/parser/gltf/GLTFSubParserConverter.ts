@@ -119,7 +119,6 @@ export class GLTFSubParserConverter {
                     directLight.castShadow = this._hasCastShadow;
                 }
                 directLight.lightColor = nodeInfo.light.color ? new Color(nodeInfo.light.color[0], nodeInfo.light.color[1], nodeInfo.light.color[2]) : new Color(1, 1, 1, 1);
-                directLight.debug();
                 break;
             case `point`:
                 if (this._testCount > 0) {

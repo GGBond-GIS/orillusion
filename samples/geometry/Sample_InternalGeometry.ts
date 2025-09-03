@@ -30,13 +30,18 @@ class Sample_InternalGeometry {
     private async createScene(scene: Scene3D) {
         // add a direction light
         let lightObj3D = this.lightObj = new Object3D();
+        lightObj3D.y = 90;
+        lightObj3D.rotationX = 53.2;
+        lightObj3D.rotationY = 220;
+        lightObj3D.rotationZ = 5.58;
         let sunLight = lightObj3D.addComponent(DirectLight);
         sunLight.intensity = 3;
         sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
-        lightObj3D.rotationX = 53.2;
-        lightObj3D.rotationY = 220;
-        lightObj3D.rotationZ = 5.58;
+        sunLight.shadowBias = 0.5;
+        sunLight.shadowBoundWidth = 256;
+        sunLight.shadowBoundHeight = 256;
+        sunLight.shadowBoundFar = 256;
 
         GUIUtil.renderDirLight(sunLight);
         scene.addChild(lightObj3D);

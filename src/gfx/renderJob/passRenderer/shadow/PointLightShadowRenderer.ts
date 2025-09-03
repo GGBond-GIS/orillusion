@@ -25,6 +25,7 @@ import { Reference } from '../../../../util/Reference';
 import { GlobalBindGroup } from '../../../graphics/webGpu/core/bindGroups/GlobalBindGroup';
 import { RenderContext } from '../RenderContext';
 import { ClusterLightingBuffer } from '../cluster/ClusterLightingBuffer';
+import { Vector3 } from '../../../../math/Vector3';
 
 type CubeShadowMapInfo = {
     cubeCamera: CubeCamera,
@@ -262,6 +263,13 @@ export class PointLightShadowRenderer extends RendererBase {
 
     public drawNodes(view: View3D, camera: Camera3D, renderContext: RenderContext, nodes: RenderNode[], occlusionSystem: OcclusionSystem, clusterLightingBuffer: ClusterLightingBuffer) {
 
+        let cameraWorldPosition = camera.transform.worldPosition;
+
+        if (Engine3D.setting.useRTE) {
+            const mainCamera = Camera3D.mainCamera;
+            cameraWorldPosition = Vector3.sub(camera.transform.worldPosition, mainCamera.transform.worldPosition);
+        }
+
         let viewRenderList = EntityCollect.instance.getRenderShaderCollect(view);
         if (viewRenderList) {
             for (const renderList of viewRenderList) {
@@ -299,7 +307,7 @@ export class PointLightShadowRenderer extends RendererBase {
                         const renderShader = pass;
                         if (renderShader.pipeline) {
                             renderShader.setUniformFloat("cameraFar", camera.far);
-                            renderShader.setUniformVector3("lightWorldPos", camera.transform.worldPosition);
+                            renderShader.setUniformVector3("lightWorldPos", cameraWorldPosition);
                             renderShader.materialDataUniformBuffer.apply();
                         }
                     }

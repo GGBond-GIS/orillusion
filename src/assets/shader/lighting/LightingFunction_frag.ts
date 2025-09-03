@@ -42,14 +42,13 @@ fn sampleLighting(light:LightData,direction:vec3f,iblSpecularResult:vec3f , inte
   return lighting ;
 }
 
-fn directLighting( light:LightData , iblSpecularResult : vec3f) -> vec3<f32> {
-    var color = vec3<f32>(0.0) ;
+fn directLighting( light:LightData, iblSpecularResult: vec3f) -> vec3<f32> {
+    var color = vec3<f32>(0.0);
     #if USE_LIGHT
-      var L = normalize(light.direction.xyz) ;
+      var L = normalize(light.direction.xyz);
       #if USE_BRDF
-        var shadow = directShadowVisibility[(light.castShadow)] ;
-        var att = light.intensity;
-        color = sampleLighting(light,L,iblSpecularResult,att, shadow);
+        var shadow = directShadowVisibility[(light.castShadow)];
+        color = sampleLighting(light, L, iblSpecularResult, light.intensity, shadow);
       #endif 
     #endif 
     return color;

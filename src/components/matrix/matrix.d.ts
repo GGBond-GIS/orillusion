@@ -19,7 +19,7 @@ declare module Module {
     
     function _updateAllMatrixTransform(start: number, end: number);
 
-    function _updateAllMatrixContinueTransform(start: number, end: number, dt: number);
+    function _updateAllMatrixContinueTransform(start: number, end: number, dt: number, RTEScale: number);
 
     function _printMatrix(index: number);
 
@@ -30,6 +30,8 @@ declare module Module {
     function _getMatrixBufferPtr(): number;
 
     function _getContinuedSRTPtr(): number;
+
+    function _getWorldPositionHLPtr(): number;
 }
 
 

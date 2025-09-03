@@ -89,20 +89,25 @@ export class FrustumCSM {
         }
     }
 
-    update(p: Matrix4, pvInv: Matrix4, near: number, far: number, shadowSetting: ShadowSetting): this {
+    update(p: Matrix4, pvInv: Matrix4, near: number, far: number, shadowSetting: ShadowSetting, splitFunction: (near: number, far: number, index: number, max: number) => number = undefined): this {
         let blockCount = this.sections.length - 1;
         for (let z = 0; z <= blockCount; ++z) {
             let section = this.sections[z];
+            let worldZ = 0;
             let cornerIndex = 0;
-            // let worldZ = this.squareSplit(near, far, z, this.sections.length);
-            let worldZ = this.logSplit(near, far, z, this.sections.length);
-            {
-                let scale = (worldZ - near) / far;
-                scale = scale ** shadowSetting.csmScatteringExp;
-                worldZ = (far - near) * scale + near;
+            if (splitFunction) {
+                worldZ = splitFunction(near, far, z, this.sections.length);
+            } else {
+                // worldZ = FrustumCSM.squareSplit(near, far, z, this.sections.length);
+                worldZ = FrustumCSM.logSplit(near, far, z, this.sections.length);
+                // worldZ = FrustumCSM.uniformSplit(near, far, z, this.sections.length);
+                {
+                    let scale = (worldZ - near) / far;
+                    scale = scale ** shadowSetting.csmScatteringExp;
+                    worldZ = (far - near) * scale + near;
+                }
+                worldZ *= shadowSetting.csmAreaScale;
             }
-
-            worldZ *= shadowSetting.csmAreaScale;
 
             let depth = (p.rawData[10] * worldZ + p.rawData[14]) / worldZ;
             for (let x = 0; x < 2; ++x) {
@@ -122,17 +127,17 @@ export class FrustumCSM {
         return this;
     }
 
-    private squareSplit(near: number, far: number, index: number, max: number): number {
+    public static squareSplit(near: number, far: number, index: number, max: number): number {
         let ratio = index / (max - 1);
         return (ratio ** 4) * (far - near) + near;
     }
 
-    private uniformSplit(near: number, far: number, index: number, max: number): number {
+    public static uniformSplit(near: number, far: number, index: number, max: number): number {
         let ratio = index / (max - 1);
         return ratio * (far - near) + near;
     }
 
-    private logSplit(near: number, far: number, index: number, max: number): number {
+    public static logSplit(near: number, far: number, index: number, max: number): number {
         let ratio = near * (far / near) ** (index / (max - 1));
         return ratio;
     }

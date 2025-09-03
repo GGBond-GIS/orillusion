@@ -1,3 +1,4 @@
+import { Camera3D, Engine3D } from '../..';
 import { Picker_cs } from '../../assets/shader/compute/Picker_cs';
 import { View3D } from '../../core/View3D';
 import { GlobalBindGroup } from '../../gfx/graphics/webGpu/core/bindGroups/GlobalBindGroup';
@@ -54,6 +55,11 @@ export class PickCompute {
         var y = this._outBuffer.outFloat32Array[5];
         var z = this._outBuffer.outFloat32Array[6];
         target.set(x, y, z);
+
+        if (Engine3D.setting.useRTE) {
+            target.add(Camera3D.mainCamera.transform.worldPosition, target);
+        }
+        
         return target;
     }
 
@@ -66,7 +72,7 @@ export class PickCompute {
         var x = this._outBuffer.outFloat32Array[8];
         var y = this._outBuffer.outFloat32Array[9];
         var z = this._outBuffer.outFloat32Array[10];
-        target.set(x * 2.0 - 1.0, y * 2.0 - 1.0, z * 2.0 - 1.0).normalize();
+        target.set(x, y, z).normalize();
         return target;
     }
 

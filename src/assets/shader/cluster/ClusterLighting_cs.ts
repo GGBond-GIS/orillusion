@@ -6,34 +6,12 @@ import { ClusterConfig } from "../../../gfx/renderJob/passRenderer/cluster/Clust
 export let ClusterLighting_cs: string = /*wgsl*/`
 #include "GlobalUniform"
 
+#include "LightData"
+
 struct ClusterBox{
     min:vec4<f32>,
     max:vec4<f32>
 }
-
-struct Light {
-    index:f32,
-    lightType:i32,
-    radius:f32,
-    linear:f32,
-
-    position:vec3<f32>,
-    lightMatrixIndex:f32,
-
-    direction:vec3<f32>,
-    quadratic:f32,
-
-    lightColor:vec3<f32>,
-    intensity:f32,
-
-    innerCutOff :f32,
-    outerCutOff:f32,
-    range :f32,
-    castShadow:f32,
-
-    lightTangent:vec3<f32>,
-    ies:f32,
-};
 
 struct LightIndex
 {
@@ -63,7 +41,7 @@ var<private> clusterTileZ:f32 ;
 // @group(0) @binding(1) var<storage, read> models : Uniforms;
 @group(0) @binding(1) var<uniform> clustersUniform : ClustersUniform;
 @group(0) @binding(2) var<storage,read> clusterBuffer : array<ClusterBox>;
-@group(0) @binding(3) var<storage,read> lightBuffer : array<Light>; 
+@group(0) @binding(3) var<storage,read> lightBuffer : array<LightData>; 
 @group(0) @binding(4) var<storage,read_write> lightAssignBuffer : array<f32>;
 @group(0) @binding(5) var<storage,read_write> assignTable : array<LightIndex>;
 
@@ -92,7 +70,7 @@ fn GetSqdisPointAABB( pos:vec3<f32>,  cluster:ClusterBox  ) -> f32
     return sqDistance;
 }
 
-fn TestSphereAABB( box:ClusterBox ,light:Light ) -> bool
+fn TestSphereAABB( box:ClusterBox, light:LightData ) -> bool
 {
     let lightPos = light.position.xyz;
     var radius = light.range * 2.0 ;
@@ -123,7 +101,7 @@ fn CsMain( @builtin(workgroup_id) workgroup_id : vec3<u32> , @builtin(local_invo
 
     for(var lightID = 0 ; lightID < i32(clustersUniform.numLights) ; lightID+=1)
     {
-        let li:Light = lightBuffer[lightID];
+        let li:LightData = lightBuffer[lightID];
         if(!TestSphereAABB(box, li)) {
             continue;
         }

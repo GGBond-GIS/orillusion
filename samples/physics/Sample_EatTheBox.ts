@@ -2,6 +2,8 @@ import { BoxGeometry, Camera3D, Engine3D, LitMaterial, MeshRenderer, Object3D, S
 import { Stats } from "@orillusion/stats";
 import { Ammo, Physics, Rigidbody } from "@orillusion/physics";
 import dat from "dat.gui";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
+import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_EatTheBox {
     view: View3D;
@@ -20,6 +22,7 @@ class Sample_EatTheBox {
         await Engine3D.init({
             renderLoop: () => this.loop()
         });
+        await GUIHelp.init();
 
         //set shadow
         Engine3D.setting.shadow.updateFrameRate = 1;
@@ -44,11 +47,14 @@ class Sample_EatTheBox {
 
         //add DirectLight
         let lightObj = new Object3D();
+        lightObj.y = 50;
         let light = lightObj.addComponent(DirectLight);
         light.intensity = 8;
         light.castShadow = true;
+        light.shadowBias = 0.35;
         lightObj.rotationX = 60;
         lightObj.rotationY = 80;
+        GUIUtil.renderDirLight(light);
         sky.relativeTransform = light.transform;
         light.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
         scene.addChild(lightObj);

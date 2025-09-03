@@ -1,3 +1,4 @@
+import { Engine3D } from '../..';
 import { Color } from '../../math/Color';
 import { Vector3 } from '../../math/Vector3';
 import { Struct } from '../../util/struct/Struct';
@@ -28,7 +29,7 @@ export enum LightType {
  * @group Lights
  */
 export class LightData extends Struct {
-    public static lightSize: number = 24;
+    public static lightSize: number = 28;
 
     public index: number = -1;
     /**
@@ -104,4 +105,9 @@ export class LightData extends Struct {
      * Whether to use lighting ies
      */
     public iesIndex: number = -1;
+
+    public shadowBias: number[] = [Engine3D.setting.shadow.shadowBias];
+
+    public csmShadowMapNum: number = 0;
+    public csmShadowMapIndex: number = -1;
 }

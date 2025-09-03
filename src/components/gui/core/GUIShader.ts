@@ -167,7 +167,7 @@ export class GUIShader {
 
     private static readonly GUI_common_vs: string = /* wgsl */ `
         ${WorldMatrixUniform}
-        ${GlobalUniform}
+        #include "GlobalUniform"
 
         struct VertexSpriteBuffer {
             vUvRec: vec4<f32>,

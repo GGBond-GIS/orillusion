@@ -333,6 +333,19 @@ export class GPUBufferBase {
         node.setUint32Array(0, data);
     }
 
+    public allocMemoryNode(name: string, byteSize: number): MemoryInfo {
+        let node = this.memoryNodes.get(name);
+        if (!node) {
+            node = this.memory.allocation_node(byteSize);
+            this.memoryNodes.set(name, node);
+        }
+        return node;
+    }
+
+    public getMemoryNode(name: string): MemoryInfo {
+        return this.memoryNodes.get(name);
+    }
+
     public setStruct<T extends Struct>(c: { new(): T }, index: number, data: any, property?: string) {
         let ref = Struct.Ref(c);
         let size = Struct.GetSize(c);

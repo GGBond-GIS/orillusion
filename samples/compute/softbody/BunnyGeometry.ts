@@ -1,4 +1,4 @@
-import { BoundingBox, GeometryBase, VertexAttributeName, Vector3 } from '@orillusion/core';
+import { BoundingBox, GeometryBase, VertexAttributeName, Vector3, GeometryVertexType } from '@orillusion/core';
 
 export class BunnyGeometry extends GeometryBase {
     /**
@@ -28,6 +28,7 @@ export class BunnyGeometry extends GeometryBase {
         this.depth = depth;
         this.vertexCount = vertexCount;
         this.name = 'BunnyGeometry';
+        this.geometryType = GeometryVertexType.compose;
         this.initVertex();
     }
 

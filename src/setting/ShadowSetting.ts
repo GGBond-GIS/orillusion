@@ -78,4 +78,24 @@ export type ShadowSetting = {
     //  * Shadow Far Section
     //  */
     // shadowFar: number;
+
+    /**
+     * max shadow map number
+     */
+    maxShadowMapNum: number;
+
+    /**
+     * max shadow map width
+     */
+    maxShadowMapWidth: number;
+
+    /**
+     * max shadow map height
+     */
+    maxShadowMapHeight: number;
+
+    /**
+     * max cascades for csm
+     */
+    maxCascades: number;
 };

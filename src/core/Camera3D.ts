@@ -15,12 +15,15 @@ import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
 import { FrustumCSM } from './csm/FrustumCSM';
 import { CSM } from './csm/CSM';
 import { CResizeEvent } from '../event/CResizeEvent';
+import { ILight } from '../components/lights/ILight';
 
 /**
  * Camera components
  * @group Components
  */
 export class Camera3D extends ComponentBase {
+
+    public static mainCamera: Camera3D;
 
     /**
      * camera Perspective
@@ -102,6 +105,8 @@ export class Camera3D extends ComponentBase {
      */
     public isShadowCamera: boolean = false;
 
+    public shadowLight?: ILight;
+
     /**
    * @internal
    */
@@ -148,7 +153,7 @@ export class Camera3D extends ComponentBase {
     }
     public set enableCSM(value: boolean) {
         if (value && !this.csm) {
-            this.csm = new FrustumCSM(CSM.Cascades);
+            this.csm = new FrustumCSM(Engine3D.setting.shadow.maxCascades);
         }
         this._enableCSM = value;
     }
@@ -532,7 +537,7 @@ export class Camera3D extends ComponentBase {
         this.frustum.update(this.pvMatrix);
         this.frustum.updateBoundBox(this.pvMatrixInv);
         let shadow = Engine3D.setting.shadow;
-        this.enableCSM && this.csm?.update(this._projectionMatrix, this._pvMatrixInv, this.near, this.far, shadow);
+        // this.enableCSM && this.csm?.update(this._projectionMatrix, this._pvMatrixInv, this.near, this.far, shadow);
     }
 
     // for jitter projection

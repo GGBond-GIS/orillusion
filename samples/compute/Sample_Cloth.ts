@@ -1,6 +1,7 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { AtmosphericComponent, BoxGeometry, CameraUtil, DirectLight, Engine3D, HoverCameraController, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, View3D, webGPUContext } from '@orillusion/core';
 import { ClothSimulator } from "./cloth/ClothSimulator";
+import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Demo_Cloth {
     constructor() {
@@ -68,7 +69,7 @@ export class Demo_Cloth {
         {
             var lightObj = new Object3D();
             lightObj.x = 0;
-            lightObj.y = 0;
+            lightObj.y = 0.8;
             lightObj.z = 0;
             lightObj.rotationX = 45;
             lightObj.rotationY = 0;
@@ -76,6 +77,7 @@ export class Demo_Cloth {
             let lc = lightObj.addComponent(DirectLight);
             lc.intensity = 3;
             lc.castShadow = true;
+            lc.enableCSM = true;
             scene.addChild(lightObj);
         }
 

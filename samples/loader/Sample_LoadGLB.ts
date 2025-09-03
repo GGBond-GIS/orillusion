@@ -1,6 +1,6 @@
 import { AtmosphericComponent, BloomPost, Engine3D, GTAOPost, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, PostProcessingComponent, Scene3D, SkyRenderer, TAAPost } from "@orillusion/core";
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { createExampleScene } from "@samples/utils/ExampleScene";
+import { createExampleScene, createSceneParam } from "@samples/utils/ExampleScene";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 // Sample to load glb file
@@ -15,7 +15,10 @@ export class Sample_LoadGLB {
         Engine3D.setting.shadow.shadowBound = 150;
         Engine3D.setting.shadow.shadowBias = 0.1;
 
-        let ex = createExampleScene();
+        let param = createSceneParam();
+        param.camera.near = 10;
+        param.light.shadowCSMBias = 0.01;
+        let ex = createExampleScene(param);
         this.scene = ex.scene;
         this.scene.removeComponent(AtmosphericComponent);
         let sky = this.scene.getOrAddComponent(SkyRenderer);

@@ -1,6 +1,7 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { UVMoveComponent } from "@samples/material/script/UVMoveComponent";
 import { ProfilerDraw, PassType, OutlinePost, GBufferPost, Engine3D, AtmosphericComponent, GlobalFog, Transform, BloomPost, GodRayPost, Object3D, DirectLight, PointLight, SpotLight, GlobalIlluminationComponent, View3D, UIShadow, Color, UIPanel, GPUCullMode, BillboardType, LitMaterial, BlendMode, MorphTargetBlender, SkinnedMeshRenderer2, AnimatorComponent, GTAOPost, TAAPost, DepthOfFieldPost, Vector4, Vector2 } from "@orillusion/core";
+import { Graphic3D } from "@orillusion/graphic";
 
 export class GUIUtil {
 
@@ -185,19 +186,87 @@ export class GUIUtil {
 
     //render direct light gui panel
     public static renderDirLight(light: DirectLight, open: boolean = true, name?: string) {
-        name ||= 'DirectLight';
+        name ||= `DirectLight-${light.name || light.object3D.name}`;
         GUIHelp.addFolder(name);
         GUIHelp.add(light, 'enable');
+        GUIHelp.add(light.transform, 'x', -500, 500, 0.01);
+        GUIHelp.add(light.transform, 'y', -500, 500, 0.01);
+        GUIHelp.add(light.transform, 'z', -500, 500, 0.01);
         GUIHelp.add(light.transform, 'rotationX', 0.0, 360.0, 0.01);
         GUIHelp.add(light.transform, 'rotationY', 0.0, 360.0, 0.01);
         GUIHelp.add(light.transform, 'rotationZ', 0.0, 360.0, 0.01);
+
+        GUIHelp.add(light, 'shadowBias', 0.00001, 1);
+        GUIHelp.add(light, 'shadowCSMBias', 0.00001, 1);
+        GUIHelp.add(light, 'shadowBoundWidth', 0, 1000, 0.1);
+        GUIHelp.add(light, 'shadowBoundHeight', 0, 1000, 0.1);
+        GUIHelp.add(light, 'shadowBoundNear', 0.01, 1000)
+        GUIHelp.add(light, 'shadowBoundFar', 1, 1000);
+
         GUIHelp.addColor(light, 'lightColor');
         GUIHelp.add(light, 'intensity', 0.0, 50.0, 0.01);
         GUIHelp.add(light, 'indirect', 0.0, 1.0, 0.01);
         GUIHelp.add(light, 'castShadow');
 
+        GUIHelp.add(light, 'enableCSM');
+        GUIHelp.add(light, 'csmAutoUpdate');
+        GUIHelp.add(light, 'showDebug').onChange((v)=>{
+            this.debugDirectLight(light, v);
+        });
+
         open && GUIHelp.open();
         GUIHelp.endFolder();
+    }
+
+    private static _clearDebugDirectLight(light: DirectLight) {
+        if (light.object3D && light.transform.view3D && light.transform.view3D.scene) {
+            let g = light.transform.view3D.scene.getChildByName('graphic3D') as Graphic3D;
+            if (!g) { g = new Graphic3D(); light.transform.view3D.scene.addChild(g); }
+            const debugId = `DirectLight_${light.object3D.instanceID}`;
+            g.Clear(debugId);
+            g.Clear(`CameraFrustum_${light.shadowCamera.object3D.instanceID}`);
+            g.Clear(`CameraFrustum_${light.object3D.transform.scene3D.view.camera.object3D.instanceID}`);
+            for (let i = 0; i < light.cascadeNum; i++) {
+                g.Clear(`${debugId}_cms${i}`);
+                g.Clear(`CameraFrustum_${light.csmShadowCamera[i].object3D.instanceID}`);
+                g.Clear(`${debugId}_cms${i}_corners`);
+            }
+        }
+    }
+
+    public static debugDirectLight(light: DirectLight, enable: boolean) {
+        const debugId = `DirectLight_${light.object3D.instanceID}`;
+        if (enable) {
+            light.bindOnChange = ()=> {
+                if (!light.csmAutoUpdate) return;
+                // debug draw
+                if (light.object3D && light.transform.view3D && light.transform.view3D.scene) {
+                    let g = light.transform.view3D.scene.getChildByName('graphic3D') as Graphic3D;
+                    if (!g) { g = new Graphic3D(); light.transform.view3D.scene.addChild(g); }
+                    this._clearDebugDirectLight(light);
+                    g.drawAxis(debugId, light.transform.worldPosition, 10);
+                    if (light.enableCSM) {
+                        g.drawCameraFrustum(light.object3D.transform.scene3D.view.camera, new Color(1, 1, 0), false);
+                        for (let i = 0; i < light.cascadeNum; i++) {
+                            // g.drawAxis(`DirectLight_${light.object3D.instanceID}_cms${i}`, light.transform.worldPosition, 10);
+                            g.drawBoundingBox(`${debugId}_cms${i}`, light.frustumCSM.children[i].bound);
+                            g.drawCameraFrustum(light.csmShadowCamera[i], light.lightColor);
+
+                            const corners = light.frustumCSM.sections[i + 1].corners;
+                            g.drawLines(`${debugId}_cms${i}_corners`, [
+                                corners[0], corners[2], corners[1], corners[3]
+                            ], Color.COLOR_GREEN);
+                        }
+                    } else {
+                        g.drawCameraFrustum(light.shadowCamera, light.lightColor);
+                    }
+                }
+            }
+            light.bindOnChange();
+            return;
+        }
+        light.bindOnChange = null;
+        this._clearDebugDirectLight(light);
     }
 
     //show point light gui controller

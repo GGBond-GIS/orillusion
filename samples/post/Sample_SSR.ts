@@ -50,6 +50,8 @@ export class Sample_SSR {
             lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355)
             lc.castShadow = true
             lc.intensity = 10
+            lc.enableCSM = true;
+            lc.shadowCSMBias = 0.005;
             scene.addChild(this.lightObj)
             GUIUtil.renderDirLight(lc);
         }
