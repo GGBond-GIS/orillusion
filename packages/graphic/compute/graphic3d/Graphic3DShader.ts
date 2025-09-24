@@ -19,6 +19,11 @@ export let Graphic3DShader: string = /*wgsl*/ `
     @vertex
     fn VertMain( vertex:VertexAttributes ) -> VertexOutput {
         var worldMatrix = models.matrix[u32(vertex.position.w)];
+
+        if (globalUniform.useRTE != 0) {
+            UpdateWorldMatrixToRTE(u32(vertex.position.w), &worldMatrix);
+        }
+
         var worldPos = (worldMatrix * vec4<f32>(vertex.position.xyz, 1.0));
         var viewPosition = ((globalUniform.viewMat) * worldPos);
         var clipPosition = globalUniform.projMat * viewPosition;

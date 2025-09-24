@@ -1,4 +1,3 @@
-import { GTAOPost } from '../../src/index.js';
 import { GUI } from './dat.gui.module.js'
 
 /**

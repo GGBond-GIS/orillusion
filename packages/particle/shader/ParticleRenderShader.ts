@@ -44,7 +44,7 @@ export let ParticleRenderShader = /* wgsl */ `
             ORI_MATRIX_M = models.matrix[particleGlobalData.instance_index];
             if (globalUniform.useRTE != 0) {
                 UpdateWorldMatrixToRTE_PrivatePtr(u32(particleGlobalData.instance_index), &ORI_MATRIX_M);
-            }
+        }
         }
 
         var vertexPosition = vertex.position;
@@ -118,10 +118,11 @@ export let ParticleRenderShader = /* wgsl */ `
             worldMatrix[1].xyz,
             worldMatrix[2].xyz
          );
-         let v3Look: vec3<f32> = normalize(dir * mat3);
-         let v3Right: vec3<f32> = normalize(cross(vec3<f32>( 0.0 , 1.0 , 0.0 ) * mat3, v3Look));
-         let v3Up: vec3<f32> = cross(v3Look, v3Right);
-         return mat3x3<f32>(v3Right, v3Up, v3Look);
+        let v3Look: vec3<f32> = normalize(dir * mat3);
+        let up: vec3<f32> = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), v3Look));
+        let v3Right: vec3<f32> = normalize(cross(v3Look, up));
+        let v3Up: vec3<f32> = cross(v3Look, v3Right);
+        return mat3x3<f32>(v3Right, v3Up, v3Look);
     }
 
     fn makeAxleRotationMatrix(axis: vec3<f32>, angle: f32) -> mat4x4<f32> {
