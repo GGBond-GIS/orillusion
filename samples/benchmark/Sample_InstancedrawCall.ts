@@ -39,8 +39,7 @@ class Sample_drawCallInstance {
         lightObj.rotationZ = 150;
         let dirLight = lightObj.addComponent(DirectLight);
         dirLight.lightColor = KelvinUtil.color_temperature_to_rgb(5500);
-        dirLight.intensity = 3;
-        dirLight.indirect = 1;
+        dirLight.intensity = 2;
         this.scene.addChild(lightObj);
 
         sky.relativeTransform = dirLight.transform;
@@ -61,23 +60,6 @@ class Sample_drawCallInstance {
 
     private _list: Object3D[] = [];
     initScene() {
-        {
-            this.lightObj3D = new Object3D();
-            this.lightObj3D.x = 0;
-            this.lightObj3D.y = 30;
-            this.lightObj3D.z = -40;
-            this.lightObj3D.rotationX = 144;
-            this.lightObj3D.rotationY = 0;
-            this.lightObj3D.rotationZ = 0;
-            let directLight = this.lightObj3D.addComponent(DirectLight);
-            directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
-            directLight.castShadow = true;
-            directLight.intensity = 30;
-            directLight.indirect = 1;
-            this.scene.addChild(this.lightObj3D);
-        }
-
-
         let shareGeometry = new BoxGeometry();
         let material = new LambertMaterial();
         material.baseColor = new Color(
