@@ -92,7 +92,7 @@ export class GlobalUniformGroup {
         this.uniformGPUBuffer.setMatrix(`_projectionMatrix`, camera.projectionMatrix);
         
         if (Engine3D.setting.useRTE) {
-            const mainCamera = Camera3D.mainCamera;
+            const mainCamera = Camera3D.mainCamera || camera;
 
             this.temp_worldMatrix.copyFrom(camera.transform.worldMatrix);
             const rtePos = Vector3.sub(camera.transform.worldPosition, mainCamera.transform.worldPosition);
@@ -254,7 +254,7 @@ export class GlobalUniformGroup {
         this.uniformGPUBuffer.setVector4(`_retain`, Vector4.ZERO);
 
         if (Engine3D.setting.useRTE) {
-            const mainCamera = Camera3D.mainCamera;
+            const mainCamera = Camera3D.mainCamera || camera;
 
             const cameraPos: Vector3 = mainCamera.transform.worldPosition; // camera.transform.worldPosition;
             const valueHL = splitDouble_Vector3(cameraPos);

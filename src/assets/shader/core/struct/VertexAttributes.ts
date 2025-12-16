@@ -84,7 +84,7 @@ export let VertexAttributes_vert: string = /*wgsl*/ `
     }
 
     struct VertexOutput {
-    @location(auto) index: f32,
+    @location(auto) @interpolate(flat) index: f32,
     @location(auto) varying_UV0: vec2<f32>,
     @location(auto) varying_UV1: vec2<f32>,
     @location(auto) varying_ViewPos: vec4<f32>,

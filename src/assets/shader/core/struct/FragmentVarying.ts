@@ -3,7 +3,7 @@
  */
 export let FragmentVarying: string = /*wgsl*/ `
     struct FragmentVarying {
-        @location(auto) index: f32,
+        @location(auto) @interpolate(flat) index: f32,
         @location(auto) fragUV0: vec2<f32>,
         @location(auto) fragUV1: vec2<f32>,
         @location(auto) viewPosition: vec4<f32>,

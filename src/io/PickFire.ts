@@ -148,12 +148,20 @@ export class PickFire extends CEventDispatcher {
                 meshID: this._pickCompute.getPickMeshID(),
             };
         } else {
-            let intersection = this._interestList[0]
+            let intersection = this._interestList[0];
+            if (intersection) {
+                return {
+                    worldPos: intersection.intersectPoint,
+                    worldNormal: intersection.normal,
+                    meshID: intersection.collider.transform.worldMatrix.index,
+                    distance: intersection.distance,
+                };
+            }
             return {
-                worldPos: intersection.intersectPoint,
-                worldNormal: intersection.normal,
-                meshID: intersection.collider.transform.worldMatrix.index,
-                distance: intersection.distance,
+                worldPos: Vector3.ZERO,
+                worldNormal: Vector3.ZERO,
+                meshID: -1,
+                distance: 0,
             };
         }
     }
