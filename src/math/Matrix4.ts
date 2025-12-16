@@ -316,6 +316,19 @@ export class Matrix4 {
         Matrix4.wasm.Matrix_Rotate(rad, axis, target_Mat.index);
     }
 
+    protected static freeIndexs: Uint32Array = new Uint32Array(Matrix4.allocCount);
+    protected static freeIndexOffset: number = 0;
+    public static allocIndex(): number {
+        return this.freeIndexOffset <= 0 ? Matrix4.useCount++ : this.freeIndexs[--this.freeIndexOffset]; 
+    }
+    public static freeIndex(matrix: Matrix4) {
+        if (this.freeIndexOffset >= this.freeIndexs.length) {
+            let buff = new Uint32Array(this.freeIndexs.length + Matrix4.allocOnceCount);
+            buff.set(this.freeIndexs);
+            this.freeIndexs = buff;
+        }
+        this.freeIndexs[this.freeIndexOffset++] = matrix.index;
+    }
 
     /**
      * 
@@ -329,12 +342,11 @@ export class Matrix4 {
             WasmMatrix.allocMatrix(allocCount);
         }
 
-        this.index = Matrix4.useCount;
+        this.index = Matrix4.allocIndex();
         this.offset = Matrix4.wasmMatrixPtr + this.index * Matrix4.blockBytes;
 
         // if (Matrix4.dynamicGlobalMatrixRef) {
         Matrix4.dynamicGlobalMatrixRef[this.index] = this;
-        Matrix4.useCount++;
         this.rawData = CreateFloatArray(Matrix4.dynamicMatrixBytes.buffer, this.offset, 16);
         // } else {
         //     this.rawData = new Float32Array(16);
