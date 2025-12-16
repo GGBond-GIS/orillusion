@@ -286,7 +286,11 @@ export class RenderShaderPass extends ShaderPassBase {
             this._textureChange = true;
             this.textures[name] = texture;
             if (name == "envMap") {
+                if (this.envMap) {
+                    Reference.getInstance().detached(this.envMap, this);
+                }
                 this.envMap = texture;
+                Reference.getInstance().attached(this.envMap, this);
             } else if (name == "prefilterMap") {
                 this.prefilterMap = texture;
             } else if (name == "reflectionMap") {
