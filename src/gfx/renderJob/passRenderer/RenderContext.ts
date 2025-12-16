@@ -37,6 +37,9 @@ export class RenderContext {
         } else {
             this.rtFrame.depthLoadOp = depth_loadOp;
             let splitRendererPassState = WebGPUDescriptorCreator.createRendererPassState(this.rtFrame, color_loadOp);
+            if (splitRendererPassState.renderPassDescriptor?.colorAttachments?.[0]) {
+                splitRendererPassState.renderPassDescriptor.colorAttachments[0].loadOp = color_loadOp;
+            }
             this.rendererPassStates.push(splitRendererPassState);
             return splitRendererPassState;
         }

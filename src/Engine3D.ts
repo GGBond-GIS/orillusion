@@ -10,6 +10,7 @@ import { webGPUContext } from './gfx/graphics/webGpu/Context3D';
 import { RTResourceMap } from './gfx/renderJob/frame/RTResourceMap';
 
 import { ForwardRenderJob } from './gfx/renderJob/jobs/ForwardRenderJob';
+import { OverlayRenderJob } from './gfx/renderJob/jobs/OverlayRenderJob';
 import { GlobalBindGroup } from './gfx/graphics/webGpu/core/bindGroups/GlobalBindGroup';
 import { Interpolator } from './math/TimeInterpolator';
 import { RendererJob } from './gfx/renderJob/jobs/RendererJob';
@@ -408,6 +409,23 @@ export class Engine3D {
             this.startRenderJob(views[i])
         }
         this.resume();
+    }
+
+    /**
+     * Add an overlay view that renders on top of existing views
+     * The overlay view preserves the color buffer but clears depth buffer
+     * Perfect for UI elements, axis helpers, gizmos that should always be visible
+     * @param view The overlay view to add
+     * @returns The OverlayRenderJob instance
+     */
+    public static addOverlayView(view: View3D): OverlayRenderJob {
+        this.renderJobs ||= new Map<View3D, RendererJob>();
+        if (!this.views)
+            this.views = [];
+        this.views.push(view);
+        let renderJob = new OverlayRenderJob(view);
+        this.renderJobs.set(view, renderJob);
+        return renderJob;
     }
 
     /**
