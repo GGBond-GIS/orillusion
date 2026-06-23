@@ -27,6 +27,20 @@ export class ClothSimulatorPipeline extends ClothSimulatorBuffer {
         this.initPipeline(this.mConfig);
     }
 
+    // Re-point the final stage at the geometry's current GPU vertex buffer.
+    // `setStorageBuffer` only rebuilds a bind group the first time a name is
+    // bound, so replacing an existing binding requires a fresh ComputeShader
+    // whose bind group is built against the new buffer.
+    public rebindVertexBuffer(vertexBuffer: any) {
+        const { NUMTSURFACES } = this.mConfig;
+        this.mUpdateVertexBufferComputeShader = new ComputeShader(updatevertexbuffer.cs);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`input`, this.mInputBuffer);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`position`, this.mVertexPositionBuffer);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`normal`, this.mNormalBuffer);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`vertexBuffer`, vertexBuffer);
+        this.mUpdateVertexBufferComputeShader.workerSizeX = Math.ceil(NUMTSURFACES / 128);
+    }
+
     public compute(command: GPUCommandEncoder, pos: Vector3) {
         let computePass = command.beginComputePass();
 

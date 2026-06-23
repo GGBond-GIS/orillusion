@@ -79,9 +79,21 @@ export class ClothSimulator extends MeshRenderer {
     private _tickTime = 0;
 
     public onCompute(view: View3D, command?: GPUCommandEncoder) {
+        // The renderer (GeometryBase.generate) allocates/replaces the geometry's
+        // GPU vertex buffer lazily at draw time, so the instance captured when the
+        // pipeline was built can become stale — the compute would then keep writing
+        // into an orphaned buffer while the renderer draws an untouched one. Re-read
+        // the live buffer every frame and re-bind the final stage whenever it changes.
+        const vertexBuffer = this.mClothGeometry.vertexBuffer.vertexGPUBuffer;
+        if (!vertexBuffer)
+            return; // geometry GPU buffer not built yet
+
         if (!this.mClothComputePipeline) {
-            this.mConfig.clothVertexBuffer = this.mClothGeometry.vertexBuffer.vertexGPUBuffer;
+            this.mConfig.clothVertexBuffer = vertexBuffer;
             this.mClothComputePipeline = new ClothSimulatorPipeline(this.mConfig);
+        } else if (this.mConfig.clothVertexBuffer !== vertexBuffer) {
+            this.mConfig.clothVertexBuffer = vertexBuffer;
+            this.mClothComputePipeline.rebindVertexBuffer(vertexBuffer);
         }
 
         this._tickTime += Time.delta / 1000.0;
