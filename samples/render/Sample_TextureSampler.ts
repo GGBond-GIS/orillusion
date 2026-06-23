@@ -4,17 +4,22 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 import { UVMoveComponent } from "@samples/material/script/UVMoveComponent";
 
 class Sample_TextureSample {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
 
     async run() {
-        await Engine3D.init();
-        Engine3D.setting.shadow.shadowBias = 0.01;
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                },
+            },
+        });
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 0.01, 5000.0);
+        camera.perspective(60, engine.aspect, 0.01, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(25, -30, 100);
 
@@ -22,7 +27,7 @@ class Sample_TextureSample {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
         await this.initScene();
         sky.relativeTransform = this.lightObj3D.transform;
     }
@@ -44,7 +49,6 @@ class Sample_TextureSample {
             directLight.castShadow = true;
             directLight.intensity = 3;
             directLight.enableCSM = true;
-            directLight.shadowCSMBias = 0.005;
             GUIHelp.init();
             GUIUtil.renderDirLight(directLight, false);
             this.scene.addChild(this.lightObj3D);
@@ -52,7 +56,7 @@ class Sample_TextureSample {
 
         {
             // load texture
-            let texture = await Engine3D.res.loadTexture("textures/diffuse.jpg");
+            let texture = await this.engine.res.loadTexture("textures/diffuse.jpg");
             let material = new LitMaterial();
             material.baseMap = texture;
 

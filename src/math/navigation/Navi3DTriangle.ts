@@ -8,6 +8,9 @@ import { Navi3DMaskType } from "./Navi3DMaskType";
 import { Navi3DPoint } from "./Navi3DPoint";
 import { Navi3DPoint2D } from "./Navi3DPoint2D";
 
+/**
+ * @internal
+ */
 export class Navi3DTriangle extends Vector3 implements IQuadNode {
 
     private _id: number = 0;
@@ -46,7 +49,7 @@ export class Navi3DTriangle extends Vector3 implements IQuadNode {
 
     public initAABB(): void {
         this._aabbBox = new QuadAABB();
-        //添加节点
+        // add the triangle vertices
         this._aabbBox.addPoint(this._points[0]);
         this._aabbBox.addPoint(this._points[1]);
         this._aabbBox.addPoint(this._points[2]);
@@ -201,18 +204,18 @@ export class Navi3DTriangle extends Vector3 implements IQuadNode {
     }
 
     public randomPoint(): Vector3 {
-        var pt0: Vector3 = this._points[2].subtract(this._points[0]);
+        var pt0: Vector3 = this._points[2].clone().sub(this._points[0]);
         // if(Math.random() > 0.5)
         {
-            pt0.scaleBy(Math.random());
+            pt0.multiplyScalar(Math.random());
         }
         pt0.incrementBy(this._points[0]);
 
-        var pt1: Vector3 = this._points[1].subtract(pt0);
+        var pt1: Vector3 = this._points[1].clone().sub(pt0);
 
         // if(Math.random() > 0.5)
         {
-            pt1.scaleBy(Math.random());
+            pt1.multiplyScalar(Math.random());
         }
         pt1.incrementBy(pt0);
 

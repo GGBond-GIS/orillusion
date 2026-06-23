@@ -5,21 +5,26 @@ import { Scene3D, Object3D, LitMaterial, Engine3D, BoxGeometry, MeshRenderer, Co
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_PhysicsBox {
+    engine: Engine3D;
     private scene: Scene3D;
     private materials: LitMaterial[];
 
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBound = 150;
-
         await Physics.init();
-        await Engine3D.init({ renderLoop: () => this.loop() });
+        const engine = this.engine = await Engine3D.init({
+            renderLoop: () => this.loop(),
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+            },
+        });
 
         let sceneParam = createSceneParam();
         sceneParam.camera.distance = 50;
-        let exampleScene = createExampleScene(sceneParam);
+        let exampleScene = createExampleScene(engine, sceneParam);
         this.scene = exampleScene.scene;
 
         GUIHelp.init();
@@ -27,7 +32,7 @@ class Sample_PhysicsBox {
 
         await this.initScene(this.scene);
         GUIHelp.addButton('Make Ball', () => { this.createSphere(); })
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
     }
 
     initMaterials() {
@@ -43,7 +48,7 @@ class Sample_PhysicsBox {
 
     async initScene(scene: Scene3D) {
         /******** load hdr sky *******/
-        let envMap = await Engine3D.res.loadHDRTextureCube('hdri/daytime.hdr');
+        let envMap = await this.engine.res.loadHDRTextureCube('hdri/daytime.hdr');
         scene.envMap = envMap;
 
         //
@@ -63,7 +68,7 @@ class Sample_PhysicsBox {
         var meshRenderer = sphere.addComponent(MeshRenderer);
         meshRenderer.geometry = sphereGeo;
         var material = new LitMaterial();
-        material.baseMap = Engine3D.res.grayTexture;
+        material.baseMap = this.engine.res.grayTexture;
 
         meshRenderer.castShadow = true;
         meshRenderer.receiveShadow = true;
@@ -83,7 +88,7 @@ class Sample_PhysicsBox {
     // make floor
     createGround() {
         let floorMat = new LitMaterial();
-        floorMat.baseMap = Engine3D.res.grayTexture;
+        floorMat.baseMap = this.engine.res.grayTexture;
         floorMat.roughness = 0.85;
         floorMat.metallic = 0.01;
         // floorMat.envIntensity = 0.01;

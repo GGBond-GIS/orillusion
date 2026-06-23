@@ -1,6 +1,6 @@
 import { MemoryDO } from '../../../../core/pool/memory/MemoryDO';
 import { MemoryInfo } from '../../../../core/pool/memory/MemoryInfo';
-import { webGPUContext } from '../../../../gfx/graphics/webGpu/Context3D';
+import { bindCtx, Context3D } from '../../../../gfx/graphics/webGpu/Context3D';
 /**
  * @internal
  * @group Animation
@@ -14,8 +14,9 @@ export class SkeletonTransformComputeArgs extends MemoryDO {
     protected _isDirty: boolean = false;
     protected _argumentsBuffer: GPUBuffer;
     protected _argumentsBufferEntries: GPUBindGroupEntry;
+    public _boundCtx: Context3D | null = null;
 
-    constructor() {
+    constructor(ctx: Context3D) {
         super();
         this.allocationMemorySet([
             { name: `numJoint`, data: [0] },
@@ -23,7 +24,7 @@ export class SkeletonTransformComputeArgs extends MemoryDO {
             { name: `retain0`, data: [0] },
             { name: `retain1`, data: [0] },
         ]);
-        this.generateGPUBuffer();
+        this.generateGPUBuffer(ctx);
     }
 
     public getGPUBuffer(): GPUBuffer {
@@ -34,24 +35,13 @@ export class SkeletonTransformComputeArgs extends MemoryDO {
         return this._argumentsBufferEntries;
     }
 
-    // public setNumJoint(value: number) {
-    //     if (this.numJoint.bytes[0] != value) {
-    //         this.numJoint.bytes[0] = value;
-    //         this.isDirty = true;
-    //     }
-    // }
-
-    // public setNumFrame(value: number) {
-    //     if (this.numFrame.bytes[0] != value) {
-    //         this.numFrame.bytes[0] = value;
-    //         this.isDirty = true;
-    //     }
-    // }
-
     public updateGPUBuffer() {
         if (this._isDirty) {
             this._isDirty = false;
-            webGPUContext.device.queue.writeBuffer(this._argumentsBuffer, 0, this.shareDataBuffer);
+            if (!this._boundCtx) {
+                throw new Error(`SkeletonTransformComputeArgs used before bindCtx — construct with a Context3D from the owning Engine3D.`);
+            }
+            this._boundCtx.device.queue.writeBuffer(this._argumentsBuffer, 0, this.shareDataBuffer);
         }
     }
 
@@ -75,8 +65,9 @@ export class SkeletonTransformComputeArgs extends MemoryDO {
         }
     }
 
-    protected generateGPUBuffer() {
-        let device = webGPUContext.device;
+    protected generateGPUBuffer(ctx: Context3D) {
+        bindCtx(this, ctx);
+        let device = ctx.device;
 
         this._argumentsBuffer = device.createBuffer({
             size: this.shareDataBuffer.byteLength,

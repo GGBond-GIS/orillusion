@@ -5,6 +5,7 @@ import { Graphic3D } from "@orillusion/graphic";
 
 //sample of csm
 class Sample_CSM {
+    engine: Engine3D;
     scene: Scene3D;
     view: View3D;
     light: DirectLight;
@@ -12,11 +13,15 @@ class Sample_CSM {
     viewCamera: Camera3D;
     graphic3D: Graphic3D;
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBound = 512;
-        Engine3D.setting.useRTE = true;
-        await Engine3D.init({ renderLoop: () => { this.loop(); } });
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    shadowSize: 2048,
+                },
+            },
+            renderLoop: () => { this.loop(); }
+        });
 
         GUIHelp.init();
 
@@ -25,7 +30,7 @@ class Sample_CSM {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 5000.0);
         //set camera data
         mainCamera.object3D.z = -15;
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(-15, -35, 200);
@@ -43,15 +48,13 @@ class Sample_CSM {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        // mainCamera.enableCSM = true;
         GUIHelp.addFolder('CSM')
-        GUIHelp.add(mainCamera, 'enableCSM');
-        GUIHelp.add(Engine3D.setting.shadow, 'csmScatteringExp', 0.5, 1.0, 0.01);
-        GUIHelp.add(Engine3D.setting.shadow, 'csmMargin', 0.01, 0.5, 0.01);
-        GUIHelp.add(Engine3D.setting.shadow, 'csmAreaScale', 0.1, 1, 0.01);
+        GUIHelp.add(engine.setting.shadow, 'csmScatteringExp', 0.5, 1.0, 0.01);
+        GUIHelp.add(engine.setting.shadow, 'csmMargin', 0.01, 0.5, 0.01);
+        GUIHelp.add(engine.setting.shadow, 'csmAreaScale', 0.1, 1, 0.01);
         GUIHelp.open();
         GUIHelp.endFolder();
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     // create direction light
@@ -66,7 +69,6 @@ class Sample_CSM {
         sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
         sunLight.enableCSM = enableCSM;
-        sunLight.shadowCSMBias = 0.005;
 
         GUIUtil.renderDirLight(sunLight);
         this.scene.addChild(lightObj3D);
@@ -86,7 +88,7 @@ class Sample_CSM {
         this.createBox();
         {
             let mat = new LitMaterial();
-            mat.baseMap = Engine3D.res.grayTexture;
+            mat.baseMap = this.engine.res.grayTexture;
             let floor = new Object3D();
             let mr = floor.addComponent(MeshRenderer);
             mr.geometry = new BoxGeometry(10000, 1, 10000);
@@ -94,8 +96,15 @@ class Sample_CSM {
             this.scene.addChild(floor);
         }
 
+        let mat = new LitMaterial();
+        mat.baseColor = new Color(0.6, 0.4, 0.2, 1);
+        let geo = new SphereGeometry(4, 20, 20);
         for (let i = 0; i < 1000; i++) {
-            let item = Object3DUtil.GetSingleSphere(4, 0.6, 0.4, 0.2);
+            let item = new Object3D();
+            let renderer = item.addComponent(MeshRenderer);
+            renderer.castGI = true;
+            renderer.geometry = geo;
+            renderer.material = mat;
             let angle = Math.PI * 4 * i / 50;
             item.x = Math.sin(angle) * (50 + i ** 1.4);
             item.z = Math.cos(angle) * (50 + i ** 1.4);
@@ -146,7 +155,7 @@ class Sample_CSM {
         // // light direction
         // this._shadowPos.copy(light.direction).normalize(viewCamera.far);
         // csmBound.center.add(this._shadowPos, this._shadowCameraTarget);
-        // csmBound.center.subtract(this._shadowPos, this._shadowPos);
+        // csmBound.center.sub(this._shadowPos, this._shadowPos);
         // this.graphic3D.drawLines('shadowLine', [this._shadowPos, this._shadowCameraTarget], new Color(1, 1, 0, 1));
     }
 

@@ -1,4 +1,4 @@
-import { ComputeShader, Time, Vector3, webGPUContext } from '@orillusion/core';
+import { ComputeShader, Time, Vector3 } from '@orillusion/core';
 import { ClothSimulatorBuffer } from "./ClothSimulatorBuffer";
 import { ClothSimulatorConfig } from "./ClothSimulatorConfig";
 import { bending } from "./shader/bending.wgsl";

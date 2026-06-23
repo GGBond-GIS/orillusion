@@ -4,20 +4,26 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 
 //sample of direction light
 class Sample_DirectLightShadow {
+    engine: Engine3D;
     scene: Scene3D;
     async run() {
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.render.useLogDepth = false;
-
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowBound = 400;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBias = 0.02;
-
-        Engine3D.setting.occlusionQuery.octree = { width: 1000, height: 1000, depth: 1000, x: 0, y: 0, z: 0 }
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                render: {
+                    debug: true,
+                    useLogDepth: false,
+                },
+                shadow: {
+                    enable: true,
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+                occlusionQuery: {
+                    octree: { width: 1000, height: 1000, depth: 1000, x: 0, y: 0, z: 0 },
+                },
+            },
+        });
 
         GUIHelp.init();
 
@@ -26,8 +32,7 @@ class Sample_DirectLightShadow {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        // mainCamera.enableCSM = true;
-        mainCamera.perspective(45, Engine3D.aspect, 0.1, 1000.0);
+        mainCamera.perspective(45, engine.aspect, 0.1, 1000.0);
         //set camera data
         mainCamera.object3D.z = -15;
         let cameraController = mainCamera.object3D.addComponent(HoverCameraController);
@@ -42,8 +47,8 @@ class Sample_DirectLightShadow {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
-        GUIUtil.renderDebug();
+        engine.startRenderView(view);
+        GUIUtil.renderDebug(view);
     }
 
     // create direction light
@@ -64,7 +69,6 @@ class Sample_DirectLightShadow {
         sunLight.shadowBoundFar = 250;
         sunLight.shadowMapWidth = 512;
         sunLight.shadowMapHeight = 512;
-        sunLight.shadowBias = 0.3;
         sunLight.enableCSM = false;
 
         GUIUtil.renderDirLight(sunLight);
@@ -90,7 +94,7 @@ class Sample_DirectLightShadow {
         }
         {
             let mat = new LitMaterial();
-            mat.baseMap = Engine3D.res.grayTexture;
+            mat.baseMap = this.engine.res.grayTexture;
             // mat.roughness = 0.4;
             // mat.metallic = 0.6;
             let floor = new Object3D();

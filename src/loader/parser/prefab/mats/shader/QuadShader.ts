@@ -1,4 +1,5 @@
 import { Engine3D } from "../../../../../Engine3D";
+import { Context3D } from "../../../../../gfx/graphics/webGpu/Context3D";
 import { GPUCompareFunction, GPUCullMode } from "../../../../../gfx/graphics/webGpu/WebGPUConst";
 import { Texture } from "../../../../../gfx/graphics/webGpu/core/texture/Texture";
 import { RenderShaderPass } from "../../../../../gfx/graphics/webGpu/shader/RenderShaderPass";
@@ -9,10 +10,15 @@ import { RegisterShader } from "../../../../../util/SerializeDecoration";
 import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 
 
+/**
+ * Internal full-screen quad shader used by the prefab material pipeline for
+ * simple textured-rect blits.
+ * @internal
+ */
 @RegisterShader
 export class QuadShader extends Shader {
 
-    constructor(vs: string = 'QuadGlsl_vs', fs: string = 'QuadGlsl_fs') {
+    constructor(ctx: Context3D, vs: string = 'QuadGlsl_vs', fs: string = 'QuadGlsl_fs') {
         super();
 
         let colorShader = new RenderShaderPass(vs, fs);
@@ -25,7 +31,7 @@ export class QuadShader extends Shader {
         shaderState.depthCompare = GPUCompareFunction.always;
         shaderState.multisample = 0;
 
-        this.setTexture("baseMap", Engine3D.res.blackTexture);
+        this.setTexture("baseMap", Engine3D.resFor(ctx).blackTexture);
         this.setUniformFloat(`x`, 0);
         this.setUniformFloat(`y`, 0);
         this.setUniformFloat(`width`, 100);

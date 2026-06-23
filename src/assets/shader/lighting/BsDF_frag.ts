@@ -37,7 +37,17 @@ export let BsDF_frag: string = /*wgsl*/ `
 
       fragData.NoV = saturate(dot(fragData.N, fragData.V)) ;
 
-      fragData.F0 = mix(vec3<f32>(materialUniform.specularColor.rgb), fragData.Albedo.rgb, fragData.Metallic);
+      // F0 follows the KHR_materials_specular convention:
+      // for dielectrics, F0 starts at the canonical 0.04 (Schlick approx
+      // for ior=1.5 glass) and is *modulated* by specularColor — i.e.
+      // specularColor (1,1,1) keeps F0 at 0.04, tinting it shifts the
+      // hue of grazing-angle reflection without inflating the overall
+      // reflectance. Treating specularColor as F0 directly (the old
+      // path) coupled the slider to the entire BRDF balance, so a
+      // red picker turned the whole material red instead of just
+      // tinting highlights.
+      let dielectricF0 = vec3<f32>(0.04) * materialUniform.specularColor.rgb;
+      fragData.F0 = mix(dielectricF0, fragData.Albedo.rgb, fragData.Metallic);
       
       fragData.F = computeFresnelSchlick(fragData.NoV, fragData.F0);
       fragData.KD = vec3<f32>(fragData.F) ;
@@ -62,7 +72,10 @@ export let BsDF_frag: string = /*wgsl*/ `
           let MAX_REFLECTION_LOD  = f32(textureNumLevels(prefilterMap)) ;
           irradiance += (globalUniform.skyExposure * textureSampleLevel(prefilterMap, prefilterMapSampler, fragData.N.xyz, 0.8 * (MAX_REFLECTION_LOD) ).rgb);
       #endif
-      irradiance = ORI_ShadingInput.SSS + LinearToGammaSpace(irradiance.rgb);
+      // Irradiance is sampled linear; keep linear (no in-shader gamma)
+      // so the SSS sum stays in linear HDR for the linear-to-sRGB
+      // encode the swapchain handles on present.
+      irradiance = ORI_ShadingInput.SSS + irradiance.rgb;
       fragData.Irradiance = irradiance.rgb ;
 
    
@@ -149,7 +162,8 @@ export let BsDF_frag: string = /*wgsl*/ `
         color = vec3<f32>(clearCoatLayer.rgb/fragData.Albedo.a) ; 
       #endif
       
-      let retColor = (LinearToGammaSpace(color.rgb));
+      // Linear HDR out; swapchain does the linear-to-sRGB encode.
+      let retColor = color.rgb;
       ORI_FragmentOutput.color = vec4<f32>( retColor ,fragData.Albedo.a) ;
   }
 

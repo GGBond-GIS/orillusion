@@ -3,11 +3,12 @@ import { AtmosphericComponent, CameraUtil, Engine3D, HoverCameraController, LitM
 import { HairSimulator } from "./hair/HairSimulator";
 
 export class Demo_Hair {
+    engine: Engine3D;
     constructor() {
     }
 
     async run() {
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({});
         
         GUIHelp.init();
 
@@ -25,12 +26,12 @@ export class Demo_Hair {
         view.scene = scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async initScene(scene: Scene3D) {
         let mat = new LitMaterial();
-        mat.baseMap = Engine3D.res.grayTexture;
+        mat.baseMap = this.engine.res.grayTexture;
         mat.roughness = 0.01;
 
         let sphere = new Object3D();
@@ -43,7 +44,7 @@ export class Demo_Hair {
         mr.castShadow = true;
         // scene.addChild(sphere);
 
-        let HairTexture = await Engine3D.res.loadTexture("textures/hairTexture.png");
+        let HairTexture = await this.engine.res.loadTexture("textures/hairTexture.png");
         var obj = new Object3D();
         let simulator = obj.addComponent(HairSimulator);
         simulator.SetInteractionSphere(sphere, HairTexture);

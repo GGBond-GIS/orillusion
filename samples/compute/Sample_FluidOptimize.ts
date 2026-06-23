@@ -1,5 +1,5 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
-import { Camera3D, CameraUtil, ColliderComponent, Engine3D, HoverCameraController, Object3D, PlaneGeometry, PointerEvent3D, Scene3D, Vector3, View3D, webGPUContext } from '@orillusion/core';
+import { Camera3D, CameraUtil, ColliderComponent, Engine3D, HoverCameraController, Object3D, PlaneGeometry, PointerEvent3D, Scene3D, Vector3, View3D } from '@orillusion/core';
 import { FluidEmulation } from './fluid/FluidSimulator';
 import { FluidSimulatorMaterial2 } from './fluid/FluidSimulatorMaterialOptimize';
 
@@ -10,15 +10,18 @@ export class Demo_FluidOptimize {
     protected mVelocity: Vector3 = new Vector3();
 
     async run() {
-        Engine3D.setting.material.materialChannelDebug = true;
-        Engine3D.setting.pick.enable = true;
-        Engine3D.setting.pick.mode = `pixel`;
-        Engine3D.setting.render.postProcessing.ssao.radius = 0.1;
-        Engine3D.setting.render.postProcessing.ssao.aoPower = 4.2;
-        Engine3D.setting.render.postProcessing.gtao.usePosFloat32 = false;
-        Engine3D.setting.render.postProcessing.gtao.maxDistance = 0.65;
-        Engine3D.setting.render.postProcessing.gtao.maxPixel = 10;
-        await Engine3D.init({});
+        const engine = await Engine3D.init({
+            setting: {
+                material: { materialChannelDebug: true },
+                pick: { enable: true, mode: `pixel` },
+                render: {
+                    postProcessing: {
+                        ssao: { radius: 0.1, aoPower: 4.2 },
+                        gtao: { usePosFloat32: false, maxDistance: 0.65, maxPixel: 10 },
+                    },
+                },
+            },
+        });
 
         GUIHelp.init();
 
@@ -27,7 +30,7 @@ export class Demo_FluidOptimize {
 
         let camera = CameraUtil.createCamera3DObject(scene);
 
-        camera.perspective(60, webGPUContext.aspect, 0.01, 10000.0);
+        camera.perspective(60, engine.context3D.aspect, 0.01, 10000.0);
         let ctl = camera.object3D.addComponent(HoverCameraController);
         ctl.setCamera(-45, -30, 50, new Vector3(15, 0, 10));
 
@@ -35,7 +38,7 @@ export class Demo_FluidOptimize {
         view.scene = scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
         await this.initScene(scene);
     }
 
@@ -56,10 +59,10 @@ export class Demo_FluidOptimize {
                 let point = e.data.worldPos;
                 if (point.y >= 0 && (this.mLastPoint.x != point.x && this.mLastPoint.y != point.y && this.mLastPoint.z != point.z)) {
                     try {
-                        point.subtract(this.mLastPoint, this.mVelocity);
+                        Vector3.sub(point, this.mLastPoint, this.mVelocity);
                         this.mLastPoint.copy(point);
                         let r = scene.view.camera;
-                        let ray = r.screenPointToRay(Engine3D.inputSystem.mouseX, Engine3D.inputSystem.mouseY);
+                        let ray = r.screenPointToRay(scene.view.engine3D.inputSystem.mouseX, scene.view.engine3D.inputSystem.mouseY);
                         emulation.updateInputInfo(scene.view.camera.transform.localPosition, ray.direction, this.mVelocity);
                     }
                     catch (e) {

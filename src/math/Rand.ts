@@ -26,6 +26,9 @@ export class Rand {
         return this._x;
     }
 
+    /**
+     * Set the random seed and reinitialize the generator state
+     */
     public set seed(value: number) {
         this._x = value;
         this._y = this._x * 1812433253 + 1;

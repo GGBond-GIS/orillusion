@@ -11,9 +11,13 @@ import { Keyframe } from "../Keyframe";
  * @group Math
  */
 export class KeyframeT {
+    /** Serialized format version of this keyframe. */
     public serializedVersion: string = '2';
+    /** Time of this keyframe. */
     public time: number;
+    /** Tangent mode flags for this keyframe. */
     public tangentMode: number = 0;
+    /** Weighted mode flags for this keyframe. */
     public weightedMode: number = 0;
     // public value: CurveValueType;
     // public inSlope: CurveValueType;
@@ -21,6 +25,7 @@ export class KeyframeT {
     // public inWeight: CurveValueType
     // public outWeight: CurveValueType
 
+    /** Map of channel index to its per-channel keyframe. */
     public propertyKeyFrame: { [k: number]: Keyframe };
 
     constructor(time: number = 0) {
@@ -28,10 +33,21 @@ export class KeyframeT {
         this.propertyKeyFrame = {};
     }
 
+    /**
+     * Get the per-channel keyframe stored at the given channel index.
+     * @param k channel index
+     * @returns the keyframe for that channel
+     */
     public getK(k: number) {
         return this.propertyKeyFrame[k];
     }
 
+    /**
+     * Split a multi-component value into per-channel keyframes, writing it to the given property.
+     * @param type value type describing the component layout
+     * @param value the value to distribute across channels
+     * @param property the keyframe property name to assign (e.g. value, inSlope, outSlope)
+     */
     public split(type: ValueEnumType, value: CurveValueType, property: string) {
         switch (type) {
             case ValueEnumType.single:
@@ -108,6 +124,10 @@ export class KeyframeT {
         return keyFrame;
     }
 
+    /**
+     * Read this keyframe and its per-channel data from a binary byte stream.
+     * @param bytes source byte array
+     */
     public formBytes(bytes: BytesArray) {
         this.time = bytes.readFloat32();
         {

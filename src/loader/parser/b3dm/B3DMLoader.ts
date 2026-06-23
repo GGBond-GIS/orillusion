@@ -7,6 +7,10 @@ import { Vector3 } from "../../../math/Vector3";
 import { Object3D } from "../../../core/entities/Object3D";
 
 
+/**
+ * Decodes a b3dm buffer into an Object3D, applying RTC center and adjustment transforms.
+ * @internal
+ */
 export class B3DMLoader extends B3DMLoaderBase {
     public adjustmentTransform: Matrix4;
     private gltfBuffer: ArrayBufferLike;
@@ -52,13 +56,13 @@ export class B3DMLoader extends B3DMLoaderBase {
         tempMatrix.multiply(this.adjustmentTransform);
         let prs: Vector3[] = tempMatrix.decompose(Orientation3D.QUATERNION);
 
-        transform.localRotQuat.copyFrom(prs[1]);
+        transform.localRotQuat.copy(prs[1]);
         transform.localRotQuat = transform.localRotQuat;
 
-        transform.localPosition.copyFrom(prs[0]);
+        transform.localPosition.copy(prs[0]);
         transform.localPosition = transform.localPosition;
 
-        transform.localScale.copyFrom(prs[2]);
+        transform.localScale.copy(prs[2]);
         transform.localScale = transform.localScale;
 
         transform.updateWorldMatrix();

@@ -2,15 +2,16 @@ import { Object3D, Scene3D, Engine3D, BoxGeometry, LitMaterial, MeshRenderer, } 
 import { createExampleScene } from "@samples/utils/ExampleScene";
 
 class Sample_ChangeTexture {
+    engine: Engine3D;
 
     scene: Scene3D;
     async run() {
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init();
 
-        let exampleScene = createExampleScene();
+        let exampleScene = createExampleScene(engine);
         this.scene = exampleScene.scene;
         await this.initScene();
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
 
     }
 
@@ -24,7 +25,7 @@ class Sample_ChangeTexture {
         let render1 = box1.addComponent(MeshRenderer);
         render1.geometry = new BoxGeometry(20, 20, 20);
         let material1 = render1.material = new LitMaterial();
-        material1.maskMap = Engine3D.res.maskTexture;
+        material1.maskMap = this.engine.res.maskTexture;
 
         //create second box
         let box2 = new Object3D();
@@ -34,11 +35,11 @@ class Sample_ChangeTexture {
         let render2 = box2.addComponent(MeshRenderer);
         render2.geometry = new BoxGeometry(20, 20, 20);
         let material2 = render2.material = new LitMaterial();
-        material2.maskMap = Engine3D.res.maskTexture;
+        material2.maskMap = this.engine.res.maskTexture;
 
         //load 2 textures for switching display
-        let texture_0 = await Engine3D.res.loadTexture('textures/diffuse.jpg');
-        let texture_1 = await Engine3D.res.loadTexture('textures/KB3D_NTT_Ads_basecolor.png');
+        let texture_0 = await this.engine.res.loadTexture('textures/diffuse.jpg');
+        let texture_1 = await this.engine.res.loadTexture('textures/KB3D_NTT_Ads_basecolor.png');
 
         //auto change texture per 2 second
         let count = 0;

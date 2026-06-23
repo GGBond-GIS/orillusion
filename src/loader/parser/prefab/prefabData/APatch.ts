@@ -4,6 +4,11 @@ import { Color } from "../../../../math/Color";
 import { Vector2 } from "../../../../math/Vector2";
 import { RegisterComponent } from "../../../../util/SerializeDecoration";
 
+/**
+ * Internal navigation/path data component carried by prefabs. Holds a grid of
+ * walkable/obstacle cells and per-cell path indices for debug visualization.
+ * @internal
+ */
 @RegisterComponent(APatch, 'APatch')
 export class APatch extends ComponentBase {
     public size: Vector2;

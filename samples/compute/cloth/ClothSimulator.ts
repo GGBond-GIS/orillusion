@@ -1,4 +1,4 @@
-import { Engine3D, LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, PlaneGeometry, Time, Vector3, VertexAttributeName, View3D, GeometryVertexType } from '@orillusion/core';
+import { LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, PlaneGeometry, Time, Vector3, VertexAttributeName, View3D, GeometryVertexType } from '@orillusion/core';
 import { ClothSimulatorConfig } from "./ClothSimulatorConfig";
 import { ClothSimulatorPipeline } from "./ClothSimulatorPipeline";
 
@@ -60,14 +60,16 @@ export class ClothSimulator extends MeshRenderer {
         this.geometry = this.mClothGeometry;
         var mat = new LitMaterial();
         mat.roughness = 0.8;
-        mat.baseMap = Engine3D.res.redTexture;
         mat.doubleSide = true;
         this.material = mat;
     }
 
     public start() {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
+        const engine = (this.transform as any)?.view3D?.engine3D;
+        (this.material as LitMaterial).baseMap = engine.res.redTexture;
+        const input = engine?.inputSystem;
+        input.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
+        input.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
     }
 
     public SetInteractionSphere(sphere: Object3D) {
@@ -102,7 +104,7 @@ export class ClothSimulator extends MeshRenderer {
                 } else if (this.mKeyState[3]) {
                     transform.x += speed
                 }
-                pos.copyFrom(this.mInteractionSphere.transform.worldPosition);
+                pos.copy(this.mInteractionSphere.transform.worldPosition);
             }
 
             this.mClothComputePipeline.compute(command, pos);

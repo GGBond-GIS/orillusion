@@ -1,27 +1,31 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, webGPUContext, HoverCameraController, Object3D, DirectLight, KelvinUtil, PlaneGeometry, VertexAttributeName, LitMaterial, MeshRenderer, BoxGeometry, SphereGeometry, CylinderGeometry, TorusGeometry, Vector2, Color } from "@orillusion/core";
+import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, HoverCameraController, Object3D, DirectLight, KelvinUtil, PlaneGeometry, VertexAttributeName, LitMaterial, MeshRenderer, BoxGeometry, SphereGeometry, CylinderGeometry, TorusGeometry, Vector2, Color } from "@orillusion/core";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 // An sample of display internal geometry
 class Sample_InternalGeometry {
     lightObj: Object3D;
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.shadowBound = 200;
-        Engine3D.setting.shadow.shadowSize = 2048;
         GUIHelp.init();
 
-        await Engine3D.init();
+        const engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    shadowSize: 2048,
+                },
+            },
+        });
         let view = new View3D();
         view.scene = new Scene3D();
         let sky = view.scene.addComponent(AtmosphericComponent);
 
         view.camera = CameraUtil.createCamera3DObject(view.scene);
-        view.camera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+        view.camera.perspective(60, engine.context3D.aspect, 1, 5000.0);
         view.camera.object3D.z = -15;
         view.camera.object3D.addComponent(HoverCameraController).setCamera(35, -20, 150);
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         await this.createScene(view.scene);
         sky.relativeTransform = this.lightObj.transform;
@@ -38,7 +42,6 @@ class Sample_InternalGeometry {
         sunLight.intensity = 3;
         sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
-        sunLight.shadowBias = 0.5;
         sunLight.shadowBoundWidth = 256;
         sunLight.shadowBoundHeight = 256;
         sunLight.shadowBoundFar = 256;

@@ -3,6 +3,9 @@ import { Navi3DMesh } from "./Navi3DMesh";
 import { Navi3DPoint } from "./Navi3DPoint";
 import { Navi3DTriangle } from "./Navi3DTriangle";
 
+/**
+ * @internal
+ */
 export class Navi3DAstar {
 
     private _openedList: Array<Navi3DTriangle>;

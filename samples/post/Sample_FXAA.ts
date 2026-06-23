@@ -2,7 +2,7 @@ import {
 	View3D, DirectLight, Engine3D,
 	PostProcessingComponent, LitMaterial, HoverCameraController,
 	KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry,
-	CameraUtil, webGPUContext, BoxGeometry, TAAPost, AtmosphericComponent, GTAOPost, Color, BloomPost, FXAAPost
+	CameraUtil, BoxGeometry, TAAPost, AtmosphericComponent, GTAOPost, Color, BloomPost, FXAAPost
 } from '@orillusion/core';
 
 class Sample_Bloom {
@@ -10,17 +10,23 @@ class Sample_Bloom {
 	scene: Scene3D;
 
 	async run() {
-		Engine3D.setting.shadow.shadowSize = 2048
-		Engine3D.setting.shadow.shadowBound = 500;
-
-		await Engine3D.init();
+		const engine = await Engine3D.init({
+			setting: {
+				shadow: {
+					shadowSize: 2048,
+				},
+				render:{
+					zPrePass: true,
+				}
+			},
+		});
 
 		this.scene = new Scene3D();
 		let sky = this.scene.addComponent(AtmosphericComponent);
 		sky.sunY = 0.6;
 
 		let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera');
-		mainCamera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+		mainCamera.perspective(60, engine.context3D.aspect, 1, 5000.0);
 		let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
 		ctrl.setCamera(0, -15, 500);
 		await this.initScene();
@@ -30,11 +36,11 @@ class Sample_Bloom {
 		let view = new View3D();
 		view.scene = this.scene;
 		view.camera = mainCamera;
-		Engine3D.startRenderView(view);
-		// 1. 必须在 startRenderView 后添加 post 才可以，否则错误
+		engine.startRenderView(view);
+		// 1. Post effects must be added AFTER startRenderView, otherwise it errors out
 		let postProcessing = this.scene.addComponent(PostProcessingComponent);
 		let post = postProcessing.addPost(FXAAPost);
-		// 2. 有post 的情况下，render 后立即触发 canvas resize，但无法触发画面reisze，必须得等e.g 200ms+
+		// 2. When a post is active, triggering canvas resize immediately after render does not actually resize the picture; you must wait, e.g. 200ms+
 		// document.body.querySelector('canvas').setAttribute('style', 'width:100px')
 	}
 
@@ -49,7 +55,6 @@ class Sample_Bloom {
 			lc.castShadow = true;
 			lc.intensity = 5;
 			lc.enableCSM = true;
-			lc.shadowCSMBias = 0.003;
 			this.scene.addChild(this.lightObj);
 		}
 

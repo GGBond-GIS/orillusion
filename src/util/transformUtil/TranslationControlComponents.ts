@@ -13,8 +13,14 @@ import { PlaneGeometry } from "../../shape/PlaneGeometry";
 import { TransformAxisEnum } from "./TransformAxisEnum";
 import { TransformControllerBaseComponent } from "./TransformControllerBaseComponent";
 
+/**
+ * Translation gizmo controller. Builds the axis arrows and the planar
+ * (XY/XZ/YZ) drag handles and moves the target in local or global space.
+ * @group Util
+ */
 export class TranslationControlComponents extends TransformControllerBaseComponent {
 
+    /** Build the translation handles, including the three drag planes. */
     public init(param?: any): void {
         super.init(param);
 
@@ -52,9 +58,10 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
         this.mAxisCollider[TransformAxisEnum.YZ] = planeYZ.getComponent(ColliderComponent);
     }
 
+    /** Apply a translation in the target's local space for the active axis. */
     protected applyLocalTransform(currentAxis: TransformAxisEnum, offset: Vector3, distance: number) {
-        Matrix4.help_matrix_0.copyFrom(this.mX.transform.worldMatrix).invert();
-        Matrix4.help_matrix_0.transformVector(offset, Vector3.HELP_0);
+        Matrix4.help_matrix_0.copy(this.mX.transform.worldMatrix).invert();
+        Matrix4.transformVector(Matrix4.help_matrix_0, offset, Vector3.HELP_0);
 
         if (!(this.currentAxis == TransformAxisEnum.X || this.currentAxis == TransformAxisEnum.XY || this.currentAxis == TransformAxisEnum.XZ)) {
             Vector3.HELP_0.x = 0;
@@ -66,7 +73,7 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
             Vector3.HELP_0.z = 0;
         }
 
-        this.mX.transform.worldMatrix.transformVector(Vector3.HELP_0, Vector3.HELP_1);
+        Matrix4.transformVector(this.mX.transform.worldMatrix, Vector3.HELP_0, Vector3.HELP_1);
 
         this.mX.x += Vector3.HELP_1.x;
         this.mX.y += Vector3.HELP_1.y;
@@ -75,6 +82,7 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
         // this.target.localPosition = this.mX.transform.worldPosition.clone();
     }
 
+    /** Apply a translation in world space for the active axis. */
     protected applyGlobalTransform(currentAxis: TransformAxisEnum, offset: Vector3, distance: number) {
         Matrix4.help_matrix_0.identity();
 
@@ -88,11 +96,11 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
             Matrix4.help_matrix_0.appendTranslation(0, 0, offset.z);
         }
 
-        Matrix4.help_matrix_1.copyFrom(this.mX.transform.worldMatrix);
+        Matrix4.help_matrix_1.copy(this.mX.transform.worldMatrix);
         Matrix4.help_matrix_1.append(Matrix4.help_matrix_0);
 
         if (this.mX.parent) {
-            Matrix4.help_matrix_2.copyFrom(this.mX.parent.worldMatrix);
+            Matrix4.help_matrix_2.copy(this.mX.parent.worldMatrix);
             Matrix4.help_matrix_2.invert();
             Matrix4.help_matrix_1.multiply(Matrix4.help_matrix_2);
         }
@@ -101,11 +109,10 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
 
         this.mX.transform.localPosition = trs[0];
 
-        console.log(this.target.localPosition);
-
         // this.target.localPosition = this.mX.transform.worldPosition.clone();
     }
 
+    /** Build the visual handle for one translation axis (shaft plus arrowhead). */
     protected createCustomAxis(axis: TransformAxisEnum): Object3D {
         let axisObj = super.createAxis(axis);
 
@@ -115,6 +122,7 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
         return axisObj;
     }
 
+    /** Create the cone arrowhead mesh at the end of one translation axis. */
     protected createArrows(axis: TransformAxisEnum): Object3D {
         let r = 0, g = 0, b = 0;
 
@@ -149,6 +157,7 @@ export class TranslationControlComponents extends TransformControllerBaseCompone
         return obj;
     }
 
+    /** Create a planar drag handle (and its collider) for a two-axis combination. */
     protected createPlane(axis: TransformAxisEnum): Object3D {
         let obj = new Object3D();
 

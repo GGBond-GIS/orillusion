@@ -1,7 +1,6 @@
 /**
  * The EventListener class is used to add or remove event listeners.
  * @internal
- * @group Events
  */
 export class CEventListener {
     /**

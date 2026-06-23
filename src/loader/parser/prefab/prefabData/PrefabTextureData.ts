@@ -1,5 +1,10 @@
 import { BitmapTexture2D, Vector2 } from "../../../..";
 
+/**
+ * Internal data carrier for a decoded material texture binding: the target
+ * property, the resolved texture and its sampler settings (wrap/filter/etc.).
+ * @internal
+ */
 export class PrefabTextureData {
 
     public property: string;

@@ -10,7 +10,7 @@ export class UVMoveComponent extends ComponentBase {
     }
 
     public set speed(value: Vector4) {
-        this._speed.copyFrom(value);
+        this._speed.copy(value);
     }
 
     start(): void {

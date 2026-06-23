@@ -4,7 +4,6 @@ import { RenderShaderPass, PassType } from '../..';
 /**
  * @internal
  * DepthMaterialPass
- * @group Material
  */
 export class DepthMaterialPass extends RenderShaderPass {
     constructor() {

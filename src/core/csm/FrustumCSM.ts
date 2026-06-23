@@ -69,8 +69,32 @@ class FrustumChild {
         this.bound.setFromMinMax(min, max);
         return this;
     }
+
+    /**
+     * Flat accessor for the 8 world-space corners of this cascade frustum
+     * (4 near + 4 far). Used by CSM stabilize (sphere-fit + texel-snap) to
+     * get a rotation-invariant bounding sphere without re-walking twoSections
+     * on the caller side.
+     */
+    public getWorldCorners(): Vector3[] {
+        return [
+            this.twoSections[0].corners[0],
+            this.twoSections[0].corners[1],
+            this.twoSections[0].corners[2],
+            this.twoSections[0].corners[3],
+            this.twoSections[1].corners[0],
+            this.twoSections[1].corners[1],
+            this.twoSections[1].corners[2],
+            this.twoSections[1].corners[3],
+        ];
+    }
 }
 
+/**
+ * Splits a camera frustum into cascaded sub-frustums for Cascaded Shadow Maps,
+ * each with its own bounding volume and shadow camera.
+ * @group Core
+ */
 export class FrustumCSM {
     public sections: FrustumSection[];
     public children: FrustumChild[];
@@ -115,8 +139,8 @@ export class FrustumCSM {
                     let pt = section.corners[cornerIndex];
                     cornerIndex++;
                     pt.set(2.0 * x - 1.0, 2.0 * y - 1.0, depth, 1.0);
-                    pvInv.transformVector4(pt, pt);
-                    pt.div(pt.w, pt);
+                    Matrix4.transformVector4(pvInv, pt, pt);
+                    pt.multiplyScalar(1 / pt.w);
                 }
             }
         }

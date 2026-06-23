@@ -2,7 +2,6 @@
  * the param of touch event.
  * Save as the basic data for touch events in touch event. see InputSystem.
  * @internal
- * @group IO
  */
 export class TouchData {
     constructor(touch: Touch) {

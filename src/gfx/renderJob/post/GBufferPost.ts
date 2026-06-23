@@ -5,8 +5,6 @@ import { UniformGPUBuffer } from '../../graphics/webGpu/core/buffer/UniformGPUBu
 import { WebGPUDescriptorCreator } from '../../graphics/webGpu/descriptor/WebGPUDescriptorCreator';
 import { ComputeShader } from '../../graphics/webGpu/shader/ComputeShader';
 import { GPUTextureFormat } from '../../graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
-import { GPUContext } from '../GPUContext';
 import { RendererPassState } from '../passRenderer/state/RendererPassState';
 import { PostBase } from './PostBase';
 import { Engine3D } from '../../../Engine3D';
@@ -29,7 +27,7 @@ import { Combine_cs, TestComputeLoadBuffer, Vector3, mergeFunctions } from '../.
  * Let the intersection of the object and the object imitate the effect of the light being cross-occluded
  * ```
  * gtao setting
- * let cfg = {@link Engine3D.setting.render.postProcessing.gtao};
+ * let cfg = {@link this.setting.render.postProcessing.gtao};
  *```
  * @group Post Effects
  */
@@ -61,9 +59,9 @@ export class GBufferPost extends PostBase {
 
     /**
      * @internal
-     */Render
+     */
     onDetach(view: View3D,) {
-        // Engine3D.setting.render.useCompressGBuffer = false;
+        // this.setting.render.useCompressGBuffer = false;
     }
 
     /**
@@ -99,14 +97,14 @@ export class GBufferPost extends PostBase {
         return this._state2;
     }
 
-    private createResource() {
-        let rtFrame = GBufferFrame.getGBufferFrame("ColorPassGBuffer");
+    private _createGBufferPostResources() {
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, this._boundCtx!);
         this.currentRenderTexture = rtFrame.getColorTexture();
         this.gBufferTexture = rtFrame.getCompressGBufferTexture();
 
-        let [w, h] = webGPUContext.presentationSize;
+        let [w, h] = this._boundCtx!.presentationSize;
 
-        this.outTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING);
+        this.outTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.outTexture.name = 'outTexture';
 
         let testDec = new RTDescriptor();
@@ -123,14 +121,14 @@ export class GBufferPost extends PostBase {
         this.uniformBuffer.setInt32("state", this._state);
 
         let globalUniform = GlobalBindGroup.getCameraGroup(this.view.camera);
-        let rtFrame = GBufferFrame.getGBufferFrame("ColorPassGBuffer");
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, this._boundCtx!);
         let gBufferTexture = rtFrame.getCompressGBufferTexture();
 
-        let reflectionSetting = Engine3D.setting.reflectionSetting;
-        let reflectionsGBufferFrame = GBufferFrame.getGBufferFrame(GBufferFrame.reflections_GBuffer, reflectionSetting.width, reflectionSetting.height);
+        let reflectionSetting = this.setting.reflectionSetting;
+        let reflectionsGBufferFrame = GBufferFrame.getGBufferFrame(GBufferFrame.reflections_GBuffer, this._boundCtx!, reflectionSetting.width, reflectionSetting.height);
         let reflectionsGBufferTexture = reflectionsGBufferFrame.getCompressGBufferTexture();
 
-        let envMap = Engine3D.renderJobs.get(this.view).reflectionRenderer.outTexture;
+        let envMap = this.view.renderGraph?.pool.get(`_ReflectionCubeMap`) as any;
 
         this.testCompute = new ComputeShader(TestComputeLoadBuffer);
         this.testCompute.setUniformBuffer('globalUniform', globalUniform.uniformGPUBuffer);
@@ -152,22 +150,22 @@ export class GBufferPost extends PostBase {
 
     public compute(view: View3D): void {
         if (!this.testCompute) {
-            this.createResource();
+            this._createGBufferPostResources();
             this.createCompute();
             this.onResize();
 
-            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(this.rtFrame, null);
+            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(view.engine3D.context3D, this.rtFrame, null);
             this.rendererPassState.label = "test";
         }
 
-        let command = GPUContext.beginCommandEncoder();
-        GPUContext.computeCommand(command, [this.testCompute]);
-        GPUContext.endCommandEncoder(command);
-        GPUContext.lastRenderPassState = this.rendererPassState;
+        let command = this._boundCtx!.gpuContext.beginCommandEncoder();
+        this._boundCtx!.gpuContext.computeCommand(command, [this.testCompute]);
+        this._boundCtx!.gpuContext.endCommandEncoder(command);
+        this._boundCtx!.gpuContext.lastRenderPassState = this.rendererPassState;
     }
 
     public onResize() {
-        let [w, h] = webGPUContext.presentationSize;
+        let [w, h] = this._boundCtx!.presentationSize;
         this.outTexture.resize(w, h);
 
         this.testCompute.workerSizeX = Math.ceil(this.outTexture.width / 16);

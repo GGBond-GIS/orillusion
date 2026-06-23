@@ -1,4 +1,4 @@
-import { ComputeGPUBuffer, webGPUContext } from '@orillusion/core';
+import { ComputeGPUBuffer } from '@orillusion/core';
 import { FlowImgSimulatorConfig } from "./FlowImgSimulatorConfig";
 
 export class FlowImgSimulatorBuffer {

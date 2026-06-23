@@ -3,7 +3,17 @@ import { ParserBase } from "../ParserBase";
 import { ParserFormat } from "../ParserFormat";
 import { GeoJsonStruct, GeoType } from "./GeoJsonParser";
 
+/**
+ * Helper utilities for converting parsed GeoJSON structures into engine
+ * geometry data (e.g. polylines / polygon outlines in world space).
+ * @group Loader
+ */
 export class GeoJsonUtil {
+    /**
+     * Extract polyline paths from a GeoJSON structure.
+     * @param data Parsed GeoJSON feature collection.
+     * @returns Arrays of {@link Vector3} points, one array per matching feature.
+     */
     public static getPath(data: GeoJsonStruct) {
         let lineArray: Vector3[][] = [];
         for (let i = 0; i < data.features.length; i++) {

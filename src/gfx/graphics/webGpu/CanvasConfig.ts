@@ -1,7 +1,7 @@
 
 /**
  * config data for canvas
- * @group engine3D
+ * @group GFX
  */
 export type CanvasConfig = {
     /**

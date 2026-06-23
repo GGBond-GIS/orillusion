@@ -62,7 +62,7 @@ export class ZSorterUtil {
         camera ||= obj3d.transform.view3D.camera;
         let z: number = 0;
         if (camera) {
-            this._worldPosition.copyFrom(obj3d.transform.worldPosition);
+            this._worldPosition.copy(obj3d.transform.worldPosition);
             camera.worldToScreenPoint(this._worldPosition, this._viewPosition);
             z = this._viewPosition.z;
         }

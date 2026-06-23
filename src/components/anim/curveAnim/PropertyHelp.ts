@@ -1,3 +1,8 @@
+/**
+ * @internal
+ * Flags describing which property categories a curve-animation channel
+ * targets (transform, quaternion rotation, or material color).
+ */
 export class PropertyAnimTag {
     transform?: boolean;
     quaternion?: boolean;

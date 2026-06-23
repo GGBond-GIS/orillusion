@@ -1,11 +1,8 @@
 import { Texture } from '../../graphics/webGpu/core/texture/Texture';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
-import { GPUContext } from '../../renderJob/GPUContext';
 import { RenderTexture } from '../../../textures/RenderTexture';
 
 /**
  * @internal
- * @group GFX
  */
 export class TextureCubeStdCreator {
 
@@ -66,14 +63,17 @@ fn samplePixel(face:i32, uv01:vec2<f32>) -> vec4<f32> {
 }
 `;
 
-    private static configBuffer: GPUBuffer = null;
-    private static blurSettingBuffer: GPUBuffer = null;
-    private static pipeline: GPUComputePipeline;
-
     static createFace(index: number, size: number, inTex: Texture, outTex: RenderTexture): void {
-        const device = webGPUContext.device;
-        if (this.pipeline == null) {
-            this.pipeline = device.createComputePipeline({
+        const ctx = inTex._boundCtx ?? outTex._boundCtx!;
+        const device = ctx.device;
+        const gpu = ctx.gpuContext;
+        const state = ctx.cache(TextureCubeStdCreator, () => ({
+            configBuffer: null as GPUBuffer,
+            blurSettingBuffer: null as GPUBuffer,
+            pipeline: null as GPUComputePipeline,
+        }));
+        if (state.pipeline == null) {
+            state.pipeline = device.createComputePipeline({
                 layout: `auto`,
                 compute: {
                     module: device.createShaderModule({
@@ -83,31 +83,29 @@ fn samplePixel(face:i32, uv01:vec2<f32>) -> vec4<f32> {
                 },
             });
         }
-        const computePipeline = this.pipeline;
+        const computePipeline = state.pipeline;
 
         //config
         const configStride = 4 * 4; //4 float
-        this.configBuffer ||= device.createBuffer({
+        state.configBuffer ||= device.createBuffer({
             size: configStride,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
-        device.queue.writeBuffer(this.configBuffer, 0, new Uint32Array([index, 0, 0, 0]));
-
-        const quaternionSize = 4 * 6; ////xyzw * float
+        device.queue.writeBuffer(state.configBuffer, 0, new Uint32Array([index, 0, 0, 0]));
 
         //roughness
-        this.blurSettingBuffer ||= device.createBuffer({
+        state.blurSettingBuffer ||= device.createBuffer({
             size: configStride,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
-        device.queue.writeBuffer(this.blurSettingBuffer, 0, new Float32Array([0, 0, 0, 0]));
+        device.queue.writeBuffer(state.blurSettingBuffer, 0, new Float32Array([0, 0, 0, 0]));
 
         //image
         let entries0 = [
             {
                 binding: 0,
                 resource: {
-                    buffer: this.configBuffer,
+                    buffer: state.configBuffer,
                     size: 4 * 4,
                 },
             },
@@ -127,13 +125,13 @@ fn samplePixel(face:i32, uv01:vec2<f32>) -> vec4<f32> {
             entries: entries0,
         });
 
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = gpu.beginCommandEncoder();
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup0);
         computePass.dispatchWorkgroups(size / 8, size / 8);
 
         computePass.end();
-        GPUContext.endCommandEncoder(commandEncoder);
+        gpu.endCommandEncoder(commandEncoder);
     }
 }

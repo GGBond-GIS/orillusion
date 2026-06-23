@@ -14,7 +14,6 @@ export enum CubeMapFaceEnum {
 }
 /**
  * @internal
- * @group GFX
  */
 export class TextureCubeUtils {
     public static getRotationToFace(face: number): Quaternion {
@@ -44,10 +43,17 @@ export class TextureCubeUtils {
                 up.set(0, 1, 0);
                 break;
             case CubeMapFaceEnum.Front:
+                // Early-return path still allocated `matrix` above — free it
+                // before bailing, otherwise we leak 2 slots per env-map build.
+                Matrix4.freeIndex(matrix);
                 return Quaternion.identity();
         }
         matrix.lookAt(new Vector3(), target, up);
         quaternion.setFromRotationMatrix(matrix);
+        // Hand the scratch slot back to the global Matrix4 table. Called
+        // once per cube face at env-map build time, so without this each
+        // engine reinit leaked 12 slots.
+        Matrix4.freeIndex(matrix);
         return quaternion;
     }
 

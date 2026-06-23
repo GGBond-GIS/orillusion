@@ -2,22 +2,27 @@ import {
 	View3D, DirectLight, Engine3D,
 	PostProcessingComponent, LitMaterial, HoverCameraController,
 	KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry,
-	CameraUtil, webGPUContext, BoxGeometry, AtmosphericComponent, GTAOPost, Color, FXAAPost, GBufferPost
+	CameraUtil, BoxGeometry, AtmosphericComponent, GTAOPost, Color, FXAAPost, GBufferPost
 } from '@orillusion/core';
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Sample_GTAO {
+    engine: Engine3D;
 	lightObj: Object3D;
 	scene: Scene3D;
 
 	async run() {
-		Engine3D.setting.shadow.shadowSize = 2048
-		Engine3D.setting.shadow.shadowBound = 500;
-		Engine3D.setting.shadow.shadowBias = 0.05;
-		Engine3D.setting.render.debug = true;
-
-		await Engine3D.init();
+		const engine = this.engine = await Engine3D.init({
+			setting: {
+				shadow: {
+					shadowSize: 2048,
+				},
+				render: {
+					debug: true,
+				},
+			},
+		});
 		GUIHelp.init();
 
 		this.scene = new Scene3D();
@@ -25,7 +30,7 @@ export class Sample_GTAO {
 		sky.sunY = 0.6;
 
 		let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera');
-		mainCamera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+		mainCamera.perspective(60, engine.context3D.aspect, 1, 5000.0);
 		let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
 		ctrl.setCamera(0, -15, 500);
 		await this.initScene();
@@ -34,7 +39,7 @@ export class Sample_GTAO {
 		let view = new View3D();
 		view.scene = this.scene;
 		view.camera = mainCamera;
-		Engine3D.startRenderView(view);
+		engine.startRenderView(view);
 
 		this.lightObj = new Object3D();
 		this.lightObj.rotationX = 15;
@@ -46,7 +51,6 @@ export class Sample_GTAO {
 		lc.intensity = 5;
 		lc.indirect = 0.3;
 		lc.enableCSM = true;
-		lc.shadowCSMBias = 0.003;
 		this.scene.addChild(this.lightObj);
 		GUIUtil.renderDirLight(lc);
 		sky.relativeTransform = this.lightObj.transform;
@@ -57,7 +61,7 @@ export class Sample_GTAO {
 		post.maxPixel = 15;
 		GUIUtil.renderGTAO(post);
 
-		GUIUtil.renderShadowSetting();
+		GUIUtil.renderShadowSetting(engine);
 	}
 
 	async initScene() {
@@ -100,10 +104,10 @@ export class Sample_GTAO {
 
 		{
 			let mat = new LitMaterial();
-			mat.baseMap = Engine3D.res.whiteTexture;
+			mat.baseMap = this.engine.res.whiteTexture;
 			mat.baseColor = new Color(1.0, 0.464, 0.0);
-			mat.normalMap = Engine3D.res.normalTexture;
-			mat.aoMap = Engine3D.res.whiteTexture;
+			mat.normalMap = this.engine.res.normalTexture;
+			mat.aoMap = this.engine.res.whiteTexture;
 			mat.roughness = 1.0;
 			mat.metallic = 0.0;
 

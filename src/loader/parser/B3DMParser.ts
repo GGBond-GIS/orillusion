@@ -2,9 +2,19 @@
 import { ParserBase } from './ParserBase';
 import { ParserFormat } from './ParserFormat';
 
+/**
+ * Parser for Batched 3D Model (`.b3dm`) tiles used by 3D Tiles datasets.
+ * Decodes the binary buffer into an {@link Object3D} scene graph.
+ * @group Loader
+ */
 export class B3DMParser extends ParserBase {
     static format: ParserFormat = ParserFormat.JSON;
 
+    /**
+     * Parse a `.b3dm` binary buffer into an {@link Object3D}.
+     * @param buffer Raw `.b3dm` binary data.
+     * @param customLoader Optional hook to load the embedded glTF/GLB payload.
+     */
     public async parseBuffer(buffer: ArrayBuffer, customLoader?: (array: ArrayBuffer) => Promise<Object3D | null>) {
         let loader = new B3DMLoader();
         loader.adjustmentTransform = this.userData;
@@ -12,9 +22,8 @@ export class B3DMParser extends ParserBase {
     }
 
     /**
-     * Verify parsing validity
-     * @param ret
-     * @returns
+     * Verify that parsing produced valid data.
+     * @returns true when data is present; throws otherwise.
      */
     public verification(): boolean {
         if (this.data) {
@@ -49,6 +58,11 @@ const EXTENSIONS = {
     EXT_MESHOPT_COMPRESSION: 'EXT_meshopt_compression',
 };
 
+/**
+ * Reads the `KHR_binary_glTF` container embedded inside a `.b3dm` payload,
+ * splitting the binary chunk into its JSON content and BIN body.
+ * @internal
+ */
 export class GLTFBinaryExtension {
     name: string;
     content: string;
@@ -102,6 +116,11 @@ export class GLTFBinaryExtension {
     }
 }
 
+/**
+ * Internal helper that detects the binary magic of a `.b3dm` payload and
+ * delegates GLB decoding to {@link GLBParser}.
+ * @internal
+ */
 export class B3DMParseUtil {
     private _binary: ArrayBufferLike;
 

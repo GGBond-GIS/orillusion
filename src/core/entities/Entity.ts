@@ -3,7 +3,6 @@ import { IComponent } from '../../components/IComponent';
 import { RenderNode } from '../../components/renderer/RenderNode';
 import { Transform } from '../../components/Transform';
 import { CEventDispatcher } from '../../event/CEventDispatcher';
-import { RenderLayer } from '../../gfx/renderJob/config/RenderLayer';
 import { BoundUtil } from '../../util/BoundUtil';
 import { GetCountInstanceID } from '../../util/Global';
 import { BoundingBox } from '../bound/BoundingBox';
@@ -343,9 +342,12 @@ export class Entity extends CEventDispatcher {
                 c.destroy(force);
             });
             this.components.clear();
-            this.entityChildren.forEach((c) => {
-                c.destroy(force);
-            })
+            // Iterate a snapshot: child.destroy() triggers Transform.beforeDestroy,
+            // which removes the child from our entityChildren. Mutating the array
+            // mid-forEach drops every other child (leaving 3 of 6 cube-camera faces
+            // and the whole scene camera behind, leaking their Matrix4 slots).
+            const children = this.entityChildren.slice();
+            for (const c of children) c.destroy(force);
 
             this.removeAllChild();
 

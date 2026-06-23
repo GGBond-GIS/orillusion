@@ -319,19 +319,33 @@ fn dir_to_faceId(pt:vec3<f32>) -> i32 {
       return log2(depth + 1.0) * 2.0 / (log(far + 1.0) / 0.6931471805599453) * 0.5;
     }
 
+    // Logarithmic depth in WebGPU NDC [0, 1].
+    //   L(w) = log2(1 + w) / log2(far + 1),   w = view-space distance.
+    //
+    // VS and FS target the SAME ndc.z function — only the input w
+    // differs. log2Depth runs in VS on per-vertex clip.w and
+    // pre-multiplies by w to survive the perspective divide;
+    // log2DepthFixPersp runs in FS on the perspective-correctly
+    // interpolated clip.w to recover the true per-pixel log curve that
+    // rasterizer-interpolated clip.z drifts away from on long triangles.
+    //
+    // Earlier ports of the Outerra OpenGL snippet kept a (1 + x) / 2
+    // remap that converted OpenGL's [-1, 1] ndc.z to its [0, 1] depth
+    // buffer. WGSL ndc.z is already [0, 1], so the remap was pure waste
+    // and squeezed the usable depth range to [0.5, 1]. The inverse
+    // (inverseLog2Depth in GBufferStand) and decal-pass decode were
+    // both written against the un-remapped L; this collapses VS/FS to
+    // match them.
+    fn log2Depth01(w:f32, far:f32) -> f32 {
+      return log2(max(1e-6, 1.0 + w)) / log2(far + 1.0);
+    }
+
     fn log2Depth(depth:f32, near:f32, far:f32) -> f32 {
-      let Fcoef:f32 = 2.0 / log2(far + 1.0);
-      var result:f32 = (log2(max(1e-6, 1.0 + depth)) * Fcoef - 1.0);
-      result = (1.0 + result) / 2.0;
-      return result * depth;
+      return log2Depth01(depth, far) * depth;
     }
 
     fn log2DepthFixPersp(depth:f32, near:f32, far:f32) -> f32 {
-      let flogz:f32 = 1.0 + depth;
-      let Fcoef_half:f32 = (2.0 / log2(far + 1.0)) * 0.5;
-      var result:f32 = log2(flogz) * Fcoef_half;
-      result = (1.0 + result) / 2.0;
-      return result;
+      return log2Depth01(depth, far);
     }
 
 

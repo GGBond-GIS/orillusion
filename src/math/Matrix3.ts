@@ -85,7 +85,7 @@ export class Matrix3 {
      * Merges the current matrix with the target matrix
      * @param matrix target matrix
      */
-    public concat(matrix: Matrix3): void {
+    public concat(matrix: Matrix3): this {
         let a: number = this.a;
         let c: number = this.c;
         let tx: number = this.tx;
@@ -95,6 +95,7 @@ export class Matrix3 {
         this.d = c * matrix.b + this.d * matrix.d;
         this.tx = tx * matrix.a + this.ty * matrix.c + matrix.tx;
         this.ty = tx * matrix.b + this.ty * matrix.d + matrix.ty;
+        return this;
     }
 
     /**
@@ -102,7 +103,7 @@ export class Matrix3 {
      * @param other  target matrix value
      * @returns current matrix
      */
-    public copyFrom(other: Matrix3): Matrix3 {
+    public copy(other: Matrix3): Matrix3 {
         this.a = other.a;
         this.b = other.b;
         this.c = other.c;
@@ -124,15 +125,16 @@ export class Matrix3 {
     /**
      * Invert this matrix
      */
-    public invert(): void {
+    public invert(): this {
         this._invertInto(this);
+        return this;
     }
 
     /**
      * Rotate according to Angle
      * @param angle rotation angle
      */
-    public rotate(angle: number): void {
+    public rotate(angle: number): this {
         angle = +angle;
         if (angle !== 0) {
             angle = angle * DEGREES_TO_RADIANS;
@@ -151,6 +153,7 @@ export class Matrix3 {
             this.tx = ttx * u - tty * v;
             this.ty = ttx * v + tty * u;
         }
+        return this;
     }
 
     /**
@@ -158,7 +161,7 @@ export class Matrix3 {
      * @param sx x axis scaling
      * @param sy y axis scaling
      */
-    public scale(sx: number, sy: number): void {
+    public scale(sx: number, sy: number): this {
         if (sx !== 1) {
             this.a *= sx;
             this.c *= sx;
@@ -169,6 +172,7 @@ export class Matrix3 {
             this.d *= sy;
             this.ty *= sy;
         }
+        return this;
     }
 
     /**
@@ -213,9 +217,10 @@ export class Matrix3 {
      * @param x x coordinate
      * @param y y coordinate
      */
-    public setTranslate(x: number, y: number) {
+    public setTranslate(x: number, y: number): this {
         this.tx = x;
         this.ty = y;
+        return this;
     }
 
     /**
@@ -223,16 +228,17 @@ export class Matrix3 {
      * @param dx The x-coordinate offset
      * @param dy The y-coordinate offset
      */
-    public translate(dx: number, dy: number): void {
+    public translate(dx: number, dy: number): this {
         this.tx += dx;
         this.ty += dy;
+        return this;
     }
 
     /**
      * multiply
      * @param t target matrix
      */
-    public mul(t: Matrix3) {
+    public mul(t: Matrix3): this {
         let m1 = this;
         let m2 = t;
         let aa: number = m1.a;
@@ -263,6 +269,7 @@ export class Matrix3 {
             this.tx = ba * atx + btx;
             this.ty = bd * aty + bty;
         }
+        return this;
     }
 
     /**
@@ -349,7 +356,7 @@ export class Matrix3 {
      * @param tx x-coordinate
      * @param ty y-coordinate
      */
-    public createBox(scaleX: number, scaleY: number, rotation: number = 0, tx: number = 0, ty: number = 0): void {
+    public createBox(scaleX: number, scaleY: number, rotation: number = 0, tx: number = 0, ty: number = 0): this {
         let self = this;
         if (rotation !== 0) {
             rotation = rotation * DEGREES_TO_RADIANS;
@@ -367,6 +374,7 @@ export class Matrix3 {
         }
         self.tx = tx;
         self.ty = ty;
+        return this;
     }
 
     /**
@@ -377,8 +385,9 @@ export class Matrix3 {
      * @param tx x-coordinate
      * @param ty y-coordinate
      */
-    public createGradientBox(width: number, height: number, rotation: number = 0, tx: number = 0, ty: number = 0): void {
+    public createGradientBox(width: number, height: number, rotation: number = 0, tx: number = 0, ty: number = 0): this {
         this.createBox(width / 1638.4, height / 1638.4, rotation, tx + width / 2, ty + height / 2);
+        return this;
     }
 
 
@@ -422,7 +431,7 @@ export class Matrix3 {
     }
 
     /**
-     * @private
+     * Return the scale factor along the X axis derived from this matrix.
      */
     public getScaleX(): number {
         let m = this;
@@ -434,7 +443,7 @@ export class Matrix3 {
     }
 
     /**
-     * @private
+     * Return the scale factor along the Y axis derived from this matrix.
      */
     public getScaleY(): number {
         let m = this;
@@ -446,28 +455,32 @@ export class Matrix3 {
     }
 
     /**
-     * @private
+     * Return the skew angle along the X axis derived from this matrix.
      */
     public getSkewX(): number {
         return Math.atan2(this.d, this.c) - Math.PI / 2;
     }
 
     /**
-     * @private
+     * Return the skew angle along the Y axis derived from this matrix.
      */
     public getSkewY(): number {
         return Math.atan2(this.b, this.a);
     }
 
     /**
-     * @private
+     * Update this matrix from the given scale and skew components.
+     * @param scaleX scale factor along the X axis
+     * @param scaleY scale factor along the Y axis
+     * @param skewX skew angle along the X axis, in degrees
+     * @param skewY skew angle along the Y axis, in degrees
      */
-    public updateScaleAndRotation(scaleX: number, scaleY: number, skewX: number, skewY: number) {
+    public updateScaleAndRotation(scaleX: number, scaleY: number, skewX: number, skewY: number): this {
         if ((skewX == 0 || skewX == TwoPI) && (skewY == 0 || skewY == TwoPI)) {
             this.a = scaleX;
             this.b = this.c = 0;
             this.d = scaleY;
-            return;
+            return this;
         }
         skewX = skewX * DEGREES_TO_RADIANS;
         skewY = skewY * DEGREES_TO_RADIANS;
@@ -482,11 +495,35 @@ export class Matrix3 {
         }
         this.c = -v * scaleY;
         this.d = u * scaleY;
+        return this;
     }
 
     /**
-     * @private
-     * target = other * this
+     * Multiply two matrices: result = a * b. Allocates a new Matrix3 if result is omitted.
+     */
+    public static multiply(a: Matrix3, b: Matrix3, result?: Matrix3): Matrix3 {
+        result ||= new Matrix3();
+        if (result !== a) {
+            result.copy(a);
+        }
+        result.mul(b);
+        return result;
+    }
+
+    /**
+     * Pre-multiply two matrices: result = a * b (where a is pre-multiplied).
+     * Allocates a new Matrix3 if result is omitted.
+     */
+    public static preMultiply(a: Matrix3, b: Matrix3, result?: Matrix3): Matrix3 {
+        result ||= new Matrix3();
+        b.preMultiplyInto(a, result);
+        return result;
+    }
+
+    /**
+     * Pre-multiply this matrix by another and store the result: target = other * this.
+     * @param other the matrix to pre-multiply by
+     * @param target receives the resulting matrix
      */
     public preMultiplyInto(other: Matrix3, target: Matrix3): void {
         let a = other.a * this.a;

@@ -25,7 +25,6 @@ export class HairSimulatorPipeline extends HairSimulatorBuffer {
 
     // public updateInputData() {
     //     // this.mInputData[2] = Time.delta / 1000;
-    //     // webGPUContext.device.queue.writeBuffer(this.mInputBuffer, 0, this.mInputData);
     // }
 
     public compute(command: GPUCommandEncoder, pos: Vector3, newpos: Vector3) {

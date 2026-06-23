@@ -4,29 +4,30 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 
 //Samples to show models, they are using PBR material
 class Sample_LoadGLTF {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     async run() {
-        //config settings
-        Engine3D.setting.material.materialChannelDebug = true;
-        Engine3D.setting.shadow.shadowBound = 100;
-        Engine3D.setting.shadow.shadowSize = 2048;
-
-
         //init engine
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            //config settings
+            setting: {
+                material: { materialChannelDebug: true },
+                shadow: { shadowSize: 2048 },
+            },
+        });
 
         this.scene = new Scene3D();
 
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 0.01, 5000.0);
+        camera.perspective(60, engine.aspect, 0.01, 5000.0);
         camera.object3D.addComponent(HoverCameraController).setCamera(25, -5, 100);
 
         let view = new View3D();
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         await this.initScene();
     }
@@ -61,7 +62,7 @@ class Sample_LoadGLTF {
 
         {
             /******** player1 *******/
-            let player1 = (await Engine3D.res.loadGltf('gltfs/anim/Minion_Lane_Super_Dawn/Minion_Lane_Super_Dawn.glb', {})) as Object3D;
+            let player1 = (await this.engine.res.loadGltf('gltfs/anim/Minion_Lane_Super_Dawn/Minion_Lane_Super_Dawn.glb', {})) as Object3D;
             player1.transform.x = -10;
             player1.transform.y = -10;
             player1.transform.z = 20;
@@ -71,7 +72,7 @@ class Sample_LoadGLTF {
             this.scene.addChild(player1);
 
             /******** player2 *******/
-            let player2 = (await Engine3D.res.loadGltf('gltfs/anim/Minion_Lane_Super_Dawn/Prime_Helix.glb', {})) as Object3D;
+            let player2 = (await this.engine.res.loadGltf('gltfs/anim/Minion_Lane_Super_Dawn/Prime_Helix.glb', {})) as Object3D;
             player2.transform.x = 10;
             player2.transform.y = -10;
             player2.transform.scaleX = 10;
@@ -80,7 +81,7 @@ class Sample_LoadGLTF {
             this.scene.addChild(player2);
 
             /******** player3 *******/
-            let player3 = (await Engine3D.res.loadGltf('gltfs/anim/Minion_Lane_Super_Dawn/Minion_Lane_Ranged_Dusk.glb', {})) as Object3D;
+            let player3 = (await this.engine.res.loadGltf('gltfs/anim/Minion_Lane_Super_Dawn/Minion_Lane_Ranged_Dusk.glb', {})) as Object3D;
             player3.transform.x = 10;
             player3.transform.y = -10;
             player3.transform.z = 20;

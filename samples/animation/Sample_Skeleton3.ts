@@ -1,20 +1,24 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, webGPUContext, HoverCameraController, View3D, SkeletonAnimationComponent, LitMaterial, MeshRenderer, BoxGeometry, DirectLight, KelvinUtil, Time, Object3DUtil, BoundingBox, SkinnedMeshRenderer, AnimatorComponent } from "@orillusion/core";
+import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, HoverCameraController, View3D, DirectLight, KelvinUtil, Time, Object3DUtil, AnimatorComponent } from "@orillusion/core";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
-// Sample to use SkeletonAnimationComponent
+// Sample to drive AnimatorComponent — multi-clip mix, cross-fade, GUI controls.
 class Sample_Skeleton3 {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     character: Object3D;
     view: View3D;
 
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowBound = 100;
-        await Engine3D.init({
+        const engine = this.engine = await Engine3D.init({
             renderLoop: () => this.onRenderLoop(),
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                },
+            },
         });
 
         GUIHelp.init();
@@ -23,7 +27,7 @@ class Sample_Skeleton3 {
         let sky = this.scene.addComponent(AtmosphericComponent);
 
         let mainCamera = CameraUtil.createCamera3DObject(this.scene);
-        mainCamera.perspective(60, webGPUContext.aspect, 1, 3000.0);
+        mainCamera.perspective(60, engine.context3D.aspect, 1, 3000.0);
 
         let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
         ctrl.setCamera(45, -30, 150);
@@ -35,12 +39,12 @@ class Sample_Skeleton3 {
         this.view.scene = this.scene;
         this.view.camera = mainCamera;
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
     }
 
     async initScene(scene: Scene3D) {
         {
-            let rootNode = await Engine3D.res.loadGltf('gltfs/glb/Soldier_draco.glb');
+            let rootNode = await this.engine.res.loadGltf('gltfs/glb/Soldier_draco.glb');
             this.character = rootNode.getObjectByName('Character') as Object3D;
             this.character.scaleX = 0.3;
             this.character.scaleY = 0.3;
@@ -110,7 +114,6 @@ class Sample_Skeleton3 {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
-            directLight.shadowBias = 0.15;
             directLight.shadowBoundWidth = 256;
             directLight.shadowBoundHeight = 256;
             directLight.shadowBoundFar = 256;

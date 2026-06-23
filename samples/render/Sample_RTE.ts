@@ -5,19 +5,27 @@ export class Sample_LogDepth {
     camera: Camera3D;
     gpsCoord = { lon: 121.4737, lat: 31.2304 };
     groundCoord: Vector3;
+    engine: Engine3D;
     async run() {
-        Engine3D.setting.render.useLogDepth = true;
-        Engine3D.setting.doublePrecision = sessionStorage.doublePrecision !== 'false';
-        Engine3D.setting.useRTE = sessionStorage.useRTE !== 'false';
-        console.log('doublePrecision:', Engine3D.setting.doublePrecision, ' useRTE:', Engine3D.setting.useRTE);
-        await Engine3D.init({
+        const doublePrecision = sessionStorage.doublePrecision !== 'false';
+        const useRTE = sessionStorage.useRTE !== 'false';
+        console.log('doublePrecision:', doublePrecision, ' useRTE:', useRTE);
+        const engine = await Engine3D.init({
+            setting: {
+                render: {
+                    useLogDepth: true,
+                },
+                doublePrecision: doublePrecision,
+                useRTE: useRTE,
+            },
             renderLoop: () => this.renderLoop()
         });
+        this.engine = engine;
         GUIHelp.init();
 
         let scene = new Scene3D();
         let camera = CameraUtil.createCamera3DObject(scene);
-        camera.perspective(60, Engine3D.aspect, 1.0, 6378137 * 4);
+        camera.perspective(60, engine.aspect, 1.0, 6378137 * 4);
         this.camera = camera;
 
         this.groundCoord = GISMath.latLonToEllipsoidCoords(this.gpsCoord.lon, this.gpsCoord.lat, 0);
@@ -36,14 +44,14 @@ export class Sample_LogDepth {
         let view = new View3D();
         view.scene = scene;
         view.camera = camera;
-        Engine3D.startRenderView(view);
+        this.engine.startRenderView(view);
 
         // change cull mode by click dropdown box
-        GUIHelp.add(Engine3D.setting, 'doublePrecision').onChange((v: boolean) => {
+        GUIHelp.add(engine.setting, 'doublePrecision').onChange((v: boolean) => {
             sessionStorage.doublePrecision = v
             location.reload()
         });
-        GUIHelp.add(Engine3D.setting, 'useRTE').onChange((v: boolean) => {
+        GUIHelp.add(engine.setting, 'useRTE').onChange((v: boolean) => {
             sessionStorage.useRTE = v
             location.reload()
         });
@@ -77,7 +85,7 @@ export class Sample_LogDepth {
         let mat = new UnLitMaterial();
         const url = `https://mt1.google.com/vt/lyrs=s&x=${tileX}&y=${tileY}&z=${level}`;
         // const url = `textures/grid.jpg`;
-        Engine3D.res.loadTexture(url).then((texture) => {
+        this.engine.res.loadTexture(url).then((texture) => {
             texture.addressModeU = texture.addressModeV = 'clamp-to-edge';
             mat.baseMap = texture;
             if (sessionStorage.topology) mat.topology = sessionStorage.topology;
@@ -138,7 +146,7 @@ class GlobeTileGeometry extends GeometryBase {
         for (let i = 0; i < vertexCount; i++) {
             const vertex = this.getPointFromIndex(i);
 
-            const relativePosition = vertex.subtract(this.centerPoint);
+            const relativePosition = vertex.sub(this.centerPoint);
             vertexs[i * 3 + 0] = relativePosition.x;
             vertexs[i * 3 + 1] = relativePosition.y;
             vertexs[i * 3 + 2] = relativePosition.z;

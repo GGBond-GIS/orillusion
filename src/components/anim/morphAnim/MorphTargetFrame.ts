@@ -58,7 +58,14 @@ type float4 = [number, number, number, number];
 type float4x4 = [float4, float4, float4, float4];
 type transform = { leftEyeTransform: float4x4, lookAtPoint: float3, rightEyeTransform: float4x4, transform: float4x4 };
 
+/**
+ * A single frame of blend-shape capture data (e.g. from ARKit): the
+ * per-target influence weights (`texture`) plus the head/eye transforms.
+ * @group Animation
+ */
 export class MorphTargetFrame {
+    /** Per-blend-shape influence weights keyed by ARKit blend-shape name. */
     texture: texture;
+    /** Head and eye transforms captured for this frame. */
     transform: transform;
 }

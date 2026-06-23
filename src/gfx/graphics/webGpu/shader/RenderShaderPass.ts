@@ -1,16 +1,15 @@
 import { ShaderLib } from "../../../../assets/shader/ShaderLib";
 import { Color } from "../../../../math/Color";
 import { VertexAttributeName } from "../../../../core/geometry/VertexAttributeName";
-import { GPUContext } from "../../../renderJob/GPUContext";
 import { BlendFactor, BlendMode } from "../../../../materials/BlendMode";
-import { IESProfiles } from "../../../../components/lights/IESProfiles";
+import { IESProfilesPool } from "../../../../components/lights/IESProfiles";
 import { GeometryBase } from "../../../../core/geometry/GeometryBase";
 import { Engine3D } from "../../../../Engine3D";
 import { GlobalBindGroupLayout } from "../core/bindGroups/GlobalBindGroupLayout";
 import { GPUBufferBase } from "../core/buffer/GPUBufferBase";
 import { UniformNode } from "../core/uniforms/UniformNode";
 import { Texture } from "../core/texture/Texture";
-import { webGPUContext } from "../Context3D";
+import { bindCtx, Context3D } from "../Context3D";
 import { ShaderConverter } from "./converter/ShaderConverter";
 import { ShaderPassBase } from "./ShaderPassBase";
 import { ShaderStage } from "./ShaderStage";
@@ -27,12 +26,27 @@ import { GPUCompareFunction, GPUCullMode } from "../WebGPUConst";
 import { UniformValue } from "./value/UniformValue";
 import { PassType } from "../../../renderJob/passRenderer/state/PassType";
 import { Vector4 } from "../../../../math/Vector4";
+import { Vector2 } from "../../../../math/Vector2";
+import { Vector3 } from "../../../../math/Vector3";
 import { PipelinePool } from "../PipelinePool";
 
+/**
+ * A single render pass of a shader: pairs a vertex and fragment shader,
+ * owns the shader state, textures, uniforms, bind group layouts and the
+ * GPURenderPipeline built from them. Each pass is bound to a single
+ * Context3D and rebuilds its pipeline lazily when its state changes.
+ * @group GFX
+ */
 export class RenderShaderPass extends ShaderPassBase {
 
+    /**
+     * The type of pass (color, shadow, OIT accumulation, depth peel, …).
+     */
     public passType: PassType = PassType.COLOR;
 
+    /**
+     * Whether this pass participates in the reverse-Z depth pipeline.
+     */
     public useRz: boolean = false;
 
     /**
@@ -56,20 +70,31 @@ export class RenderShaderPass extends ShaderPassBase {
     public textures: { [name: string]: Texture };
 
     /**
-     * Render pipeline
+     * Render pipeline. Plan B: one pipeline per RenderShaderPass, bound to
+     * a single Context3D. Attempts to use this pass with a second engine
+     * throw via bindCtx.
      */
-    public pipeline: GPURenderPipeline;
+    public pipeline: GPURenderPipeline = null;
 
     /**
-     * BindGroup layout
+     * BindGroup layouts (single-field, bound to one Context3D)
      */
-    public bindGroupLayouts: GPUBindGroupLayout[];
+    public bindGroupLayouts: GPUBindGroupLayout[] = [];
 
 
 
+    /**
+     * Environment cube map used for image-based lighting.
+     */
     public envMap: Texture;
 
+    /**
+     * Pre-filtered environment map used for specular IBL.
+     */
     public prefilterMap: Texture;
+    /**
+     * Reflection cube map used for environment reflections.
+     */
     public reflectionMap: Texture;
 
     protected _sourceVS: string;
@@ -81,8 +106,15 @@ export class RenderShaderPass extends ShaderPassBase {
     protected _textureGroup: number = -1;
     protected _textureChange: boolean = false;
     protected _groupsShaderReflectionVarInfos: ShaderReflectionVarInfo[][];
+    /**
+     * Per-channel write mask applied to the pass's output buffer.
+     */
     outBufferMask: Vector4;
 
+    /**
+     * @param vs Vertex shader name (must be registered in ShaderLib).
+     * @param fs Fragment shader name (must be registered in ShaderLib).
+     */
     constructor(vs: string, fs: string) {
         super();
 
@@ -254,6 +286,69 @@ export class RenderShaderPass extends ShaderPassBase {
     }
 
     /**
+     * Stencil front face state
+     */
+    public get stencilFront(): GPUStencilFaceState {
+        return this.shaderState.stencilFront;
+    }
+
+    public set stencilFront(value: GPUStencilFaceState) {
+        this.shaderState.stencilFront = value;
+        this._valueChange = true;
+    }
+
+    /**
+     * Stencil back face state
+     */
+    public get stencilBack(): GPUStencilFaceState {
+        return this.shaderState.stencilBack;
+    }
+
+    public set stencilBack(value: GPUStencilFaceState) {
+        this.shaderState.stencilBack = value;
+        this._valueChange = true;
+    }
+
+    /**
+     * Stencil read mask
+     */
+    public get stencilReadMask(): number {
+        return this.shaderState.stencilReadMask;
+    }
+
+    public set stencilReadMask(value: number) {
+        if (this.shaderState.stencilReadMask != value) {
+            this._valueChange = true;
+        }
+        this.shaderState.stencilReadMask = value;
+    }
+
+    /**
+     * Stencil write mask
+     */
+    public get stencilWriteMask(): number {
+        return this.shaderState.stencilWriteMask;
+    }
+
+    public set stencilWriteMask(value: number) {
+        if (this.shaderState.stencilWriteMask != value) {
+            this._valueChange = true;
+        }
+        this.shaderState.stencilWriteMask = value;
+    }
+
+    /**
+     * Stencil reference value (used with setStencilReference)
+     */
+    public get stencilRef(): number {
+        return this.shaderState.stencilRef;
+    }
+
+    public set stencilRef(value: number) {
+        this.shaderState.stencilRef = value;
+    }
+
+    /**
      * Sets the entry point names for the RenderShader vertex phase and fragment phase
      * @param vsEntryPoint 
      * @param fsEntryPoint 
@@ -280,17 +375,31 @@ export class RenderShaderPass extends ShaderPassBase {
      */
     public setTexture(name: string, texture: Texture) {
         if (texture && this.textures[name] != texture) {
-            if (this.textures[name]) {
-                this.textures[name].unBindStateChange(this);
+            const prev = this.textures[name];
+            if (prev) {
+                prev.unBindStateChange(this);
+                Reference.getInstance().detached(prev, this);
             }
             this._textureChange = true;
             this.textures[name] = texture;
+            // Track every texture in the Reference graph so destroy()'s
+            // detach is balanced by an attach. Previously only envMap
+            // was attached here; baseMap/normalMap/maskMap/emissiveMap
+            // (and the special prefilterMap/reflectionMap routing) only
+            // accumulated a Reference inside getGroupLayout — and that
+            // runs at pipeline-build time. A template Object3D loaded
+            // from glTF whose pipeline never built (e.g. the `player`
+            // in Sample_AddRemove, used solely as a clone source) never
+            // attached its baseMap. Then destroying the FIRST clone
+            // (whose pipeline did build, attaching baseMap once) sent
+            // refcount to zero and force-destroyed the SHARED gltf
+            // texture — the second clone got a baseMap whose
+            // _gpuTexture was null and createBindGroup rejected the
+            // (now-undefined) GPUTextureView at the entries' resource
+            // slot.
+            Reference.getInstance().attached(texture, this);
             if (name == "envMap") {
-                if (this.envMap) {
-                    Reference.getInstance().detached(this.envMap, this);
-                }
                 this.envMap = texture;
-                Reference.getInstance().attached(this.envMap, this);
             } else if (name == "prefilterMap") {
                 this.prefilterMap = texture;
             } else if (name == "reflectionMap") {
@@ -302,6 +411,9 @@ export class RenderShaderPass extends ShaderPassBase {
         }
     }
 
+    /**
+     * Base color tint, backed by the `baseColor` uniform.
+     */
     public get baseColor(): Color {
         return this.getUniform(`baseColor`);
     }
@@ -320,9 +432,63 @@ export class RenderShaderPass extends ShaderPassBase {
     }
 
     /**
+     * Declare that the material slot `name` should be sourced from a
+     * Frame Graph resource handle rather than a pre-bound Texture.
+     * Resolution is deferred until `resolveBindings(view)` runs — the
+     * graph's resource pool may not have produced the GPUTexture yet
+     * when the declaration happens.
+     *
+     * A frame-graph-aware feature can hand its material a named handle
+     * at setup time, and the `RenderNode.nodeUpdate` path keeps working
+     * in parallel. No behavior change when `declareBinding` is never
+     * called.
+     *
+     * @param name   Shader-side texture binding name (e.g. `shadowMap`).
+     * @param handleName  Frame Graph handle name (e.g. `_MainShadowMap`).
+     */
+    public declareBinding(name: string, handleName: string): void {
+        if (!this._graphBindings) this._graphBindings = new Map();
+        this._graphBindings.set(name, handleName);
+    }
+
+    /**
+     * Return the declared handle name for a material slot, or null
+     * if the slot is not backed by a Frame Graph handle.
+     */
+    public getDeclaredBinding(name: string): string | null {
+        return this._graphBindings?.get(name) ?? null;
+    }
+
+    /**
+     * Walk declared bindings and push the current frame's resolved
+     * textures into the material via `setTexture`. Safe to call
+     * every frame — `setTexture` is a no-op when the resolved
+     * texture is identity-equal to the previously bound one.
+     *
+     * No-op unless `view.renderGraph` is present (legacy path) and
+     * the pool actually holds the declared resource.
+     */
+    public resolveBindings(view: { renderGraph?: { pool: { has(n: string): boolean; get<T>(n: string): T } } }): void {
+        if (!this._graphBindings) return;
+        const graph = view.renderGraph;
+        if (!graph) return;
+        const pool = graph.pool;
+        for (const [slot, handleName] of this._graphBindings) {
+            if (!pool.has(handleName)) continue;
+            const resource = pool.get<Texture>(handleName);
+            if (resource) this.setTexture(slot, resource);
+        }
+    }
+
+    /** Map of `materialSlotName → frameGraphHandleName`. Created lazily
+     *  the first time `declareBinding` is called; remains undefined
+     *  for materials that do not use Frame Graph handles. */
+    private _graphBindings?: Map<string, string>;
+
+    /**
      * Create a rendering pipeline
-     * @param geometry 
-     * @param renderPassState 
+     * @param geometry
+     * @param renderPassState
      */
     public genRenderPipeline(geometry: GeometryBase, renderPassState: RendererPassState) {
         let layouts = this.createGroupLayouts();
@@ -337,6 +503,12 @@ export class RenderShaderPass extends ShaderPassBase {
     public reBuild(geometry: GeometryBase, rendererPassState: RendererPassState) {
         this.compileShader(ShaderStage.vertex, this._destVS, rendererPassState);
         this.compileShader(ShaderStage.fragment, this._destFS, rendererPassState);
+        // Orphan renderers (ViewQuad used by post passes) never reach
+        // RenderNode.initPipeline, so vertexBufferLayouts is empty when
+        // createPipeline reads it — the resulting pipeline is missing
+        // every attribute slot beyond 0 and WebGPU rejects it. generate()
+        // is idempotent, so the normal scene-graph path is unaffected.
+        geometry.generate(this.shaderReflection);
         this.genRenderPipeline(geometry, rendererPassState);
         // this.apply(geometry,rendererPassState);
     }
@@ -348,15 +520,23 @@ export class RenderShaderPass extends ShaderPassBase {
      * @param rendererPassState 
      * @param noticeFun 
      */
-    public apply(geometry: GeometryBase, rendererPassState: RendererPassState, noticeFun?: Function) {
-        this.materialDataUniformBuffer.apply();
+    public apply(ctx: Context3D, geometry: GeometryBase, rendererPassState: RendererPassState, noticeFun?: Function) {
+        bindCtx(this, ctx);
+        // First apply path of a derived pass (OIT_ACCUM, SHADOW, …) hits
+        // materialDataUniformBuffer with an EMPTY uniformNodes list —
+        // initDataUniform only runs inside reBuild's createGroupLayouts.
+        // The early-return in MaterialDataUniformGPUBuffer.apply meant
+        // the GPU buffer was never written for the derived pass, so the
+        // shader read all-zero `materialUniform.baseColor` (including
+        // baseColor.a = 0, which collapsed the OIT alpha to 0 and
+        // produced an empty accumulation buffer). Apply BEFORE and
+        // AFTER reBuild so the freshly-populated uniformNodes do their
+        // first GPU upload on the same frame the pass is built.
+        const wasFirstBuild = !this.pipeline;
+        this.materialDataUniformBuffer.apply(ctx);
 
-        if (this._textureChange && this._textureGroup != -1) {
-            this._textureChange = false;
-            this.genGroups(this._textureGroup, this.shaderReflection.groups, true);
-        }
-
-        if (this._valueChange) {
+        // Plan B: rebuild only when shader state changes or first time.
+        if (this._valueChange || !this.pipeline) {
             if (this._shaderChange) {
                 this.preCompile(geometry);
                 this._shaderChange = false;
@@ -364,10 +544,18 @@ export class RenderShaderPass extends ShaderPassBase {
             this.shaderVariant = ShaderReflection.genRenderShaderVariant(this);
             this.reBuild(geometry, rendererPassState);
             this._valueChange = false;
-            // this.genRenderPipeline(geometry, rendererPassState);
             if (noticeFun) {
                 noticeFun();
             }
+        }
+        if (wasFirstBuild) {
+            this.materialDataUniformBuffer.onChange();
+            this.materialDataUniformBuffer.apply(ctx);
+        }
+
+        if (this._textureChange && this._textureGroup != -1) {
+            this._textureChange = false;
+            this.genGroups(this._textureGroup, this.shaderReflection.groups, true);
         }
     }
 
@@ -400,7 +588,7 @@ export class RenderShaderPass extends ShaderPassBase {
             this.defineValue[`USEGBUFFER`] = false;
         }
 
-        if (Engine3D.setting.render.useCompressGBuffer) {
+        if (this._boundCtx!.engine!.setting.render.useCompressGBuffer) {
             this.defineValue[`USE_COMPRESSGBUFFER`] = true;
         } else {
             this.defineValue[`USE_COMPRESSGBUFFER`] = false;
@@ -420,13 +608,32 @@ export class RenderShaderPass extends ShaderPassBase {
         this.bindGroups[groupIndex] = group;
     }
 
-    protected checkBuffer(bufferName: string, buffer: GPUBufferBase) {
+    /**
+     * Hook for subclasses to validate a bound buffer; no-op by default.
+     * @param _bufferName Name of the buffer binding.
+     * @param _buffer The buffer instance.
+     */
+    protected checkBuffer(_bufferName: string, _buffer: GPUBufferBase) {
         return;
     }
 
-    protected preCompileShader(stage: ShaderStage, code: string, format?: string) {
+    /**
+     * Pre-process shader source: convert GLSL to WGSL when needed and
+     * substitute const placeholders, storing the result as the stage's
+     * destination source.
+     * @param stage Vertex or fragment stage.
+     * @param code Raw shader source code.
+     */
+    protected preCompileShader(stage: ShaderStage, code: string) {
         let shader: string = code;
-        if (shader.indexOf(`version `) != -1) {
+        // Detect a GLSL `#version XXX core` directive. The previous
+        // check was a naive `indexOf('version ')` substring scan,
+        // which happily matched the English word "version" sitting in
+        // a WGSL comment and incorrectly routed the shader through
+        // the GLSL→WGSL converter (which then crashed on #include).
+        // Anchor on `#version` followed by a digit at start-of-line
+        // so we only catch the actual GLSL directive.
+        if (/^\s*#version\s+\d/m.test(shader)) {
             var wgsl = ShaderConverter.convertGLSL(shader);
             shader = wgsl.sourceCode;
         }
@@ -448,6 +655,13 @@ export class RenderShaderPass extends ShaderPassBase {
         }
     }
 
+    /**
+     * Apply post-defines and compile the shader stage into a (cached)
+     * GPUShaderModule, storing it on the matching stage field.
+     * @param stage Vertex or fragment stage.
+     * @param code Pre-processed shader source code.
+     * @param renderPassState Render pass state driving the post-defines.
+     */
     protected compileShader(stage: ShaderStage, code: string, renderPassState: RendererPassState) {
         let shader: string = code;
 
@@ -457,22 +671,24 @@ export class RenderShaderPass extends ShaderPassBase {
             key += `${k}=${this.defineValue[k]},`;
         }
 
-        let shaderModule = ShaderUtil.renderShaderModulePool.get(key);
+        const shaderModulePool = ShaderUtil.renderShaderModulePool(this._boundCtx!);
+        let shaderModule = shaderModulePool.get(key);
         if (!shaderModule) {
             shader = this.applyPostDefine(shader, renderPassState);
 
-            shaderModule = webGPUContext.device.createShaderModule({
+            const device = this._boundCtx!.device;
+            shaderModule = device.createShaderModule({
                 label: stage == ShaderStage.vertex ? this.vsName : this.fsName,
                 code: shader,
             });
 
             shaderModule.getCompilationInfo().then((e) => {
                 if (e.messages.length > 0) {
-                    console.log(shader);
-                    console.log(e);
+                    console.error(shader);
+                    console.error(e);
                 }
             });
-            ShaderUtil.renderShaderModulePool.set(key, shaderModule);
+            shaderModulePool.set(key, shaderModule);
         }
 
         switch (stage) {
@@ -490,6 +706,14 @@ export class RenderShaderPass extends ShaderPassBase {
         // this._sourceFS = "" ;
     }
 
+    /**
+     * Build the bind group layout entries for a single group from its
+     * reflection info, resolving uniforms, storage buffers, samplers and
+     * textures (falling back to default textures when unset).
+     * @param index Bind group index.
+     * @param infos Reflection variable infos for the group.
+     * @returns The layout entries for the group.
+     */
     protected getGroupLayout(index: number, infos: ShaderReflectionVarInfo[]): GPUBindGroupLayoutEntry[] {
         let entries: GPUBindGroupLayoutEntry[] = [];
         for (let i = 0; i < infos.length; i++) {
@@ -527,8 +751,12 @@ export class RenderShaderPass extends ShaderPassBase {
                 switch (info.dataType) {
                     case `sampler`:
                         {
-                            let textureName = info.varName.replace(`Sampler`, ``);
-                            let texture = this.textures[textureName] ? this.textures[textureName] : Engine3D.res.redTexture;
+                            // Strip trailing 'Sampler' (and an optional 'Raw'/'Cmp' suffix
+                            // that lets a second sampler binding share the same texture —
+                            // e.g. shadowMapSamplerRaw reuses texture 'shadowMap' via its
+                            // non-comparison sampler for PCSS blocker search).
+                            let textureName = info.varName.replace(/Sampler(Raw|Cmp)?$/, ``);
+                            let texture = this.textures[textureName] ? this.textures[textureName] : Engine3D.resFor(this._boundCtx).redTexture;
                             let entry: GPUBindGroupLayoutEntry = {
                                 binding: info.binding,
                                 visibility: texture.visibility,
@@ -540,8 +768,8 @@ export class RenderShaderPass extends ShaderPassBase {
                         break;
                     case `sampler_comparison`:
                         {
-                            let textureName = info.varName.replace(`Sampler`, ``);
-                            let texture = this.textures[textureName] ? this.textures[textureName] : Engine3D.res.redTexture;
+                            let textureName = info.varName.replace(/Sampler(Raw|Cmp)?$/, ``);
+                            let texture = this.textures[textureName] ? this.textures[textureName] : Engine3D.resFor(this._boundCtx).redTexture;
                             let entry: GPUBindGroupLayoutEntry = {
                                 binding: info.binding,
                                 visibility: texture.visibility,
@@ -559,7 +787,7 @@ export class RenderShaderPass extends ShaderPassBase {
                     case `texture_depth_cube`:
                     case `texture_depth_cube_array`:
                         {
-                            let texture = this.textures[info.varName] ? this.textures[info.varName] : Engine3D.res.redTexture;
+                            let texture = this.textures[info.varName] ? this.textures[info.varName] : Engine3D.resFor(this._boundCtx).redTexture;
                             let entry: GPUBindGroupLayoutEntry = {
                                 binding: info.binding,
                                 visibility: texture.visibility,
@@ -572,7 +800,7 @@ export class RenderShaderPass extends ShaderPassBase {
                         break;
                     case `texture_external`:
                         {
-                            let texture = this.textures[info.varName] ? this.textures[info.varName] : Engine3D.res.redTexture;
+                            let texture = this.textures[info.varName] ? this.textures[info.varName] : Engine3D.resFor(this._boundCtx).redTexture;
                             let entry: GPUBindGroupLayoutEntry = {
                                 binding: info.binding,
                                 visibility: texture.visibility,
@@ -585,7 +813,7 @@ export class RenderShaderPass extends ShaderPassBase {
                         break;
                     default:
                         {
-                            let texture = this.textures[info.varName] ? this.textures[info.varName] : Engine3D.res.redTexture;
+                            let texture = this.textures[info.varName] ? this.textures[info.varName] : Engine3D.resFor(this._boundCtx).redTexture;
                             let entry: GPUBindGroupLayoutEntry = {
                                 binding: info.binding,
                                 visibility: texture.visibility,
@@ -605,7 +833,13 @@ export class RenderShaderPass extends ShaderPassBase {
         return entries;
     }
 
-    private _cacheEntries
+    /**
+     * Create the GPUBindGroup for a group from its reflection info,
+     * binding the resolved buffers, samplers and texture views.
+     * @param groupIndex Bind group index to (re)build.
+     * @param infos Per-group reflection variable infos.
+     * @param force Rebuild even if the bind group already exists.
+     */
     protected genGroups(groupIndex: number, infos: ShaderReflectionVarInfo[][], force: boolean = false) {
         if (!this.bindGroups[groupIndex] || force) {
             const shaderRefs: ShaderReflectionVarInfo[] = infos[groupIndex];
@@ -628,6 +862,7 @@ export class RenderShaderPass extends ShaderPassBase {
                             this.materialDataUniformBuffer.initDataUniform(uniforms);
                         }
 
+                        if (!buffer._boundCtx && this._boundCtx) bindCtx(buffer, this._boundCtx);
                         let entry: GPUBindGroupEntry = {
                             binding: refs.binding,
                             resource: {
@@ -646,6 +881,7 @@ export class RenderShaderPass extends ShaderPassBase {
                 } else if (refs.varType == `storage-read`) {
                     let buffer = this._bufferDic.get(refs.varName);
                     if (buffer) {
+                        if (!buffer._boundCtx && this._boundCtx) bindCtx(buffer, this._boundCtx);
                         let entry: GPUBindGroupEntry = {
                             binding: refs.binding,
                             resource: {
@@ -660,14 +896,25 @@ export class RenderShaderPass extends ShaderPassBase {
                         console.error(`buffer ${refs.varName} is missing!`);
                     }
                 } else if (refs.varType == `var`) {
+                    // Lazily bind any texture reaching the bind group to this
+                    // pass's Context3D. Samples commonly `new BitmapTexture2D()`
+                    // without threading the engine's ctx; first real GPU use
+                    // (this path) is where the binding is resolvable.
+                    const bindIfNeeded = (t: Texture) => {
+                        if (t && !t._boundCtx && this._boundCtx) bindCtx(t, this._boundCtx);
+                    };
                     if (refs.dataType == `sampler`) {
-                        let textureName = refs.varName.replace(`Sampler`, ``);
+                        // Support <Texture>SamplerRaw / <Texture>SamplerCmp aliases —
+                        // both resolve to the texture named <Texture>, but with the
+                        // non-comparison sampler (Raw = no suffix too).
+                        let textureName = refs.varName.replace(/Sampler(Raw|Cmp)?$/, ``);
                         let texture = this.textures[textureName];
                         if (!texture) {
-                            texture = Engine3D.res.blackTexture;
+                            texture = Engine3D.resFor(this._boundCtx).blackTexture;
                             this.setTexture(textureName, texture);
                         }
                         if (texture) {
+                            bindIfNeeded(texture);
                             let entry: GPUBindGroupEntry = {
                                 binding: refs.binding,
                                 resource: texture.gpuSampler
@@ -677,9 +924,10 @@ export class RenderShaderPass extends ShaderPassBase {
                             console.error(`shader${this.vsName}-${this.fsName}`, `texture ${refs.varName} is missing! `);
                         }
                     } else if (refs.dataType == `sampler_comparison`) {
-                        let textureName = refs.varName.replace(`Sampler`, ``);
+                        let textureName = refs.varName.replace(/Sampler(Raw|Cmp)?$/, ``);
                         let texture = this.textures[textureName];
                         if (texture) {
+                            bindIfNeeded(texture);
                             let entry: GPUBindGroupEntry = {
                                 binding: refs.binding,
                                 resource: texture.gpuSampler_comparison
@@ -691,10 +939,11 @@ export class RenderShaderPass extends ShaderPassBase {
                     } else {
                         let texture = this.textures[refs.varName];
                         if (!texture) {
-                            texture = Engine3D.res.whiteTexture;
+                            texture = Engine3D.resFor(this._boundCtx).whiteTexture;
                             this.setTexture(refs.varName, texture);
                         }
                         if (texture) {
+                            bindIfNeeded(texture);
                             let entry: GPUBindGroupEntry = {
                                 binding: refs.binding,
                                 resource: texture.getGPUView(),
@@ -707,7 +956,8 @@ export class RenderShaderPass extends ShaderPassBase {
                 }
             }
 
-            let gpubindGroup = webGPUContext.device.createBindGroup({
+            const device = this._boundCtx!.device;
+            let gpubindGroup = device.createBindGroup({
                 layout: this.bindGroupLayouts[groupIndex],
                 entries: entries
             });
@@ -744,6 +994,63 @@ export class RenderShaderPass extends ShaderPassBase {
             }
         }
 
+        // P2: per-attachment blend states for the WBOIT accumulation
+        // pass. Target 0 (accum) uses additive blending in both color
+        // and alpha so contributions from any number of fragments can
+        // be summed in arbitrary order. Target 1 (reveal) uses
+        // multiplicative blending of (1 - src) so the alpha channel
+        // tracks the visibility product. The two formulas come from
+        // McGuire & Bavoil 2013 §4.
+        if (this.passType === PassType.OIT_ACCUM && targets.length >= 2) {
+            targets[0].blend = {
+                color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
+                alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
+            };
+            targets[1].blend = {
+                color: { srcFactor: 'zero', dstFactor: 'one-minus-src', operation: 'add' },
+                alpha: { srcFactor: 'zero', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            };
+        }
+
+        // Dual Depth Peeling per-target blend wiring.
+        //
+        // OIT_DEPTH_PEEL_DEPTH writes (-d, d) to RG32F and uses MAX
+        // blending per-channel so multiple fragments at the same pixel
+        // converge to (-min, max). The B/A channels are unused — kept
+        // at MAX as well for symmetry, they stay at the cleared
+        // -MAX_DEPTH value because shader writes 0 there.
+        //
+        // OIT_DEPTH_PEEL_FRONT and _BACK use overwrite blending
+        // (one/zero). Their accumulation is done in the shader via
+        // texelFetch of the previous-iteration MRT plus an arithmetic
+        // composite, then the result overwrites the current MRT. This
+        // keeps blend wiring simple and lets the shader express the
+        // exact `(1-prevA) * α * rgb` over operator without relying on
+        // hardware blend factor combinations.
+        if (this.passType === PassType.OIT_DEPTH_PEEL_DEPTH && targets.length >= 1) {
+            targets[0].blend = {
+                color: { srcFactor: 'one', dstFactor: 'one', operation: 'max' },
+                alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'max' },
+            };
+        }
+        if (this.passType === PassType.OIT_DEPTH_PEEL_FRONT && targets.length >= 1) {
+            targets[0].blend = {
+                color: { srcFactor: 'one', dstFactor: 'zero', operation: 'add' },
+                alpha: { srcFactor: 'one', dstFactor: 'zero', operation: 'add' },
+            };
+        }
+        if (this.passType === PassType.OIT_DEPTH_PEEL_BACK && targets.length >= 1) {
+            // Back uses under-blend for back-to-front associative
+            // accumulation: dst = src.a*src.rgb + (1-src.a)*dst, with
+            // the shader emitting un-premultiplied (rgb, α). The
+            // standard under-blend wiring is src=ONE_MINUS_DST_ALPHA,
+            // dst=ONE.
+            targets[0].blend = {
+                color: { srcFactor: 'one-minus-dst-alpha', dstFactor: 'one', operation: 'add' },
+                alpha: { srcFactor: 'one-minus-dst-alpha', dstFactor: 'one', operation: 'add' },
+            };
+        }
+
         let renderPipelineDescriptor: GPURenderPipelineDescriptor = {
             label: this.vsName + '|' + this.fsName,
             layout: layouts,
@@ -751,6 +1058,7 @@ export class RenderShaderPass extends ShaderPassBase {
                 topology: shaderState.topology,
                 cullMode: shaderState.cullMode,
                 frontFace: shaderState.frontFace,
+                unclippedDepth: shaderState.unclippedDepth,
             },
             vertex: undefined,
         };
@@ -771,43 +1079,107 @@ export class RenderShaderPass extends ShaderPassBase {
             }
         }
 
-        if (shaderState.multisample > 0) {
+        // Prefer the render pass's sample count (driven by GBufferFrame /
+        // engine.setting.render.msaa) over the material-side default, so
+        // pipelines compile with the right MSAA count for whichever pass
+        // they are being built for. `alphaToCoverageEnabled` requires
+        // sampleCount > 1 per WebGPU spec, so it is gated implicitly.
+        const msaaCount = renderPassState.multisample > 0 ? renderPassState.multisample : shaderState.multisample;
+        if (msaaCount > 0) {
             renderPipelineDescriptor[`multisample`] = {
-                count: shaderState.multisample
+                count: msaaCount,
+                alphaToCoverageEnabled: (shaderState.alphaToCoverageEnabled === true && msaaCount > 1) ? true : false,
             }
         }
 
         if (renderPassState.zPreTexture || renderPassState.depthTexture) {
-            let blendEnable = shaderState.blendMode != BlendMode.NONE;
-            if (Engine3D.setting.render.zPrePass && renderPassState.zPreTexture && shaderState.useZ) {
+            if (this._boundCtx!.engine!.setting.render.zPrePass && renderPassState.zPreTexture && shaderState.useZ) {
+                // zPrePass color-pass:
+                //   - `less_equal` tolerates 1-ULP NDC z drift between
+                //     ZPassShader_vs (depth-only pipeline) and Common_vert
+                //     (lit pipeline). The hardware can rearrange the
+                //     `projMat * viewMat * worldPos` math differently in
+                //     each pipeline so bit-exact equality isn't reliable.
+                //   - `depthWriteEnabled` MUST mirror the material's own
+                //     setting. Opaque materials (depthWrite=true) get to
+                //     refine the prepass depth in place — combined with
+                //     `less_equal`, post-color depth matches the no-prepass
+                //     path. **Transparent materials (BLEND, depthWrite=
+                //     false)** must NOT write depth here; they only
+                //     depth-test against the opaque depth produced by the
+                //     prepass + opaque color. Forcing depthWriteEnabled=
+                //     true at this branch was a real bug: BLEND spheres
+                //     ended up writing depth, the first-drawn sphere's
+                //     depth blocked all subsequent layers under less_equal,
+                //     and only insertion order that happened to coincide
+                //     with back-to-front sort survived the issue. The
+                //     symptom showed up at 180° camera (where insertion
+                //     order is front-to-back) as single-layer rendering
+                //     in sorted/weighted/hash modes.
+                //   - **Early-Z is still active for opaques.** The depth
+                //     test runs before the fragment shader; overdrawn
+                //     opaques are rejected before the lit shader runs.
                 renderPipelineDescriptor[`depthStencil`] = {
-                    depthWriteEnabled: false,
-                    depthCompare: GPUCompareFunction.less,
+                    depthWriteEnabled: shaderState.depthWriteEnabled,
+                    depthCompare: GPUCompareFunction.less_equal,
                     format: renderPassState.zPreTexture.format,
                 };
             } else {
-                renderPipelineDescriptor[`depthStencil`] = {
+                let depthStencilState: any = {
                     depthWriteEnabled: shaderState.depthWriteEnabled,
                     depthCompare: shaderState.depthCompare,
                     format: renderPassState.depthTexture.format,
+                    depthBias: shaderState.depthBias,
+                    depthBiasSlopeScale: shaderState.depthBiasSlopeScale,
+                    depthBiasClamp: shaderState.depthBiasClamp,
                 };
-
+                if ((renderPassState.depthTexture.format as string).includes('stencil')) {
+                    depthStencilState.stencilFront = shaderState.stencilFront;
+                    depthStencilState.stencilBack = shaderState.stencilBack;
+                    depthStencilState.stencilReadMask = shaderState.stencilReadMask;
+                    depthStencilState.stencilWriteMask = shaderState.stencilWriteMask;
+                }
+                renderPipelineDescriptor[`depthStencil`] = depthStencilState;
             }
         }
 
-        let pipeline = PipelinePool.getSharePipeline(this.shaderVariant);
+        const ctx = this._boundCtx!;
+        // Pipeline cache key must include the renderPass's color/depth
+        // attachment formats — `shaderVariant` alone only describes the
+        // shader source/defines/state. Two passes with the same shader but
+        // different render targets (e.g. main GBuffer vs overlay BGRA8Unorm
+        // canvas) produce incompatible pipelines, so they must cache
+        // separately.
+        const pipelineKey = `${this.shaderVariant}|${RenderShaderPass._attachmentKey(renderPassState)}|a2c${shaderState.alphaToCoverageEnabled ? 1 : 0}|ucd${shaderState.unclippedDepth ? 1 : 0}`;
+        let pipeline = PipelinePool.getSharePipeline(ctx, pipelineKey);
         if (pipeline) {
             this.pipeline = pipeline;
         } else {
-            this.pipeline = GPUContext.createPipeline(renderPipelineDescriptor as GPURenderPipelineDescriptor);
-            PipelinePool.setSharePipeline(this.shaderVariant, this.pipeline);
+            this.pipeline = ctx.gpuContext.createPipeline(renderPipelineDescriptor as GPURenderPipelineDescriptor);
+            PipelinePool.setSharePipeline(ctx, pipelineKey, this.pipeline);
         }
+    }
+
+    private static _attachmentKey(rps: RendererPassState): string {
+        let k = '[';
+        const targets = rps.renderTargets;
+        if (targets && targets.length > 0) {
+            for (const t of targets) k += (t?.format ?? '_') + ',';
+        } else if (rps.renderTargetTextures && rps.renderTargetTextures.length > 0) {
+            for (const t of rps.renderTargetTextures) k += (t?.format ?? '_') + ',';
+        } else {
+            k += '_';
+        }
+        k += ']:' + (rps.depthTexture?.format ?? '_');
+        if (rps.multisample) k += ':ms' + rps.multisample;
+        return k;
     }
 
     private createGroupLayouts() {
         this._groupsShaderReflectionVarInfos = [];
         let shaderReflection = this.shaderReflection;
-        this.bindGroupLayouts = [GlobalBindGroupLayout.getGlobalDataBindGroupLayout()];
+        const device = this._boundCtx!.device;
+        this.bindGroupLayouts = [GlobalBindGroupLayout.getGlobalDataBindGroupLayout(this._boundCtx!)];
 
         // Binding Group 1 is Global , skip
         for (let i = 1; i < shaderReflection.groups.length; i++) {
@@ -815,7 +1187,7 @@ export class RenderShaderPass extends ShaderPassBase {
             if (shaderRefs) {
                 let entries = this.getGroupLayout(i, shaderRefs);
                 this._groupsShaderReflectionVarInfos[i] = shaderRefs;
-                let layout = webGPUContext.device.createBindGroupLayout({
+                let layout = device.createBindGroupLayout({
                     entries,
                     label: `vs${this.vsName} fs${this.fsName} ${shaderRefs.length}`
                 });
@@ -825,7 +1197,7 @@ export class RenderShaderPass extends ShaderPassBase {
             }
         }
 
-        let layouts = webGPUContext.device.createPipelineLayout({
+        let layouts = device.createPipelineLayout({
             bindGroupLayouts: this.bindGroupLayouts,
         });
 
@@ -884,17 +1256,18 @@ export class RenderShaderPass extends ShaderPassBase {
         this.defineValue[`USE_LIGHT`] = useLight;
         this.defineValue[`USE_VERTXCOLOR`] = useVertexColor;
 
-        if (Engine3D.setting.pick.mode == `pixel`) {
+        const setting = this._boundCtx!.engine!.setting;
+        if (setting.pick.mode == `pixel`) {
             this.defineValue[`USE_WORLDPOS`] = true;
         }
 
-        if (Engine3D.setting.gi.enable) {
+        if (setting.gi.enable) {
             this.defineValue[`USEGI`] = true;
         } else {
             this.defineValue[`USEGI`] = false;
         }
 
-        if (Engine3D.setting.render.debug) {
+        if (setting.render.debug) {
             this.defineValue[`USE_DEBUG`] = true;
             this.defineValue[`DEBUG_CLUSTER`] = true;
         }
@@ -905,7 +1278,7 @@ export class RenderShaderPass extends ShaderPassBase {
             this.defineValue[`USE_LIGHT`] = false;
         }
 
-        if (Engine3D.setting.render.useLogDepth) {
+        if (setting.render.useLogDepth) {
             this.defineValue[`USE_LOGDEPTH`] = true;
             this.shaderState.useFragDepth = true;
         } else {
@@ -918,20 +1291,34 @@ export class RenderShaderPass extends ShaderPassBase {
             this.defineValue[`USE_OUTDEPTH`] = false;
         }
 
-        this.defineValue[`USE_PCF_SHADOW`] = Engine3D.setting.shadow.type == `PCF`;
-        this.defineValue[`USE_HARD_SHADOW`] = Engine3D.setting.shadow.type == `HARD`;
-        this.defineValue[`USE_SOFT_SHADOW`] = Engine3D.setting.shadow.type == `SOFT`;
+        this.defineValue[`USE_PCF_SHADOW`] = setting.shadow.type == `PCF`;
+        this.defineValue[`USE_HARD_SHADOW`] = setting.shadow.type == `HARD`;
+        this.defineValue[`USE_SOFT_SHADOW`] = setting.shadow.type == `SOFT`;
         this.defineValue[`USE_CSM`] = CSM.Cascades > 1;
-        this.defineValue[`USE_IES_PROFILE`] = IESProfiles.use;
+        this.defineValue[`USE_IES_PROFILE`] = IESProfilesPool.for(this._boundCtx!).use;
 
-        this.defineValue[`USE_RTE`] = Engine3D.setting.useRTE;
+        this.defineValue[`USE_RTE`] = setting.useRTE;
     }
 
     private genReflection() {
         this.shaderVariant = ShaderReflection.genRenderShaderVariant(this);
         let reflection = ShaderReflection.poolGetReflection(this.shaderVariant);
         if (!reflection) {
-            //TODO: key check shader compile info
+            // The shaderReflection instance is shared across re-runs on the
+            // same ShaderPassBase. Re-parsing with a changed define (e.g.
+            // USE_VIDEO_TEXTURE flipping from false → true after the video
+            // texture loads) produces a new variable type at the same
+            // binding slot. Without clearing the previous groups[]/variables{}
+            // entries, `combineShaderReflectionVarInfo` sees aInfo (stale)
+            // vs bInfo (new) and emits `dataType not match` even though the
+            // pipeline actually builds correctly from the fresh parse.
+            if (this.shaderReflection) {
+                this.shaderReflection.groups = [];
+                this.shaderReflection.variables = {};
+                this.shaderReflection.vs_variables = [];
+                this.shaderReflection.fs_variables = [];
+            }
+
             let vsPreShader = Preprocessor.parse(this._destVS, this.defineValue);
             vsPreShader = Preprocessor.parse(vsPreShader, this.defineValue);
             ShaderReflection.getShaderReflection2(vsPreShader, this);
@@ -946,6 +1333,81 @@ export class RenderShaderPass extends ShaderPassBase {
         }
 
         this.shaderState.splitTexture = this.shaderReflection.useSplit;
+    }
+
+    /**
+     * Deep-copy this pass into a fresh instance with its own GPU lifecycle.
+     *
+     * Why this exists: `Material.clone()` → `Shader.clone()` used to share
+     * the same RenderShaderPass instance between source and clones. When
+     * the clone's material was destroyed (Sample_AddRemove's add → remove
+     * → add path), it tore down `materialDataUniformBuffer` /
+     * `bindGroupLayouts` / `pipeline` on the SHARED pass — the source
+     * material and any future clones then tried to render through dead
+     * GPU resources and `createBindGroup` failed validation.
+     *
+     * The clone re-runs the (sub)class constructor via `this.constructor`
+     * so subclass-specific setup (CastShadowMaterialPass uniforms,
+     * OITAccumPass entry points, …) is preserved, then overlays the
+     * source's user-modified state. Texture / external-buffer references
+     * are shared (their lifetime is owner-managed); UniformNode values
+     * are copied so vector mutations on one material don't leak into
+     * the other; `materialDataUniformBuffer` and the pipeline objects
+     * stay fresh from the constructor so the next apply() rebuilds
+     * cleanly under the cloned material's own ownership.
+     */
+    public clone(): RenderShaderPass {
+        const Ctor = this.constructor as new (vs?: string, fs?: string) => RenderShaderPass;
+        const dst = new Ctor(this.vsName, this.fsName);
+
+        dst.passType = this.passType;
+        dst.useRz = this.useRz;
+        dst.vsEntryPoint = this.vsEntryPoint;
+        dst.fsEntryPoint = this.fsEntryPoint;
+
+        Object.assign(dst.shaderState, this.shaderState);
+        dst.defineValue = { ...this.defineValue };
+        dst.constValues = { ...this.constValues };
+
+        for (const k in this.textures) {
+            if (this.textures[k]) dst.setTexture(k, this.textures[k]);
+        }
+
+        // Re-set uniforms by value so the clone owns its own UniformNodes
+        // (and on first reBuild, allocates fresh memoryInfos against the
+        // clone's own materialDataUniformBuffer). Vector/Color values are
+        // copied — UniformNode setters mutate in-place, so sharing the
+        // same instance would let writes on one material bleed to the
+        // other.
+        for (const k in this.uniforms) {
+            const node = this.uniforms[k];
+            if (!node) continue;
+            const v = node.data;
+            if (v instanceof Vector2) dst.setUniformVector2(k, new Vector2(v.x, v.y));
+            else if (v instanceof Vector3) dst.setUniformVector3(k, new Vector3(v.x, v.y, v.z));
+            else if (v instanceof Vector4) dst.setUniformVector4(k, new Vector4(v.x, v.y, v.z, v.w));
+            else if (v instanceof Color) dst.setUniformColor(k, new Color(v.r, v.g, v.b, v.a));
+            else if (v instanceof Float32Array) dst.setUniformArray(k, new Float32Array(v));
+            else if (typeof v === 'number') dst.setUniformFloat(k, v);
+            else dst.setUniform(k, v);
+        }
+
+        // Copy external buffer bindings (storage/uniform that the renderer
+        // wires from elsewhere — e.g. SkinnedMeshRenderer's joint buffers).
+        // Skip the two owned slots; the constructor already pointed them at
+        // the clone's fresh materialDataUniformBuffer.
+        for (const [name, buf] of (this as any)._bufferDic as Map<string, GPUBufferBase>) {
+            if (name === 'global' || name === 'materialUniform') continue;
+            (dst as any)._bufferDic.set(name, buf);
+        }
+
+        // pipeline / bindGroupLayouts / bindGroups / shaderReflection /
+        // shader modules / _destVS / _destFS all stay at their fresh-
+        // constructor defaults (null/empty); the next apply() will
+        // preCompile + reBuild against the clone's own state.
+        (dst as any)._shaderChange = true;
+        (dst as any)._valueChange = true;
+        return dst;
     }
 
     /**
@@ -981,34 +1443,38 @@ export class RenderShaderPass extends ShaderPassBase {
 
     /**
      * Destroy a RenderShader object
+     * @param ctx Context3D owning the shader cache
      * @param instanceID instance ID of the RenderShader
      */
-    public static destroyShader(instanceID: string) {
-        if (ShaderUtil.renderShader.has(instanceID)) {
-            let shader = ShaderUtil.renderShader.get(instanceID);
+    public static destroyShader(ctx: Context3D, instanceID: string) {
+        const registry = ShaderUtil.renderShader(ctx);
+        if (registry.has(instanceID)) {
+            let shader = registry.get(instanceID);
             shader.destroy();
-            ShaderUtil.renderShader.delete(instanceID)
+            registry.delete(instanceID);
         }
     }
 
     /**
      * Get the RenderShader object by specifying the RenderShader instance ID
+     * @param ctx Context3D owning the shader cache
      * @param instanceID instance ID of the RenderShader
      * @returns RenderShader object
      */
-    public static getShader(instanceID: string) {
-        return ShaderUtil.renderShader.get(instanceID);
+    public static getShader(ctx: Context3D, instanceID: string) {
+        return ShaderUtil.renderShader(ctx).get(instanceID);
     }
 
     /**
      * Create a RenderShader with vertex shaders and fragment shaders
+     * @param ctx Context3D owning the shader cache
      * @param vs Vertex shader name
      * @param fs Fragment shader name
      * @returns Returns the instance ID of the RenderShader
      */
-    public static createShader(vs: string, fs: string): string {
+    public static createShader(ctx: Context3D, vs: string, fs: string): string {
         let shader = new RenderShaderPass(vs, fs);
-        ShaderUtil.renderShader.set(shader.instanceID, shader);
+        ShaderUtil.renderShader(ctx).set(shader.instanceID, shader);
         return shader.instanceID;
     }
 

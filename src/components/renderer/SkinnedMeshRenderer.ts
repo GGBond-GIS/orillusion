@@ -18,6 +18,7 @@ import { GeometryBase, Matrix4, RegisterComponent } from "../..";
  */
 @RegisterComponent(SkinnedMeshRenderer, 'SkinnedMeshRenderer')
 export class SkinnedMeshRenderer extends MeshRenderer {
+    /** Ordered names of the joints this skin is bound to. */
     public skinJointsName: Array<string>;
     protected mInverseBindMatrixData: Array<Float32Array>;
     protected mInverseBindMatrixBuffer: StorageGPUBuffer;
@@ -29,6 +30,7 @@ export class SkinnedMeshRenderer extends MeshRenderer {
         this.addRendererMask(RendererMask.SkinnedMesh);
     }
 
+    /** Resolve the driving skeleton animation component from the hierarchy. */
     public start() {
         super.start();
         this.skeletonAnimation = this.object3D.getComponent(SkeletonAnimationComponent);
@@ -47,10 +49,12 @@ export class SkinnedMeshRenderer extends MeshRenderer {
         }
     }
 
+    /** Register the renderer when enabled. */
     public onEnable(): void {
         super.onEnable();
     }
 
+    /** The skeleton animation component driving this skin. */
     public get skeletonAnimation(): SkeletonAnimationComponent {
         return this.mSkeletonAnimation;
     }
@@ -68,6 +72,7 @@ export class SkinnedMeshRenderer extends MeshRenderer {
         }
     }
 
+    /** Per-joint inverse bind matrices used to skin the mesh. */
     public get skinInverseBindMatrices(): Array<Float32Array> {
         return this.mInverseBindMatrixData;
     }
@@ -84,14 +89,17 @@ export class SkinnedMeshRenderer extends MeshRenderer {
         this.mInverseBindMatrixBuffer.visibility = GPUShaderStage.VERTEX | GPUShaderStage.COMPUTE;
     }
 
+    /** GPU buffer holding the inverse bind matrices. */
     public get inverseBindMatrixBuffer(): StorageGPUBuffer {
         return this.mInverseBindMatrixBuffer;
     }
 
+    /** GPU buffer mapping skin joints to skeleton joint indices. */
     public get jointIndexTableBuffer(): GPUBuffer {
         return this.mJointIndexTableBuffer.buffer;
     }
 
+    /** Clone this skinned mesh renderer onto another object. */
     public cloneTo(obj: Object3D) {
         let skinnedMesh = obj.addComponent(SkinnedMeshRenderer);
         skinnedMesh.geometry = this.geometry;

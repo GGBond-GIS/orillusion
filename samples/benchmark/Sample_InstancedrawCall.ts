@@ -9,9 +9,13 @@ class Sample_drawCallInstance {
     lightObj3D: Object3D;
     async run() {
 
-        Engine3D.setting.pick.enable = false;
         // init engine
-        await Engine3D.init({ renderLoop: () => this.renderLoop() });
+        const engine = await Engine3D.init({
+            renderLoop: () => this.renderLoop(),
+            setting: {
+                pick: { enable: false },
+            },
+        });
 
         OcclusionSystem.enable = false;
         // create new Scene
@@ -26,7 +30,7 @@ class Sample_drawCallInstance {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
 
         // add a basic camera controller
         let hoverCameraController = mainCamera.object3D.addComponent(HoverCameraController);
@@ -50,7 +54,7 @@ class Sample_drawCallInstance {
         view.camera = mainCamera;
 
         // start render
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
         GUIHelp.init();
         GUIHelp.open();
         GUIHelp.add(this, "anim").onChange = () => this.anim != this.anim;

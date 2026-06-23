@@ -1,4 +1,3 @@
-import { Engine3D } from '../..';
 import { Color } from '../../math/Color';
 import { Vector3 } from '../../math/Vector3';
 import { Struct } from '../../util/struct/Struct';
@@ -106,8 +105,22 @@ export class LightData extends Struct {
      */
     public iesIndex: number = -1;
 
-    public shadowBias: number[] = [Engine3D.setting.shadow.shadowBias];
+    // shadowBias / normalBias arrays are sized and initialized in LightBase.start()
+    // once the owning engine's setting.shadow.maxCascades is known.
+    public shadowBias: number[] = [];
+    public normalBias: number[] = [];
+
+    // Cube shadow-map depth normalization factor (world units). Writer stores
+    // `length(worldPos - lightPos) / shadowFar` into the shadow map; sampler
+    // uses the same value to decode. Populated by GlobalUniformGroup from the
+    // PointLight/SpotLight's shadowCameraFar (fallback = range).
+    public shadowFar: number = 0;
 
     public csmShadowMapNum: number = 0;
     public csmShadowMapIndex: number = -1;
+
+    // Per-light soft-shadow / PCSS light-size multiplier.
+    // -1 means "fall back to globalUniform.shadowSoft". Consumed by
+    // DirectShadow_frag and PointShadow_frag SOFT branches.
+    public softness: number = -1;
 }

@@ -33,7 +33,7 @@ export class MeshColliderShape extends ColliderShape {
             let indexAttribute = this.mesh.getAttribute(VertexAttributeName.indices);
 
             let helpMatrix = ColliderShape.helpMatrix;
-            helpMatrix.copyFrom(fromMatrix).invert();
+            helpMatrix.copy(fromMatrix).invert();
 
             let helpRay = ColliderShape.helpRay.copy(ray);
             helpRay.applyMatrix(helpMatrix);
@@ -73,7 +73,7 @@ export class MeshColliderShape extends ColliderShape {
                         if(normalAttribute){
                             let normalData = normalAttribute.data;
                             let normal = new Vector3(normalData[i1], normalData[i1 + 1], normalData[i1 + 2]);
-                            fromMatrix.transformVector(normal, normal)
+                            Matrix4.transformVector(fromMatrix, normal, normal);
                             normal.normalize();
                             this._pickRet.normal = normal
                         }

@@ -1,3 +1,4 @@
+import { Context3D } from '../../gfx/graphics/webGpu/Context3D';
 import { Texture } from '../../gfx/graphics/webGpu/core/texture/Texture';
 import { LoaderFunctions } from '../LoaderFunctions';
 import { ParserFormat } from './ParserFormat';
@@ -13,6 +14,10 @@ export class ParserBase {
     public loaderFunctions?: LoaderFunctions;
     public userData?: any;
     public data: any;
+    /** Context3D this parser is operating under. Populated by FileLoader
+     *  so default-texture lookups (`Engine3D.resFor(this.ctx)`) resolve
+     *  against the owning engine's device rather than the global shim. */
+    public ctx?: Context3D;
 
     public parseString(str: string) { }
 

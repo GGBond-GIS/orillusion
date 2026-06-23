@@ -100,7 +100,7 @@ export class SkeletonAnimationClip {
     const endFrame = Math.min(Math.floor(endTime / this.frameRate), this._skeletonPoses.length - 1);
     result._skeletonPoses = this._skeletonPoses.slice(startFrame, endFrame);
     const skeletonPoseByteLength = 12 * this._skeleton.numJoint * 4;
-    this._animationClipData = new Float32Array(this._animationClipData, startFrame * skeletonPoseByteLength, (endFrame - startFrame) * skeletonPoseByteLength);
+    this._animationClipData = new Float32Array(this._animationClipData.buffer, startFrame * skeletonPoseByteLength, (endFrame - startFrame) * skeletonPoseByteLength);
     return result;
   }
 

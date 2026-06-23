@@ -1,6 +1,11 @@
 import { Vector3 } from "../../../../math/Vector3";
 import { BytesArray } from "../../../../util/BytesArray";
 
+/**
+ * Internal data carrier for a single blend-shape frame, holding the frame
+ * weight and the delta vertex/normal/tangent arrays decoded from the stream.
+ * @internal
+ */
 export class BlendShapeFrameData {
 
     public weight: number;

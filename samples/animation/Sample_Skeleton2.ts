@@ -1,26 +1,29 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, webGPUContext, HoverCameraController, View3D, LitMaterial, MeshRenderer, BoxGeometry, DirectLight, KelvinUtil, Object3DUtil, SkeletonAnimationComponent, AnimatorComponent } from "@orillusion/core";
+import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, HoverCameraController, View3D, DirectLight, KelvinUtil, Object3DUtil, AnimatorComponent } from "@orillusion/core";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_Skeleton2 {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
 
     async run() {
-
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowSize = 2048;
-
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+            },
+        });
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
         this.scene.exposure = 1;
 
         let mainCamera = CameraUtil.createCamera3DObject(this.scene);
-        mainCamera.enableCSM = true;
-        mainCamera.perspective(60, webGPUContext.aspect, 1, 3000.0);
+        mainCamera.perspective(60, engine.context3D.aspect, 1, 3000.0);
 
         let hoverCameraController = mainCamera.object3D.addComponent(HoverCameraController);
         hoverCameraController.setCamera(45, -30, 300);
@@ -30,7 +33,7 @@ class Sample_Skeleton2 {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         await this.initScene(this.scene);
         sky.relativeTransform = this.lightObj3D.transform;
@@ -53,10 +56,7 @@ class Sample_Skeleton2 {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
-            directLight.shadowBias = 0.2;
-            directLight.shadowBoundWidth = 512;
-            directLight.shadowBoundHeight = 512;
-            directLight.shadowBoundFar = 512;
+            directLight.enableCSM = true;
             GUIHelp.init();
             GUIUtil.renderDirLight(directLight);
             scene.addChild(this.lightObj3D);
@@ -64,12 +64,9 @@ class Sample_Skeleton2 {
 
         {
             // load model with skeletion animation
-            let rootNode = await Engine3D.res.loadGltf('gltfs/glb/Soldier.glb');
-            let character = rootNode.getObjectByName('Character') as Object3D;
-            character.scaleX = 0.3;
-            character.scaleY = 0.3;
-            character.scaleZ = 0.3;
-            character.rotationY = 180;
+            let soldier = await this.engine.res.loadGltf('gltfs/glb/Soldier.glb');
+            soldier.scaleX = soldier.scaleY = soldier.scaleZ = 20;
+            soldier.rotationY = 180;
 
             // enum animation names
             var animName = ['Idle', 'Walk', 'Run', 'TPose'];
@@ -78,14 +75,14 @@ class Sample_Skeleton2 {
             let maxRow = Math.floor(maxCount / maxCol);
             // Clone 100 players to play different animations
             for (var i = 0; i < maxCount; i++) {
-                let cloneObj = character.clone();
+                let cloneObj = soldier.clone();
 
                 let row = Math.floor(i / maxCol);
                 let col = Math.floor(i % maxCol);
 
                 cloneObj.x = (maxCol * -0.5 + col) * 30;
                 cloneObj.z = (maxRow * -0.5 + row) * 30;
-                cloneObj.rotationX = -90;
+                // cloneObj.rotationX = -90;
                 scene.addChild(cloneObj);
 
                 let animation = cloneObj.getComponentsInChild(AnimatorComponent)[0];

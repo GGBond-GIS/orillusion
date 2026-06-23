@@ -1,5 +1,5 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
-import { ClusterLightingBuffer, ComputeGPUBuffer, MeshRenderer, PassType, PlaneGeometry, RendererMask, RendererPassState, Vector3, View3D, webGPUContext } from '@orillusion/core';
+import { ClusterLightingBuffer, ComputeGPUBuffer, MeshRenderer, PassType, PlaneGeometry, RendererMask, RendererPassState, Vector3, View3D } from '@orillusion/core';
 import { FlowImgSimulatorConfig } from "./FlowImgSimulatorConfig";
 import { FlowImgSimulatorMaterial } from "./FlowImgSimulatorMaterial";
 import { FlowImgSimulatorPipeline } from "./FlowImgSimulatorPipeline";
@@ -67,7 +67,6 @@ export class FlowImgSimulator extends MeshRenderer {
         this.alwaysRender = true;
         this.geometry = new PlaneGeometry(PARTICAL_RADIUS * 2.0, PARTICAL_RADIUS * 2.0, 1.0, 1.0, Vector3.Z_AXIS);
         this.material = new FlowImgSimulatorMaterial();
-        let device = webGPUContext.device;
 
         var globalArgsData = new Float32Array(4);
         this.mGlobalArgs = new ComputeGPUBuffer(globalArgsData.byteLength);

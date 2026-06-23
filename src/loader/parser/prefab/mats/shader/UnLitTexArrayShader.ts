@@ -12,6 +12,12 @@ import { ShaderLib } from "../../../../../assets/shader/ShaderLib";
 import { VertexAttributeIndexShader } from "../../../../../assets/shader/core/struct/VertexAttributeIndexShader";
 
 
+/**
+ * Internal unlit texture-array shader used by the prefab material pipeline.
+ * Exposes Unity-style `_`-prefixed setters that the prefab parser writes
+ * decoded material properties into.
+ * @internal
+ */
 @RegisterShader
 export class UnLitTexArrayShader extends Shader {
 

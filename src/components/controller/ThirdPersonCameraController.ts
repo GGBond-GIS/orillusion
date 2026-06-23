@@ -21,6 +21,12 @@ export class ThirdPersonCameraController extends ComponentBase {
         super();
     }
 
+    private _input(): any {
+        const view = this.transform?.view3D;
+        const owner = (view as any)?.engine3D;
+        return owner?.inputSystem;
+    }
+
     public start() {
         this._camera = this.object3D.getOrAddComponent(Camera3D);
         if (!this._camera) {
@@ -32,17 +38,19 @@ export class ThirdPersonCameraController extends ComponentBase {
             console.error('ThirdPersonCameraController need target');
             return;
         }
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
+        const input = this._input();
+        if (!input) return;
+        input.addEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
+        input.addEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
+        input.addEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
     }
 
     private mouseDown(e: PointerEvent3D) {
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_MOVE, this.mouseMove, this);
+        this._input()?.addEventListener(PointerEvent3D.POINTER_MOVE, this.mouseMove, this);
     }
 
     private mouseUp(e: PointerEvent3D) {
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_MOVE, this.mouseMove, this);
+        this._input()?.removeEventListener(PointerEvent3D.POINTER_MOVE, this.mouseMove, this);
     }
 
     private mouseMove(e: PointerEvent3D) {
@@ -51,20 +59,23 @@ export class ThirdPersonCameraController extends ComponentBase {
     }
 
     private mouseWheel(e: PointerEvent3D) {
-        this.distance += Engine3D.inputSystem.wheelDelta * 0.1;
+        this.distance += (this._input()?.wheelDelta ?? 0) * 0.1;
     }
 
     public onUpdate() {
         let vec = new Vector3();
-        this._camera.transform.forward.scaleToRef(this.distance, vec);
+        Vector3.multiplyScalar(this._camera.transform.forward, this.distance, vec);
         var focusPoint = this.focus.transform.worldPosition;
-        this._camera.transform.localPosition = focusPoint.subtract(vec);
+        this._camera.transform.localPosition = focusPoint.clone().sub(vec);
     }
 
     public destroy(force?: boolean): void {
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
+        const input = this._input();
+        if (input) {
+            input.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
+            input.removeEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
+            input.removeEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
+        }
         super.destroy(force);
     }
 }

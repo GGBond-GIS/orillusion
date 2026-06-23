@@ -7,9 +7,22 @@ import { ParserFormat } from "../ParserFormat";
 import { PrefabParser } from "./PrefabParser";
 
 
+/**
+ * Parses the texture section of an Orillusion prefab binary stream. It resolves
+ * each texture URL (optionally rewriting to the `webp` variant), loads the
+ * bitmap textures, and registers them with the engine resource host.
+ * @group Loader
+ */
 export class PrefabTextureParser extends ParserBase {
     static format: ParserFormat = ParserFormat.TEXT;
 
+    /**
+     * Read every texture reference from the stream, load the bitmap textures,
+     * and register them on the resource host keyed by texture name.
+     * @param bytesStream the prefab binary stream positioned at the texture section.
+     * @param prefabParser the owning prefab parser, used for base URL and context.
+     * @param loaderFunctions optional loader hooks (progress, URL transform, etc.).
+     */
     public static async parserTexture(bytesStream: BytesArray, prefabParser: PrefabParser, loaderFunctions: LoaderFunctions) {
         let preTextureCount = bytesStream.readInt32();
 
@@ -26,16 +39,16 @@ export class PrefabTextureParser extends ParserBase {
 
         }
 
-        let textureList = await Engine3D.res.loadBitmapTextures(textures, Engine3D.setting.loader.numConcurrent, loaderFunctions, true);
+        const resHost = Engine3D.resFor(prefabParser.ctx);
+        let textureList = await resHost.loadBitmapTextures(textures, prefabParser.ctx!.engine!.setting.loader.numConcurrent, loaderFunctions, true);
         for (const tex of textureList) {
-            Engine3D.res.addTexture(tex.name, tex);
+            resHost.addTexture(tex.name, tex);
         }
     }
 
     /**
-     * Verify parsing validity
-     * @param ret
-     * @returns
+     * Verify that parsing produced valid data.
+     * @returns true when data is present; throws otherwise.
      */
     public verification(): boolean {
         if (this.data) {

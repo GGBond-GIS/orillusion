@@ -32,8 +32,8 @@ export class Frustum {
                     let pt = this.corners[i];
                     i++;
                     pt.set(2.0 * x - 1.0, 2.0 * y - 1.0, z, 1.0);
-                    pvInv.transformVector4(pt, pt);
-                    pt.div(pt.w, pt);
+                    Matrix4.transformVector4(pvInv, pt, pt);
+                    pt.multiplyScalar(1 / pt.w);
                     min.x = Math.min(pt.x, min.x);
                     min.y = Math.min(pt.y, min.y);
                     min.z = Math.min(pt.z, min.z);
@@ -55,8 +55,8 @@ export class Frustum {
                 for (let z = 0; z < 2; ++z) {
                     let pt = this.corners[i];
                     pt.set(2.0 * x - 1.0, 2.0 * y - 1.0, z, 1.0);
-                    pvInv.transformVector4(pt, pt);
-                    pt.div(pt.w, pt);
+                    Matrix4.transformVector4(pvInv, pt, pt);
+                    pt.multiplyScalar(1 / pt.w);
                     i++;
                 }
             }

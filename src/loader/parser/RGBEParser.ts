@@ -138,12 +138,12 @@ export class RGBEParser extends ParserBase {
             width: this._width,
             height: this._height,
             array: this._rgbeArray,
-        });
+        }, this.ctx);
         return cubeTexture;
     }
 
     public getHDRTexture() {
-        let texture = new HDRTexture().create(this._width, this._height, this._rgbeArray);
+        let texture = new HDRTexture().create(this._width, this._height, this._rgbeArray.buffer as ArrayBuffer);
         return texture;
     }
 

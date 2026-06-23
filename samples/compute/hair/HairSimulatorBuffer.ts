@@ -1,4 +1,4 @@
-import { ComputeGPUBuffer, webGPUContext, Vector3 } from '@orillusion/core';
+import { ComputeGPUBuffer, Vector3 } from '@orillusion/core';
 import { HairSimulatorConfig } from "./HairSimulatorConfig";
 
 export class HairSimulatorBuffer {
@@ -20,8 +20,6 @@ export class HairSimulatorBuffer {
     }
 
     protected initGPUBuffer(config: HairSimulatorConfig) {
-        let device = webGPUContext.device;
-
         const { NUM, BACK, FRONT, SEGMENTFBACK, LENGTHSEGMENT, SEGMENTFRONT } = config;
 
         // core position buffer

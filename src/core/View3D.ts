@@ -1,13 +1,17 @@
-import { Object3D } from "..";
-import { GUIPick } from "../components/gui/GUIPick";
-import { GUICanvas } from "../components/gui/core/GUICanvas";
+import { Engine3D } from "..";
 import { CEventListener } from "../event/CEventListener";
 import { ShadowLightsCollect } from "../gfx/renderJob/collect/ShadowLightsCollect";
+import { RenderGraph } from "../gfx/renderJob/graph/RenderGraph";
 import { PickFire } from "../io/PickFire";
 import { Vector4 } from "../math/Vector4";
 import { Camera3D } from "./Camera3D";
 import { Scene3D } from "./Scene3D";
 
+/**
+ * A render view that pairs a {@link Camera3D} with a {@link Scene3D} and a
+ * viewport, and drives the rendering of that scene through the camera.
+ * @group Core
+ */
 export class View3D extends CEventListener {
     private _camera: Camera3D;
     private _scene: Scene3D;
@@ -15,12 +19,16 @@ export class View3D extends CEventListener {
     private _enablePick: boolean = false;
     private _enable: boolean = true;
     public pickFire: PickFire;
-    public guiPick: GUIPick;
-    public readonly canvasList: GUICanvas[];
+    /**
+     * Reference to the Engine3D instance that owns this view. Set by
+     * `engine.startRenderView(view)`. Components that need per-instance state
+     * (input system, context, etc.) read it via this back-pointer so
+     * they work under multi-instance setups.
+     */
+    public engine3D: Engine3D;
 
     constructor(x: number = 0, y: number = 0, width: number = 0, height: number = 0) {
         super();
-        this.canvasList = [];
         this._viewPort = new Vector4(x, y, width, height);
     }
 
@@ -53,12 +61,6 @@ export class View3D extends CEventListener {
         value.view = this;
 
         ShadowLightsCollect.createBuffer(this);
-
-        if (value) {
-            this.canvasList.forEach(canvas => {
-                canvas && value.addChild(canvas.object3D);
-            });
-        }
     }
 
     public get camera(): Camera3D {
@@ -77,31 +79,11 @@ export class View3D extends CEventListener {
         this._viewPort = value;
     }
 
-    public enableUICanvas(index: number = 0): GUICanvas {
-        let canvas = this.canvasList[index];
-        if (!canvas) {
-            let obj = new Object3D();
-            obj.name = 'Canvas ' + index;
-            canvas = obj.addComponent(GUICanvas);
-            canvas.index = index;
-            this.canvasList[index] = canvas;
-        }
-
-        this.scene.addChild(canvas.object3D);
-
-        if (!this.guiPick) {
-            this.guiPick = new GUIPick();
-            this.guiPick.init(this);
-        }
-
-        return canvas;
+    /** Frame Graph bound to this view's engine. The view's render
+     *  job owns it (constructed during `engine.startRenderView`).
+     *  Returns null only when the engine has not yet started a
+     *  render job for this view. */
+    public get renderGraph(): RenderGraph | null {
+        return this.engine3D?.getRenderJob(this)?.graph ?? null;
     }
-
-    public disableUICanvas(index: number = 0) {
-        let canvas = this.canvasList[index];
-        if (canvas && canvas.object3D) {
-            canvas.object3D.removeFromParent();
-        }
-    }
-
 }

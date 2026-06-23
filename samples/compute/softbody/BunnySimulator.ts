@@ -1,4 +1,4 @@
-import { Engine3D, LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, Time, Vector3, VertexAttributeName, View3D } from '@orillusion/core';
+import { LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, Time, Vector3, VertexAttributeName, View3D } from '@orillusion/core';
 import { BunnySimulatorConfig } from "./BunnySimulatorConfig";
 import { BunnySimulatorPipeline } from "./BunnySimulatorPipeline";
 import bunnyMesh from "./bunnyMesh"
@@ -71,14 +71,16 @@ export class BunnySimulator extends MeshRenderer {
         this.geometry = this.mBunnyGeometry;
         var mat = new LitMaterial();
         mat.roughness = 0.8;
-        mat.baseMap = Engine3D.res.redTexture;
         this.material = mat;
-        this.material.doubleSide = true;    
+        this.material.doubleSide = true;
     }
 
     public start() {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
+        const engine = (this.transform as any)?.view3D?.engine3D;
+        (this.material as LitMaterial).baseMap = engine.res.redTexture;
+        const input = engine?.inputSystem;
+        input.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
+        input.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
     }
 
     public SetInteractionBox(box: Object3D) {
@@ -90,7 +92,7 @@ export class BunnySimulator extends MeshRenderer {
     public onCompute(view: View3D, command?: GPUCommandEncoder) {
         if (!this.mBunnyComputePipeline) {
             this.mConfig.bunnyVertexBuffer = this.mBunnyGeometry.vertexBuffer.vertexGPUBuffer;
-            this.mBunnyComputePipeline = new BunnySimulatorPipeline(this.mConfig);
+            this.mBunnyComputePipeline = new BunnySimulatorPipeline(this.mConfig, view.engine3D.context3D.device);
         }
 
         var pos = new Vector3();
@@ -110,7 +112,7 @@ export class BunnySimulator extends MeshRenderer {
             } else if (this.mKeyState[3]) {
                 transform.x += speed
             }
-            pos.copyFrom(this.mInteractionBox.transform.worldPosition);
+            pos.copy(this.mInteractionBox.transform.worldPosition);
         }
 
         this._tickTime += Time.delta / 1000.0;

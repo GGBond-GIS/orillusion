@@ -29,5 +29,5 @@
         "experimentalDecorators": true
     },  
     "include": ["src", "test", "samples"],
-    "exclude": ["node_modules", "dist", "public"]
+    "exclude": ["node_modules", "dist", "public", "samples/**/_Sample_*.ts"]
 }

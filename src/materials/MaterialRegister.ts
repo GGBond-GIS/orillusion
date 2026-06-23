@@ -8,7 +8,6 @@ import { Ctor } from "../util/Global";
 export type MaterialClassName =
     'MaterialBase'
     | 'GBufferPass'
-    | 'GUIMaterial'
     | 'ChromaKeyMaterial'
     | 'LambertMaterial'
     | 'SkyMaterial'

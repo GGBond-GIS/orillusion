@@ -1,8 +1,8 @@
 import { test, expect, end } from '../util'
 import { BoxColliderShape, Camera3D, ColliderComponent, Engine3D, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, Ray, Scene3D, Vector3 } from '@orillusion/core';
 
-await Engine3D.init();
-Engine3D.frameRate = 10;
+const engine = await Engine3D.init();
+engine.frameRate = 10;
 
 await test('ecs remove Component', async () => {
     let obj = new Object3D();

@@ -42,7 +42,7 @@ await test('Matrix4 Scale', async () => {
     a.createByScale(10, 1, 1);
 
     let result = new Vector3();
-    a.multiplyPoint3(new Vector3(10, 0, 10), result);
+    Matrix4.multiplyPoint3(a, new Vector3(10, 0, 10), result);
 
     expect(result.x).toSubequal(100);
     expect(result.y).toSubequal(0);
@@ -56,7 +56,7 @@ await test('Matrix4 Rotation', async () => {
     a.createByRotation(45, Vector3.Y_AXIS);
 
     let result = new Vector3();
-    a.multiplyPoint3(new Vector3(10, 0, 10), result);
+    Matrix4.multiplyPoint3(a, new Vector3(10, 0, 10), result);
 
     expect(result.x).toSubequal(14.142135);
     expect(result.y).toSubequal(0);
@@ -70,7 +70,7 @@ await test('Matrix4 Translation', async () => {
     a.appendTranslation(10, 10, 0);
 
     let result = new Vector3();
-    a.multiplyPoint3(new Vector3(10, 0, 10), result);
+    Matrix4.multiplyPoint3(a, new Vector3(10, 0, 10), result);
 
     expect(result.x).toSubequal(20);
     expect(result.y).toSubequal(10);
@@ -94,7 +94,7 @@ await test('Matrix4 ScaleRotationTranslation', async () => {
     finalMatrix.multiplyMatrices(finalMatrix, translationMatrix);
 
     let result = new Vector3();
-    finalMatrix.multiplyPoint3(new Vector3(10, 0, 10), result);
+    Matrix4.multiplyPoint3(finalMatrix, new Vector3(10, 0, 10), result);
 
     expect(result.x).toSubequal(141.421356);
     expect(result.y).toSubequal(100);

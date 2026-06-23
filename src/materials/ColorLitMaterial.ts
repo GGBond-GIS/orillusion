@@ -2,6 +2,7 @@ import { Material, RenderShaderPass, PassType, Shader } from '..';
 import { Engine3D } from '../Engine3D';
 import { ShaderLib } from '../assets/shader/ShaderLib';
 import { ColorLitShader } from '../assets/shader/materials/ColorLitShader';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { Color } from '../math/Color';
 
 /**
@@ -13,7 +14,7 @@ export class ColorLitMaterial extends Material {
     /**
      * @constructor
      */
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
 
         ShaderLib.register("ColorLitShader", ColorLitShader);
@@ -40,8 +41,9 @@ export class ColorLitMaterial extends Material {
         shaderState.acceptGI = true;
         shaderState.useLight = true;
 
-        renderShader.setTexture("normalMap", Engine3D.res.normalTexture);
-        renderShader.setTexture("emissiveMap", Engine3D.res.blackTexture);
+        const res = Engine3D.resFor(ctx);
+        renderShader.setTexture("normalMap", res.normalTexture);
+        renderShader.setTexture("emissiveMap", res.blackTexture);
     }
 
     clone(): this {

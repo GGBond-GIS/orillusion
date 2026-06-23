@@ -25,10 +25,11 @@ export function getLightData(maxCascades: number): string {
 
         csmShadowMapNum: f32,
         csmShadowMapIndex: f32,
-        _retain0: f32,
-        _retain1: f32,
+        shadowFar: f32,
+        softness: f32,
 
         shadowBias: array<f32, ${maxCascades}>,
+        normalBias: array<f32, ${maxCascades}>,
     };
 `
 }

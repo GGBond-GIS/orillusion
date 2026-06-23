@@ -1,4 +1,4 @@
-import { UnLitMaterial, Color, MeshRenderer, BlendMode, GeometryBase, Vector3, VertexAttributeName } from "..";
+import { UnLitMaterial, Color, MeshRenderer, BlendMode, GeometryBase, VertexAttributeName } from "..";
 import { Object3D } from "../core/entities/Object3D";
 
 /**
@@ -19,23 +19,26 @@ export class GridObject extends Object3D {
     }
 
     private buildGeometry() {
-        const vertices = []
-        const indices = []
-		const step = this.size / this.divisions;
-		const halfSize = this.size / 2;
+        const step = this.size / this.divisions;
+        const halfSize = this.size / 2;
         const center = this.divisions / 2;
 
-        for ( let i = 0, k = - halfSize; i <= this.divisions; i ++, k += step ) {
-            if(i === center )
-                continue;
-			vertices.push( - halfSize, 0, k, halfSize, 0, k );
-			vertices.push( k, 0, - halfSize, k, 0, halfSize );
-		}
-        for( let i = 0; i < vertices.length/3; i +=2 )
-            indices.push(i, i + 1);
+        const vertices: number[] = [];
 
-        let grid = new GeometryBase()
-        grid.setIndices(indices.length > Uint16Array.length ? new Uint32Array(indices) : new Uint16Array(indices));
+        for (let i = 0, k = -halfSize; i <= this.divisions; i++, k += step) {
+            if (i === center) continue;
+            // Row along X at z=k
+            vertices.push(-halfSize, 0, k, halfSize, 0, k);
+            // Column along Z at x=k
+            vertices.push(k, 0, -halfSize, k, 0, halfSize);
+        }
+
+        const vertexCount = vertices.length / 3;
+        const indices: number[] = new Array(vertexCount);
+        for (let i = 0; i < vertexCount; i++) indices[i] = i;
+
+        const grid = new GeometryBase();
+        grid.setIndices(vertexCount > 65535 ? new Uint32Array(indices) : new Uint16Array(indices));
         grid.setAttribute(VertexAttributeName.position, new Float32Array(vertices));
         grid.addSubGeometry({
             indexStart: 0,
@@ -44,58 +47,59 @@ export class GridObject extends Object3D {
             vertexCount: 0,
             firstStart: 0,
             index: 0,
-            topology: 0
-        })
+            topology: 0,
+        });
 
-        let mat = new UnLitMaterial();
-        mat.topology = "line-list";
+        const mat = new UnLitMaterial();
+        mat.topology = 'line-list';
         mat.baseColor = new Color(1, 1, 1, 0.15);
         mat.blendMode = BlendMode.ADD;
         mat.castReflection = false;
-        let mr = this.addComponent(MeshRenderer);
+        const mr = this.addComponent(MeshRenderer);
         mr.geometry = grid;
         mr.material = mat;
     }
 
     private addAxis() {
         const halfSize = this.size / 2;
-        let vertices = new Float32Array([-halfSize,0,0, halfSize,0,0])
-        let indexes = new Uint16Array([0, 1, 2, 3])
 
-        let line = new GeometryBase()
-        line.setIndices(indexes);
-        line.setAttribute(VertexAttributeName.position, vertices);
-        line.addSubGeometry({
-            indexStart: 0,
-            indexCount: indexes.length,
-            vertexStart: 0,
-            vertexCount: 0,
-            firstStart: 0,
-            index: 0,
-            topology: 0
-        })
+        const makeLine = (x0: number, z0: number, x1: number, z1: number) => {
+            const geo = new GeometryBase();
+            geo.setIndices(new Uint16Array([0, 1]));
+            geo.setAttribute(VertexAttributeName.position, new Float32Array([x0, 0, z0, x1, 0, z1]));
+            geo.addSubGeometry({
+                indexStart: 0,
+                indexCount: 2,
+                vertexStart: 0,
+                vertexCount: 0,
+                firstStart: 0,
+                index: 0,
+                topology: 0,
+            });
+            return geo;
+        };
+
         {
-            let x = new Object3D();
-            let mr = x.addComponent(MeshRenderer);
-            mr.geometry = line;
-            let mat = mr.material = new UnLitMaterial();
+            const x = new Object3D();
+            const mr = x.addComponent(MeshRenderer);
+            mr.geometry = makeLine(-halfSize, 0, halfSize, 0);
+            const mat = mr.material = new UnLitMaterial();
+            mat.topology = 'line-list';
             mat.baseColor = new Color(1, 0, 0, 0.5);
             mat.blendMode = BlendMode.ADD;
             mat.castReflection = false;
-            mat.topology = 'line-list';
-            this.addChild(x)
+            this.addChild(x);
         }
         {
-            let z = new Object3D();
-            z.rotationY = 90;
-            let mr = z.addComponent(MeshRenderer);
-            mr.geometry = line;
-            let mat = mr.material = new UnLitMaterial();
+            const z = new Object3D();
+            const mr = z.addComponent(MeshRenderer);
+            mr.geometry = makeLine(0, -halfSize, 0, halfSize);
+            const mat = mr.material = new UnLitMaterial();
+            mat.topology = 'line-list';
             mat.baseColor = new Color(0, 1, 0, 0.5);
             mat.blendMode = BlendMode.ADD;
             mat.castReflection = false;
-            mat.topology = 'line-list';
-            this.addChild(z)
+            this.addChild(z);
         }
     }
 }

@@ -1,15 +1,17 @@
 import { CEvent } from "../../event/CEvent";
-import { SkeletonAnimationComponent } from "../SkeletonAnimationComponent";
+import { AnimatorComponent } from "./AnimatorComponent";
 
 /**
- * Skeleton animation event
- * @group Animation 
+ * Animator event payload.
+ *
+ * Dispatched by clip states when a tagged keyframe is reached. The
+ * `animator` field references the AnimatorComponent that owns the clip,
+ * letting the listener cross-check state, query weights, etc.
+ *
+ * @group Animation
  */
 export class OAnimationEvent extends CEvent {
-    /**
-     * owner skeleton animation component
-     */
-    public skeletonAnimation: SkeletonAnimationComponent;
+    public animator: AnimatorComponent;
 
     constructor(name: string, time: number) {
         super();

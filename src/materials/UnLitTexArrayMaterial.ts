@@ -1,4 +1,5 @@
 import { Engine3D } from '../Engine3D';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { RenderShaderPass } from '../gfx/graphics/webGpu/shader/RenderShaderPass';
 import { UnLitTexArrayShader } from '../loader/parser/prefab/mats/shader/UnLitTexArrayShader';
@@ -7,7 +8,7 @@ import { Vector4 } from '../math/Vector4';
 import { Material } from './Material';
 
 /**
- * Unlit Mateiral
+ * Unlit Material
  * A non glossy surface material without specular highlights.
  * @group Material
  */
@@ -15,17 +16,19 @@ export class UnLitTexArrayMaterial extends Material {
     /**
      * @constructor
      */
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
         this.shader = new UnLitTexArrayShader();
         // default value
-        this.baseMap = Engine3D.res.whiteTexture;
+        this.baseMap = Engine3D.resFor(ctx).whiteTexture;
     }
 
+    /** Sets the base color map texture array. */
     public set baseMap(texture: Texture) {
         this.shader.setTexture(`baseMap`, texture);
     }
 
+    /** Gets the base color map texture array. */
     public get baseMap() {
         return this.shader.getTexture(`baseMap`);
     }

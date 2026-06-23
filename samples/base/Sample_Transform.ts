@@ -3,7 +3,7 @@ import { Stats } from "@orillusion/stats";
 import * as dat from "dat.gui"
 
 // initializa engine
-await Engine3D.init();
+const engine = await Engine3D.init();
 
 // create new scene as root node
 let scene3D: Scene3D = new Scene3D();
@@ -19,7 +19,7 @@ sky.sunY = 0.6;
 let cameraObj: Object3D = new Object3D();
 let camera = cameraObj.addComponent(Camera3D);
 // adjust camera view
-camera.perspective(45, Engine3D.aspect, 1, 5000.0);
+camera.perspective(45, engine.aspect, 1, 5000.0);
 
 // set camera controller
 let controller = cameraObj.addComponent(HoverCameraController);
@@ -61,7 +61,7 @@ let view = new View3D();
 view.scene = scene3D;
 view.camera = camera;
 // start render
-Engine3D.startRenderView(view);
+engine.startRenderView(view);
 
 // add debug GUI
 let gui = new dat.GUI();

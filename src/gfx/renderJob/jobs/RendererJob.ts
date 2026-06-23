@@ -1,260 +1,108 @@
-import { Scene3D } from '../../../core/Scene3D';
-import { View3D } from '../../../core/View3D';
-import { Engine3D } from '../../../Engine3D';
-import { PickFire } from '../../../io/PickFire';
-import { GlobalBindGroup } from '../../graphics/webGpu/core/bindGroups/GlobalBindGroup';
-import { ShadowLightsCollect } from '../collect/ShadowLightsCollect';
-import { ColorPassRenderer } from '../passRenderer/color/ColorPassRenderer';
-import { GBufferFrame } from '../frame/GBufferFrame';
-import { OcclusionSystem } from '../occlusion/OcclusionSystem';
-import { ClusterLightingRender } from '../passRenderer/cluster/ClusterLightingRender';
-import { PointLightShadowRenderer } from '../passRenderer/shadow/PointLightShadowRenderer';
-import { ShadowMapPassRenderer } from '../passRenderer/shadow/ShadowMapPassRenderer';
-import { PreDepthPassRenderer } from '../passRenderer/preDepth/PreDepthPassRenderer';
-import { RendererMap } from './RenderMap';
-import { PostRenderer } from '../passRenderer/post/PostRenderer';
-import { PostBase } from '../post/PostBase';
-import { RendererBase } from '../passRenderer/RendererBase';
-import { Ctor } from '../../../util/Global';
-import { DDGIProbeRenderer } from '../passRenderer/ddgi/DDGIProbeRenderer';
-import { ReflectionRenderer } from '../passRenderer/cubeRenderer/ReflectionRenderer';
-import { PassType } from '../passRenderer/state/PassType';
-import { ProfilerUtil } from '../../../util/ProfilerUtil';
-import { FXAAPost } from '../post/FXAAPost';
 import { Camera3D } from '../../../core/Camera3D';
+import { View3D } from '../../../core/View3D';
+import { PickFire } from '../../../io/PickFire';
+import { ProfilerUtil } from '../../../util/ProfilerUtil';
+import { GlobalBindGroup } from '../../graphics/webGpu/core/bindGroups/GlobalBindGroup';
+import { PostPass } from '../graph/passes/PostPass';
+import { RenderGraph } from '../graph/RenderGraph';
+import { OcclusionSystem } from '../occlusion/OcclusionSystem';
+import { PostBase } from '../post/PostBase';
 
 /**
- * render jobs 
- * @internal
- * @group Post
+ * The base render job for one View3D. Owns:
+ *
+ * - the per-view {@link RenderGraph} — *empty* by default; subclasses
+ *   compose pass sets via `this.graph.add(...)`;
+ *   - lifecycle (`start`/`stop`/`pause`/`resume`) and frame driving via
+ *   `renderFrame()` (which invokes `graph.execute(...)`);
+ * - the public `addPost`/`removePost` entry points used by
+ *   `PostProcessingComponent`, which route into the graph's `PostPass`
+ *   when one is registered.
+ *
+ * `RendererJob` itself does NOT register any passes — that's the job
+ * of subclasses like {@link ForwardRendererJob}, or of user code
+ * extending `RendererJob` directly. This keeps the base class
+ * pipeline-agnostic so deferred / VR / custom flows can share it.
+ *
+ * @group GFX
  */
 export class RendererJob {
-
-    /**
-     * @internal
-     */
-    public rendererMap: RendererMap;
-
-    /**
-     * @internal
-     */
-    public shadowMapPassRenderer: ShadowMapPassRenderer;
-
-    /**
-     * @internal
-     */
-    public pointLightShadowRenderer: PointLightShadowRenderer;
-
-    /**
-     * @internal
-     */
-    public ddgiProbeRenderer: DDGIProbeRenderer;
-    /**
-     * @internal
-     */
-    public postRenderer: PostRenderer;
-
-    /**
-     * @internal
-     */
-    public clusterLightingRender: ClusterLightingRender;
-
-    /**
-     * @internal
-     */
-    public reflectionRenderer: ReflectionRenderer;
-
-    /**
-     * @internal
-     */
+    public readonly graph: RenderGraph;
     public occlusionSystem: OcclusionSystem;
 
-    /**
-     * @internal
-     */
-    public depthPassRenderer: PreDepthPassRenderer;
-
-    /**
-       * @internal
-       */
-    public get colorPassRenderer(): ColorPassRenderer {
-        let renderer = this.rendererMap.getRenderer(PassType.COLOR);
-        return renderer as ColorPassRenderer;
-    }
-
-    /**
-     * @internal
-     */
     public pauseRender: boolean = false;
     public pickFire: PickFire;
     public renderState: boolean = false;
     protected _view: View3D;
 
-    /**
-     * Create a renderer task class
-     * @param scene Scene3D {@link Scene3D}
-     */
+    private _frameIndex: number = 0;
+
     constructor(view: View3D) {
         this._view = view;
-
-        this.rendererMap = new RendererMap();
-
-        this.occlusionSystem = new OcclusionSystem();
-
-        this.clusterLightingRender = this.addRenderer(ClusterLightingRender, view);
-
-        this.reflectionRenderer = this.addRenderer(ReflectionRenderer, view);
-
-        if (Engine3D.setting.render.zPrePass) {
-            this.depthPassRenderer = this.addRenderer(PreDepthPassRenderer);
-        }
-
-        this.shadowMapPassRenderer = new ShadowMapPassRenderer();
-
-        this.pointLightShadowRenderer = new PointLightShadowRenderer();
-
-        this.addPost(new FXAAPost());
+        this.occlusionSystem = new OcclusionSystem(view);
+        this.graph = new RenderGraph(view);
     }
 
-    public addRenderer<T extends RendererBase>(c: Ctor<T>, param?: any): T {
-        let renderer: RendererBase;
-        if (param) {
-            renderer = new c(param);
-        } else {
-            renderer = new c();
-        }
-        this.rendererMap.addRenderer(renderer);
-        return renderer as T;
-    }
-
-    /**
-     * @internal
-     */
     public get view(): View3D {
         return this._view;
     }
-
     public set view(view: View3D) {
         this._view = view;
     }
 
-    /**
-     * start render task
-     */
-    public start() {
+    public start(): void {
         this.renderState = true;
+        if (this._view.engine3D.setting.render.debug) this.debug();
+        // Eagerly compile the graph: setup is deferred to compile time
+        // (so add() order can be arbitrary), but synchronous user code
+        // that follows startRenderView — typically initScene + the
+        // material constructors that look up RTResourceMap entries —
+        // needs feature.reads/writes populated and publishToLegacyMap
+        // wrappers installed in the legacy texture map before the
+        // first frame. Compiling here matches the eager-publish
+        // contract the legacy add-time setup used to satisfy.
+        this.graph.compile();
     }
 
-    // public get guiCanvas(): UICanvas {
-    //     return this._canvas;
-    // }
+    public stop(): void { }
+    public pause(): void { this.pauseRender = true; }
+    public resume(): void { this.pauseRender = false; }
+    public debug(): void { }
 
-    /**
-     * stop render task
-     */
-    public stop() { }
-
-    /**
-     * pause render task
-     */
-    public pause() {
-        this.pauseRender = true;
+    /** Drive one frame through the graph. Pre-graph bookkeeping that
+     *  sits outside any pass (camera, light / reflection entries,
+     *  occlusion snapshot) runs inline; everything else is owned by
+     *  passes registered into `this.graph`. */
+    public renderFrame(): void {
+        const view = this._view;
+        Camera3D.mainCamera = view.camera;
+        ProfilerUtil.startView(view);
+        GlobalBindGroup.getLightEntries(view.scene).update(view);
+        GlobalBindGroup.getReflectionEntries(view.scene).update(view);
+        this.occlusionSystem.update(view.camera, view.scene);
+        this.graph.execute(this.occlusionSystem, this._frameIndex++);
     }
 
-    /**
-     * back render task
-     */
-    public resume() {
-        this.pauseRender = false;
-    }
-
-    /**
-     * Add a post processing special effects task
-     * @param post
-     */
+    /** Attach a post-processing effect. Routes into the graph's
+     *  PostPass; if no PostPass is in the graph (e.g. a custom job
+     *  without a post chain), this is a no-op. */
     public addPost(post: PostBase): PostBase | PostBase[] {
-        if (!this.postRenderer) {
-            let gbufferFrame = GBufferFrame.getGBufferFrame('ColorPassGBuffer');
-            this.postRenderer = this.addRenderer(PostRenderer);
-            this.postRenderer.setRenderStates(gbufferFrame);
-        }
-
-        if (post instanceof PostBase) {
-            this.postRenderer.attachPost(this.view, post);
-        }
+        const postPass = this.graph.getPass<PostPass>('PostPass');
+        postPass?.attachPost(this._view, post);
         return post;
     }
 
-    /**
-     * Remove specified post-processing effects
-     * @param post
-     */
-    public removePost(post: PostBase | PostBase[]) {
-        if (post instanceof PostBase) {
-            this.postRenderer.detachPost(this.view, post);
+    public removePost(post: PostBase | PostBase[]): void {
+        const postPass = this.graph.getPass<PostPass>('PostPass');
+        if (!postPass) return;
+        if (Array.isArray(post)) {
+            for (const p of post) postPass.detachPost(this._view, p);
         } else {
-            for (let i = 0; i < post.length; i++) {
-                this.postRenderer.detachPost(this.view, post[i]);
-            }
+            postPass.detachPost(this._view, post);
         }
     }
 
-    /**
-     * To render a frame of the scene 
-     */
-    public renderFrame() {
-        let view = this._view;
-
-        Camera3D.mainCamera = view.camera;
-
-        ProfilerUtil.startView(view);
-
-        GlobalBindGroup.getLightEntries(view.scene).update(view);
-        GlobalBindGroup.getReflectionEntries(view.scene).update(view);
-
-        this.occlusionSystem.update(view.camera, view.scene);
-        this.clusterLightingRender.render(view, this.occlusionSystem);
-
-        if (this.shadowMapPassRenderer) {
-            ShadowLightsCollect.update(view);
-            this.shadowMapPassRenderer.render(view, this.occlusionSystem);
-        }
-
-        if (this.pointLightShadowRenderer) {
-            this.pointLightShadowRenderer.render(view, this.occlusionSystem);
-        }
-
-        if (this.depthPassRenderer) {
-            this.depthPassRenderer.compute(view, this.occlusionSystem);
-            this.depthPassRenderer.render(view, this.occlusionSystem);
-        }
-
-        if (Engine3D.setting.gi.enable && this.ddgiProbeRenderer) {
-            this.ddgiProbeRenderer.compute(view, this.occlusionSystem);
-            this.ddgiProbeRenderer.render(view, this.occlusionSystem);
-        }
-
-
-        let passList = this.rendererMap.getAllPassRenderer();
-        for (let i = 0; i < passList.length; i++) {
-            const renderer = passList[i];
-            renderer.compute(view, this.occlusionSystem);
-            renderer.render(view, this.occlusionSystem, this.clusterLightingRender.clusterLightingBuffer, false);
-        }
-
-        this.postRenderer.render(view);
-
-        //GUI
-        let guiRenderer = this.rendererMap.getRenderer(PassType.UI);
-        guiRenderer.compute(view, this.occlusionSystem);
-        guiRenderer.render(view, this.occlusionSystem, this.clusterLightingRender.clusterLightingBuffer, false);
-
-        //output
-        let lastTexture = GBufferFrame.getGUIBufferFrame().getColorTexture();
-        this.postRenderer.presentContent(view, lastTexture);
-    }
-
-    public debug() {
-
+    public destroy(_force?: boolean): void {
+        this.graph.destroy();
     }
 }

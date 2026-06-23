@@ -1,7 +1,6 @@
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { GPUTextureFormat } from '../gfx/graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
-import { GPUContext } from '../gfx/renderJob/GPUContext';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { FileLoader } from '../loader/FileLoader';
 import { LoaderFunctions } from '../loader/LoaderFunctions';
 import { RGBEParser } from '../loader/parser/RGBEParser';
@@ -24,10 +23,11 @@ export class HDRTexture extends Texture {
      * @param useMipmap gen mipmap or not
      * @returns
      */
-    public create(width: number = 32, height: number = 32, data: ArrayBuffer = null, useMipmap: boolean = true): this {
+    public create(width: number = 32, height: number = 32, data: ArrayBuffer = null, useMipmap: boolean = true, ctx?: Context3D): this {
         this.width = width;
         this.height = height;
-        let device = webGPUContext.device;
+        this._ensureBound(ctx);
+        let device = this._boundCtx!.device;
         const bit = 2; //half float
         const bytesPerRow = width * 4 * bit;
         let fixedData: ArrayBuffer = data;
@@ -45,7 +45,7 @@ export class HDRTexture extends Texture {
         });
 
         device.queue.writeBuffer(textureDataBuffer, 0, fixedData);
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = this._boundCtx!.gpuContext.beginCommandEncoder();
         commandEncoder.copyBufferToTexture(
             {
                 buffer: textureDataBuffer,
@@ -60,7 +60,7 @@ export class HDRTexture extends Texture {
                 depthOrArrayLayers: 1,
             },
         );
-        GPUContext.endCommandEncoder(commandEncoder);
+        this._boundCtx!.gpuContext.endCommandEncoder(commandEncoder);
 
         if (!this.useMipmap) {
             this.samplerBindingLayout.type = `filtering`;
@@ -81,8 +81,8 @@ export class HDRTexture extends Texture {
      * @param loaderFunctions callback when load complete
      * @returns
      */
-    public async load(url: string, loaderFunctions?: LoaderFunctions): Promise<HDRTexture> {
-        let loader = new FileLoader();
+    public async load(url: string, loaderFunctions?: LoaderFunctions, ctx?: Context3D): Promise<HDRTexture> {
+        let loader = new FileLoader(ctx);
         let parser = await loader.load(url, RGBEParser, loaderFunctions);
         return parser.getHDRTexture();
     }

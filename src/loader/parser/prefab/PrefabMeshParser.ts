@@ -10,12 +10,29 @@ import { BlendShapeData } from "./prefabData/BlendShapeData";
 import { PrefabMeshData } from "./prefabData/PrefabMeshData";
 
 
+/**
+ * Parses mesh blocks from an Orillusion prefab binary stream. It decodes the
+ * vertex layout, index buffer, optional skeleton bindings and blend shapes,
+ * builds a {@link GeometryBase}, and registers it with the engine resource host.
+ * @group Loader
+ */
 export class PrefabMeshParser extends ParserBase {
     static format: ParserFormat = ParserFormat.BIN;
 
+    /**
+     * Parse a raw mesh buffer. Reserved entry point; not used by the prefab
+     * pipeline, which decodes meshes through {@link PrefabMeshParser.parserMeshs}.
+     * @param buffer the raw mesh buffer.
+     */
     public async parseBuffer(buffer: ArrayBuffer) {
     }
 
+    /**
+     * Read every mesh block from the stream, build the corresponding
+     * geometries, and register them on the resource host keyed by mesh id.
+     * @param bytesStream the prefab binary stream positioned at the mesh section.
+     * @param prefabParser the owning prefab parser, used for context lookup.
+     */
     public static parserMeshs(bytesStream: BytesArray, prefabParser: PrefabParser) {
 
 
@@ -142,14 +159,13 @@ export class PrefabMeshParser extends ParserBase {
             }
 
             geometry.name = prefabMesh.meshName;
-            Engine3D.res.addGeometry(prefabMesh.meshID, geometry);
+            Engine3D.resFor(prefabParser.ctx).addGeometry(prefabMesh.meshID, geometry);
         }
     }
 
     /**
-     * Verify parsing validity
-     * @param ret
-     * @returns
+     * Verify that parsing produced valid data.
+     * @returns true when data is present; throws otherwise.
      */
     public verification(): boolean {
         if (this.data) {

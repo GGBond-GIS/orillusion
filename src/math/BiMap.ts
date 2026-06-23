@@ -1,4 +1,7 @@
-//双向map
+/**
+ * A bi-directional map that maintains a reverse lookup from value back to key.
+ * @group Math
+ */
 export class BiMap<K, V> extends Map<K, V>{
     private readonly negtive: Map<V, K>;
     constructor(iterable?: Iterable<readonly [K, V]> | null,) {

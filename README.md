@@ -88,11 +88,11 @@ The above link loads the global build of `Orillusion`, where all top-level APIs 
 ## Usage
 ### Create Engine3D instance
 
-At the beginning, we need to use `Engine3D.init()` and then the instance `Engine3D` will be created for further use
+Use `Engine3D.init()` to create a new engine instance. Each call returns an independent instance — you can run multiple engines side-by-side in the same page.
 
 ```javascript
 import { Engine3D } from '@orillusion/core' 
-Engine3D.init().then(()=>{  
+Engine3D.init().then((engine) => {
     // Next
 })
 ```
@@ -100,25 +100,25 @@ As `Engine3D.init()` is asynchronous, we recommend using `async/await` in the co
 ```javascript
 import { Engine3D } from '@orillusion/core'  
 async function demo(){  
-    await Engine3D.init();  
+    const engine = await Engine3D.init();
     // Next 
 }  
 demo()
 ```
 ### Create canvas
-In default, `Engine3D.init()`will create a `canvas` the same size with the window. Also, we could create a `canvas` manually using tag `<canvas>` with a `id`
+By default, `Engine3D.init()` creates a `canvas` the same size as the window. You can also create a `canvas` manually using `<canvas>` with an `id`
 
 ```html
 <canvas id="canvas" width="800" height="500" />
 ```
-Next, we need to get the `<canvas>` via `id` and then init engine by passing the `<canvas>` to `canvasConfig`
+Then get the `<canvas>` by `id` and pass it to `Engine3D.init()` via `canvasConfig`
 
 ```javascript
 import { Engine3D } from '@orillusion/core';  
 let canvas = document.getElementById('canvas')  
 
-await Engine3D.init({  
-    canvasConfig: { canvas }  
+const engine = await Engine3D.init({
+    canvasConfig: { canvas }
 })
 ```
 Please read the [Docs](https://www.orillusion.com/guide/) to Learn More.

@@ -113,7 +113,7 @@ export class Sample_NaviMesh {
 		var time: number = new Date().getTime();
 		console.log(f.x, f.y, f.z, t.x, t.y, t.z);
 		var success: boolean = this._naviMesh.findPath(f, t, this.AgentRadius);
-		console.log("寻路耗时：", new Date().getTime() - time);
+		console.log("Pathfinding time:", new Date().getTime() - time);
 
 		let graphic3D = this.g;
 		if (success) {

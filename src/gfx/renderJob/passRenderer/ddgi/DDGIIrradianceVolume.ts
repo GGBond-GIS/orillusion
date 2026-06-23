@@ -6,7 +6,6 @@ import { StorageGPUBuffer } from "../../../graphics/webGpu/core/buffer/StorageGP
 import { UniformGPUBuffer } from "../../../..";
 /**
  * @internal
- * @group Post
  */
 export class DDGIIrradianceVolume {
     public setting: GlobalIlluminationSetting;
@@ -52,6 +51,15 @@ export class DDGIIrradianceVolume {
 
     public setVolumeDataChange() {
         this.isVolumeChange = true;
+    }
+
+    // `randomOrientation` is the only Matrix4 this volume owns directly.
+    // Called by LightEntries.destroy() during engine teardown.
+    public destroy() {
+        if (this.randomOrientation) {
+            Matrix4.freeIndex(this.randomOrientation);
+            this.randomOrientation = null;
+        }
     }
 
     public updateProbes(probes: Probe[]): void {

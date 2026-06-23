@@ -54,7 +54,7 @@ export let ReflectionShader_shader: string = /*wgsl*/ `
             var worldNormal = vec3<f32>( (vNormal.xyz + 1.0) * 0.5);
 
             let gBuffer = packNHMDGBuffer(
-                ORI_VertexVarying.fragCoord.z,
+                getGBufferDepth(),
                 vec3f(0.0),
                 viewColor.rgb,
                 vec3f(0.0),

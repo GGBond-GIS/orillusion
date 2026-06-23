@@ -72,13 +72,13 @@ export class OrbitController extends ComponentBase {
     }
 
     /**
-     * Set smoothing coefficient of controller
+     * Get smoothing coefficient of controller
      */
     public get smooth(): number {
         return this._smooth;
     }
     /**
-     * Get smoothing coefficient of controller
+     * Set smoothing coefficient of controller
      */
     public set smooth(v: number) {
         this._smooth = Math.max(v, 1)
@@ -180,12 +180,12 @@ export class OrbitController extends ComponentBase {
         let step = this._isPanning ? 1 : this.smooth
         let changed = false
         if (!this._cPosition.equals(this.object3D.transform.localPosition)) {
-            this._position.copyFrom(this.object3D.transform.localPosition)
+            this._position.copy(this.object3D.transform.localPosition)
             step = 1
             changed = true
         }
         if (!this._cTarget.equals(this._target)) {
-            this._cTarget.copyFrom(this._target)
+            this._cTarget.copy(this._target)
             step = 1
             changed = true
         }
@@ -261,7 +261,7 @@ export class OrbitController extends ComponentBase {
             Vector3Ex.mulScale(this.object3D.transform.right, -e.movementX * this.panFactor, Vector3.HELP_1);
             this._target.x -= Vector3.HELP_1.x;
             this._target.z -= Vector3.HELP_1.z;
-            this._cTarget.copyFrom(this._target)
+            this._cTarget.copy(this._target)
             this.updateCamera();
         }
         this._lastMouseX = mousex;
@@ -291,20 +291,30 @@ export class OrbitController extends ComponentBase {
     /**
      * @internal
      */
+    private _input(): any {
+        const view = this.transform?.view3D;
+        const owner = (view as any)?.engine3D;
+        return owner?.inputSystem;
+    }
+
     private addEventListener() {
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_WHEEL, this.onWheel, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.onPointerDown, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_MOVE, this.onPointerMove, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_UP, this.onPointerUp, this);
+        const input = this._input();
+        if (!input) return;
+        input.addEventListener(PointerEvent3D.POINTER_WHEEL, this.onWheel, this);
+        input.addEventListener(PointerEvent3D.POINTER_DOWN, this.onPointerDown, this);
+        input.addEventListener(PointerEvent3D.POINTER_MOVE, this.onPointerMove, this);
+        input.addEventListener(PointerEvent3D.POINTER_UP, this.onPointerUp, this);
     }
     /**
      * @internal
      */
     private removeEventListener() {
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.onWheel, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_DOWN, this.onPointerDown, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_MOVE, this.onPointerMove, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_UP, this.onPointerUp, this);
+        const input = this._input();
+        if (!input) return;
+        input.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.onWheel, this);
+        input.removeEventListener(PointerEvent3D.POINTER_DOWN, this.onPointerDown, this);
+        input.removeEventListener(PointerEvent3D.POINTER_MOVE, this.onPointerMove, this);
+        input.removeEventListener(PointerEvent3D.POINTER_UP, this.onPointerUp, this);
     }
 }
 

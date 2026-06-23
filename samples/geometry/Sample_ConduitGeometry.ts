@@ -9,14 +9,15 @@ class Sample_ConduitGeometry {
     material: LitMaterial;
     object3Ds: Object3D[];
     isClosedConduit: boolean = true;
+    engine: Engine3D;
 
     async run() {
         let param = createSceneParam();
         param.camera.distance = 30;
-        await Engine3D.init();
-        let exampleScene = createExampleScene(param);
+        const engine = this.engine = await Engine3D.init();
+        let exampleScene = createExampleScene(engine, param);
         this.scene = exampleScene.scene;
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
         await this.createMaterial();
 
         GUIHelp.init();
@@ -35,8 +36,8 @@ class Sample_ConduitGeometry {
     }
 
     async createMaterial() {
-        this.material = new LitMaterial();
-        let texture = new BitmapTexture2D();
+        this.material = new LitMaterial(this.engine.context3D);
+        let texture = new BitmapTexture2D(true, this.engine.context3D);
         texture.addressModeU = "repeat";
         texture.addressModeV = "repeat";
         await texture.load('textures/grid.jpg');
@@ -104,7 +105,7 @@ class Sample_ConduitGeometry {
         if (!this.mats) {
             this.mats = [];
             for (let i = 0; i < 40; i++) {
-                let mat = new LitMaterial();
+                let mat = new LitMaterial(this.engine.context3D);
                 mat.baseColor = Color.random();
                 this.mats.push(mat);
             }

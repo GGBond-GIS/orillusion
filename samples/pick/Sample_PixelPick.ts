@@ -6,26 +6,32 @@ import { Scene3D, Engine3D, MeshRenderer, ColliderComponent, PointerEvent3D, Sph
 import { Graphic3D, Graphic3DLineRenderer } from "@orillusion/graphic";
 
 class Sample_PixelPick {
+    engine: Engine3D;
     scene: Scene3D;
     g: Graphic3D;
 
     async run() {
-        Engine3D.setting.useRTE = true;
-        Engine3D.setting.pick.enable = true;
-        Engine3D.setting.pick.mode = `pixel`;
         // init Engine3D
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                useRTE: true,
+                pick: {
+                    enable: true,
+                    mode: `pixel`,
+                },
+            },
+        });
 
-        let exampleScene = createExampleScene();
+        let exampleScene = createExampleScene(engine);
         this.scene = exampleScene.scene;
 
         this.g = new Graphic3D();
-        this.g.getComponents(Graphic3DLineRenderer).forEach(mr=>{
+        this.g.getComponents(Graphic3DLineRenderer).forEach(mr => {
             mr.materials[0].depthCompare = 'always';
         })
         this.scene.addChild(this.g);
 
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
 
         // let postProcessing = this.scene.getOrAddComponent(PostProcessingComponent);
         // let bloomPost = postProcessing.addPost(BloomPost);
@@ -50,7 +56,7 @@ class Sample_PixelPick {
 
     private async initPickObject(scene: Scene3D) {
         //load model
-        let wukong = await Engine3D.res.loadGltf('gltfs/wukong/wukong.gltf');
+        let wukong = await this.engine.res.loadGltf('gltfs/wukong/wukong.gltf');
         this.scene.addChild(wukong);
 
         wukong.transform.x = 50;

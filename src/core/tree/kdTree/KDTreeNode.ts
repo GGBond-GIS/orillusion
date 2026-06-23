@@ -272,7 +272,7 @@ export class KDTreeNode extends KDTreeUUID {
             for (let key in map) {
                 let entity = map[key];
                 if (entity.entityIntersectsRay(ray, target)) {
-                    pts.push(new Vector3().copyFrom(target));
+                    pts.push(new Vector3().copy(target));
                     ret.push(entity);
                 }
             }

@@ -3,6 +3,11 @@ import { IQuadNode } from "./IQuadNode";
 import { QuadAABB } from "./QuadAABB";
 import { QuadTreeCell } from "./QuadTreeCell";
 
+/**
+ * 2D spatial partitioning structure that recursively subdivides a region
+ * into four quadrant cells for fast spatial queries.
+ * @group Core
+ */
 export class QuadTree {
 
     private _cells: Array<QuadTreeCell>;
@@ -61,12 +66,12 @@ export class QuadTree {
         }
 
         this._cells.length = 0;
-        this._rootCell = new QuadTreeCell(this._aabb);		// 创建根节点
+        this._rootCell = new QuadTreeCell(this._aabb);		// create the root cell
         this._cells.push(this._rootCell);
 
         var numTriangles: number = this._quadNodes.length;
         for (var i: number = 0; i < numTriangles; i++) {
-            this._cells[0].nodeIndices[i] = i;			// 先把所有的三角面放到根节点上
+            this._cells[0].nodeIndices[i] = i;			// initially put every triangle in the root cell
         }
 
         var cellsToProcess: Array<number> = new Array<number>();
@@ -79,7 +84,7 @@ export class QuadTree {
             cellIndex = cellsToProcess.pop();
             if (this._cells[cellIndex].nodeIndices.length <= maxNodesPerCell
                 || this._cells[cellIndex].aabb.radius < minCellSize) {
-                continue;		// 该cell中还可以放三角面
+                continue;		// this cell still has room for more triangles
             }
 
             for (i = 0; i < QuadTreeCell.NUM_CHILDREN; i++) {
@@ -89,7 +94,7 @@ export class QuadTree {
 
                 childCell = this._cells[this._cells.length - 1];
 
-                // 父节点上的三角型往子节点中放
+                // push triangles from the parent cell down into the child cell
                 numTriangles = this._cells[cellIndex].nodeIndices.length;
                 var pushCount: number = 0;
                 for (var j: number = 0; j < numTriangles; j++) {
@@ -113,16 +118,16 @@ export class QuadTree {
 
         var result: QuadAABB = new QuadAABB();
         switch (id) {
-            case 0:		// 1象限
+            case 0:		// quadrant 1
                 result.setAABox(centerX + dimX / 4, centerY + dimY / 4, dimX / 2, dimY / 2);
                 break;
-            case 1:		// 2象限
+            case 1:		// quadrant 2
                 result.setAABox(centerX - dimX / 4, centerY + dimY / 4, dimX / 2, dimY / 2);
                 break;
-            case 2:		// 3象限
+            case 2:		// quadrant 3
                 result.setAABox(centerX - dimX / 4, centerY - dimY / 4, dimX / 2, dimY / 2);
                 break;
-            case 3:		// 4象限
+            case 3:		// quadrant 4
                 result.setAABox(centerX + dimX / 4, centerY - dimY / 4, dimX / 2, dimY / 2);
                 break;
             default:
@@ -134,12 +139,12 @@ export class QuadTree {
     }
 
     private doesNodeIntersectCell(node: IQuadNode, cell: QuadTreeCell): Boolean {
-        // boundingbox要重叠
+        // bounding boxes must overlap
         var box: QuadAABB = node.aabb;
         if (!box.overlapTest(cell.aabb)) {
             return false;
         }
-        //如果不是三角形，则只需要检测aabb的相交
+        // non-triangle nodes only need an AABB overlap test
         if (!node.isTriangle)
             return true;
 
@@ -150,11 +155,11 @@ export class QuadTree {
 
         if (cell.aabb.isPointInside(p1) ||
             cell.aabb.isPointInside(p2) ||
-            cell.aabb.isPointInside(p3)) {	// 三角型有顶点在cell中
+            cell.aabb.isPointInside(p3)) {	// a triangle vertex lies inside the cell
             return true;
         }
 
-        // cell的顶点在三角型中
+        // a cell corner lies inside the triangle
         var isIntersect: Boolean =
             this.pointInTriangle(cell.aabb.minPosX, cell.aabb.minPosY, p1, p2, p3) ||
             this.pointInTriangle(cell.aabb.minPosX, cell.aabb.maxPosY, p1, p2, p3) ||
@@ -165,7 +170,7 @@ export class QuadTree {
             return true;
 
 
-        // 三角形的边是否与AABB的边相交
+        // whether any triangle edge intersects an AABB edge
         isIntersect = cell.aabb.isIntersectLineSegment(p1.x, p1.z, p2.x, p2.z) ||
             cell.aabb.isIntersectLineSegment(p1.x, p1.z, p3.x, p3.z) ||
             cell.aabb.isIntersectLineSegment(p2.x, p2.z, p3.x, p3.z);
@@ -219,15 +224,15 @@ export class QuadTree {
         var p2: Vector3 = triP2;
         var p3: Vector3 = triP3;
 
-        // 直线方程p1-p2
+        // line equation p1-p2
         var A1: number = p1.z - p2.z;
         var B1: number = p2.x - p1.x;
         var C1: number = p1.x * p2.z - p2.x * p1.z;
-        // 直线方程p2-p3
+        // line equation p2-p3
         var A2: number = p2.z - p3.z;
         var B2: number = p3.x - p2.x;
         var C2: number = p2.x * p3.z - p3.x * p2.z;
-        // 直线方程p3-p1
+        // line equation p3-p1
         var A3: number = p3.z - p1.z;
         var B3: number = p1.x - p3.x;
         var C3: number = p3.x * p1.z - p1.x * p3.z;
@@ -253,41 +258,6 @@ export class QuadTree {
             }
             this._testID = 1;
         }
-    }
-
-    private logDeep: number = 0;
-    private logTree(cellIndex: number): void {
-        if (cellIndex < 0)
-            return;
-
-        this.logDeep++;
-
-        var cell: QuadTreeCell = this._cells[cellIndex];
-
-        var spaces: String = "";
-        for (var si: number = 0; si < (this.logDeep - 1); si++)
-            spaces += "-|";
-
-        console.log(spaces + "i=" + cellIndex + " " +
-            cell.aabb.minPosX.toFixed(2) + " " + cell.aabb.maxPosX.toFixed(2) + " "
-            + cell.aabb.minPosY.toFixed(2) + " " + cell.aabb.maxPosY.toFixed(2));
-
-        var i: number;
-        for (i = 0; i < cell.nodeIndices.length; i++) {
-            if (cell.nodeIndices[i] >= 0) {
-                var tri: IQuadNode = this._quadNodes[cell.nodeIndices[i]];
-                console.log(spaces + " t=" + cell.nodeIndices[i] + " " +
-                    tri.aabb.minPosX.toFixed(2) + " " + tri.aabb.maxPosX.toFixed(2) + " "
-                    + tri.aabb.minPosY.toFixed(2) + " " + tri.aabb.maxPosY.toFixed(2));
-
-            }
-        }
-        for (i = 0; i < cell.childCellIndices.length; i++) {
-            if (cell.childCellIndices[i] >= 0) {
-                this.logTree(cell.childCellIndices[i]);
-            }
-        }
-        this.logDeep--;
     }
 
 }

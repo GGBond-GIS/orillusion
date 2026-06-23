@@ -1,10 +1,23 @@
-import { ComputeShader, GPUContext, textureCompress } from "../../..";
+import { ComputeShader, textureCompress } from "../../..";
 import { Texture } from "../../graphics/webGpu/core/texture/Texture";
 
+/**
+ * Builds a compute shader that scales/compresses a set of input textures into output textures.
+ * @group GFX
+ */
 export class TextureScaleCompute {
 
+    /**
+     * The underlying compute shader created from the input/output textures.
+     */
     public computeShader: ComputeShader;
 
+    /**
+     * Configure the compute shader inputs and outputs.
+     * @param colorMap optional color map sampled by the shader
+     * @param inputs source textures bound as sampled textures
+     * @param outputs destination textures bound as storage textures
+     */
     public setInputes(colorMap: Texture, inputs: Texture[], outputs: Texture[]) {
         this.computeShader = new ComputeShader(textureCompress(colorMap, inputs, outputs, 8, 8, 1));
         for (let i = 0; i < inputs.length; i++) {

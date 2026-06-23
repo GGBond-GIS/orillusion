@@ -3,30 +3,35 @@ import { Object3D, Scene3D, HoverCameraController, Engine3D, CameraUtil, View3D,
 import { GUIUtil as GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_FlightHelmet {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     autoRotate: boolean = false;
     flightHelmetObj: Object3D;
 
     async run() {
-        await Engine3D.init({
+        const engine = this.engine = await Engine3D.init({
             canvasConfig: {
                 alpha: true,
                 zIndex: 0,
                 backgroundImage: '/logo/bg.webp'
             },
             renderLoop: () => this.loop(),
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                },
+                render: {
+                    postProcessing: {
+                        ssao: { radius: 0.018, aoPower: 1 },
+                    },
+                },
+            },
         });
-
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.shadowBound = 20;
-        Engine3D.setting.shadow.shadowBias = 0.001;
-        Engine3D.setting.render.postProcessing.ssao.radius = 0.018;
-        Engine3D.setting.render.postProcessing.ssao.aoPower = 1;
 
         this.scene = new Scene3D();
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(-45, -30, 15);
 
@@ -34,13 +39,13 @@ class Sample_FlightHelmet {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         let postCom = this.scene.addComponent(PostProcessingComponent);
         postCom.addPost(FXAAPost);
         await this.initScene();
 
-        GUIUtil.renderShadowSetting();
+        GUIUtil.renderShadowSetting(this.engine);
     }
 
     async initScene() {
@@ -74,7 +79,7 @@ class Sample_FlightHelmet {
 
         /******** load model *******/
         {
-            let model = (await Engine3D.res.loadGltf('PBR/FlightHelmet/FlightHelmet.gltf', {})) as Object3D;
+            let model = (await this.engine.res.loadGltf('PBR/FlightHelmet/FlightHelmet.gltf', {})) as Object3D;
             model.transform.scaleX = 10;
             model.transform.scaleY = 10;
             model.transform.scaleZ = 10;

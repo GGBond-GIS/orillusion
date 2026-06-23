@@ -133,21 +133,32 @@ export class HoverCameraController extends ComponentBase {
         this._targetPos = new Object3D();
     }
 
+    private _input(): any {
+        // Prefer the input system owned by the engine that hosts this
+        // controller's view. Fall back to the legacy default instance
+        // so single-instance samples keep working.
+        const view = this.transform?.view3D;
+        const owner = (view as any)?.engine3D;
+        return owner?.inputSystem;
+    }
+
     /**
      * @internal
      */
     public start(): void {
         this.camera = this.object3D.getOrAddComponent(Camera3D);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.onMouseDown, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_MOVE, this.onMouseMove, this, null, 10);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_UP, this.onMouseUp, this, null, 10);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_WHEEL, this.onMouseWheel, this);
+        const input = this._input();
+        if (!input) return;
+        input.addEventListener(PointerEvent3D.POINTER_DOWN, this.onMouseDown, this);
+        input.addEventListener(PointerEvent3D.POINTER_MOVE, this.onMouseMove, this, null, 10);
+        input.addEventListener(PointerEvent3D.POINTER_UP, this.onMouseUp, this, null, 10);
+        input.addEventListener(PointerEvent3D.POINTER_WHEEL, this.onMouseWheel, this);
     }
 
     public flowTarget(target: Object3D, offset: Vector3 = Vector3.ZERO) {
         this._flowTarget = target;
         this._flowOffset ||= new Vector3();
-        this._flowOffset.copyFrom(offset);
+        this._flowOffset.copy(offset);
     }
 
     public getFlowTarget(): Object3D {
@@ -196,7 +207,7 @@ export class HoverCameraController extends ComponentBase {
     private onMouseWheel(e: PointerEvent3D) {
         if (!this.enable) return;
         this._wheelStep = (this.wheelStep * Vector3Ex.distance(this._currentPos.transform.worldPosition, this.camera.transform.worldPosition)) / 10;
-        this.distance -= Engine3D.inputSystem.wheelDelta * this._wheelStep;
+        this.distance -= this._input().wheelDelta * this._wheelStep;
         this.distance = clamp(this.distance, this.minDistance, this.maxDistance);
         //console.log("distance", this.transform.view3D.camera.far, this.distance);
     }
@@ -248,8 +259,8 @@ export class HoverCameraController extends ComponentBase {
         if (!this.enable) return;
 
         if (this._flowTarget) {
-            Vector3.HELP_0.copyFrom(this._flowTarget.transform.worldPosition);
-            Vector3.HELP_0.add(this._flowOffset, Vector3.HELP_0);
+            Vector3.HELP_0.copy(this._flowTarget.transform.worldPosition);
+            Vector3.add(Vector3.HELP_0, this._flowOffset, Vector3.HELP_0);
             this.target = Vector3.HELP_0;
         }
 
@@ -277,11 +288,11 @@ export class HoverCameraController extends ComponentBase {
         this._tempDir.set(0, 0, 1);
 
         let q = Quaternion.HELP_0;
-        q.fromEulerAngles(this._pitch, this._roll, 0.0);
+        q.setFromEuler(this._pitch, this._roll, 0.0);
         this._tempDir.applyQuaternion(q);
 
         this._tempPos = Vector3Ex.mulScale(this._tempDir, this._distance, this._tempPos);
-        this._tempPos.add(this._currentPos.transform.localPosition, this._tempPos);
+        Vector3.add(this._tempPos, this._currentPos.transform.localPosition, this._tempPos);
 
         this.camera.lookAt(this._tempPos, this._currentPos.transform.localPosition, Vector3.UP);
     }
@@ -290,10 +301,19 @@ export class HoverCameraController extends ComponentBase {
      * @internal
      */
     public destroy(force?: boolean) {
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_DOWN, this.onMouseDown, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_MOVE, this.onMouseMove, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_UP, this.onMouseUp, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.onMouseWheel, this);
+        const input = this._input();
+        if (input) {
+            input.removeEventListener(PointerEvent3D.POINTER_DOWN, this.onMouseDown, this);
+            input.removeEventListener(PointerEvent3D.POINTER_MOVE, this.onMouseMove, this);
+            input.removeEventListener(PointerEvent3D.POINTER_UP, this.onMouseUp, this);
+            input.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.onMouseWheel, this);
+        }
+        // Free the two orphan helper Object3Ds (not part of the scene graph,
+        // so they would otherwise leak their Transform's Matrix4 slots on reinit).
+        this._currentPos?.destroy(force);
+        this._currentPos = null;
+        this._targetPos?.destroy(force);
+        this._targetPos = null;
         super.destroy(force);
         this.camera = null;
         this._flowTarget = null;

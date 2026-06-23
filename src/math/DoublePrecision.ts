@@ -1,9 +1,8 @@
-import { Engine3D } from "..";
 import { Vector3 } from "./Vector3";
 
-export function splitDouble(value: number): number[] {
+export function splitDouble(value: number, scale: number): number[] {
     let doubleHigh;
-    const dividend = Engine3D.setting.RTEScale;
+    const dividend = scale;
 
     if (value >= 0.0) {
         doubleHigh = Math.floor(value / dividend) * dividend;
@@ -18,10 +17,10 @@ export function splitDouble(value: number): number[] {
     return [high, low];
 }
 
-export function splitDouble_Vector3(value: Vector3): Vector3[] {
-    let xHL = splitDouble(value.x);
-    let yHL = splitDouble(value.y);
-    let zHL = splitDouble(value.z);
+export function splitDouble_Vector3(value: Vector3, scale: number): Vector3[] {
+    let xHL = splitDouble(value.x, scale);
+    let yHL = splitDouble(value.y, scale);
+    let zHL = splitDouble(value.z, scale);
     let hi = new Vector3(xHL[0], yHL[0], zHL[0]);
     let low = new Vector3(xHL[1], yHL[1], zHL[1]);
     return [hi, low];

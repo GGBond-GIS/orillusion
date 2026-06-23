@@ -1,4 +1,4 @@
-import { DirectLight, Engine3D, View3D, LitMaterial, HoverCameraController, KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, PostProcessingComponent, CameraUtil, webGPUContext, OutlinePost, outlinePostManager, AtmosphericComponent, Color, FXAAPost } from '@orillusion/core'
+import { DirectLight, Engine3D, View3D, LitMaterial, HoverCameraController, KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, PostProcessingComponent, CameraUtil, OutlinePost, outlinePostManager, AtmosphericComponent, Color, FXAAPost } from '@orillusion/core'
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import * as dat from '@orillusion/debug/dat.gui.module'
 import { GUIUtil } from '@samples/utils/GUIUtil';
@@ -10,14 +10,15 @@ export class Sample_Outline {
     constructor() { }
 
     async run() {
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.shadowSize = 2048
-        Engine3D.setting.shadow.shadowBound = 50;
-        Engine3D.setting.shadow.shadowBias = 0.05;
-
-        await Engine3D.init({
+        const engine = await Engine3D.init({
             canvasConfig: {
                 devicePixelRatio: 1
+            },
+            setting: {
+                shadow: {
+                    enable: true,
+                    shadowSize: 2048,
+                },
             },
             renderLoop: () => this.loop()
         })
@@ -26,7 +27,7 @@ export class Sample_Outline {
         this.scene.addComponent(AtmosphericComponent).sunY = 0.6
 
         let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera')
-        mainCamera.perspective(60, webGPUContext.aspect, 1, 2000.0)
+        mainCamera.perspective(60, engine.context3D.aspect, 1, 2000.0)
         let ctrl = mainCamera.object3D.addComponent(HoverCameraController)
         ctrl.setCamera(-75, -30, 20)
         await this.initScene(this.scene)
@@ -34,7 +35,7 @@ export class Sample_Outline {
         let view = new View3D()
         view.scene = this.scene
         view.camera = mainCamera
-        Engine3D.startRenderView(view)
+        engine.startRenderView(view)
 
         let postProcessing = this.scene.addComponent(PostProcessingComponent)
         postProcessing.addPost(FXAAPost)
@@ -71,7 +72,6 @@ export class Sample_Outline {
             lc.castShadow = true
             lc.intensity = 5
             lc.enableCSM = true;
-            lc.shadowCSMBias = 0.005;
             scene.addChild(this.lightObj)
             GUIUtil.renderDirLight(lc);
         }

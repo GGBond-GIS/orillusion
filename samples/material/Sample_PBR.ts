@@ -3,23 +3,26 @@ import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, HoverCam
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_PBR {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
 
     constructor() { }
 
     async run() {
-        await Engine3D.init({});
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         GUIHelp.init();
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(30, 0, 120);
 
@@ -27,9 +30,9 @@ class Sample_PBR {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(view);
 
         await this.initScene();
         sky.relativeTransform = this.lightObj3D.transform;
@@ -55,7 +58,7 @@ class Sample_PBR {
             for (let j = 0; j < 10; j++) {
                 //Create materials with different roughness and metallic
                 let mat = new LitMaterial();
-                mat.baseMap = Engine3D.res.whiteTexture;
+                mat.baseMap = this.engine.res.whiteTexture;
                 mat.roughness = i / 10;
                 mat.metallic = j / 10;
                 //Create balls

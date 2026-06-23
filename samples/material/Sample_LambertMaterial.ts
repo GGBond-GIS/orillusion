@@ -7,7 +7,7 @@ class Sample_LambertMaterial {
     scene: Scene3D;
 
     async run() {
-        await Engine3D.init();
+        const engine = await Engine3D.init();
         await GUIHelp.init();
 
         this.scene = new Scene3D();
@@ -15,7 +15,7 @@ class Sample_LambertMaterial {
 
         let mainCamera = CameraUtil.createCamera3DObject(this.scene);
 
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(45, -45, 50);
 
         await this.initScene(this.scene);
@@ -25,7 +25,7 @@ class Sample_LambertMaterial {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async initScene(scene: Scene3D) {

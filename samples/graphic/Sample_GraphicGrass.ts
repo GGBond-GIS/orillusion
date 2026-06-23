@@ -6,6 +6,7 @@ import { GrassNodeStruct, GrassRenderer, Graphic3DMesh, Graphic3D } from "@orill
 
 
 export class Sample_GraphicGrass {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     view: View3D;
@@ -18,10 +19,13 @@ export class Sample_GraphicGrass {
         Matrix4.maxCount = 10000;
         Matrix4.allocCount = 10000;
 
-        await Engine3D.init({ beforeRender: () => this.update() });
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            beforeRender: () => this.update(),
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         this.colors = [];
 
@@ -32,7 +36,7 @@ export class Sample_GraphicGrass {
         let sky = this.scene.addComponent(AtmosphericComponent);
         // sky.enable = false;
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(30, -60, 25);
 
@@ -44,7 +48,7 @@ export class Sample_GraphicGrass {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
         await this.initScene();
 
@@ -70,8 +74,8 @@ export class Sample_GraphicGrass {
 
     private async addGrass(grassGroup: number) {
         let texts = [];
-        texts.push(await Engine3D.res.loadTexture("textures/line3.png") as BitmapTexture2D);
-        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length);
+        texts.push(await this.engine.res.loadTexture("textures/line3.png") as BitmapTexture2D);
+        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length, this.engine.context3D);
         bitmapTexture2DArray.setTextures(texts);
 
         {
@@ -107,6 +111,6 @@ export class Sample_GraphicGrass {
     }
 
     update() {
-        this.graphic3D.drawCameraFrustum(Engine3D.views[0].camera);
+        this.graphic3D.drawCameraFrustum(this.view.camera);
     }
 }

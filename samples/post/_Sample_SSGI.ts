@@ -2,7 +2,7 @@ import {
 	View3D, DirectLight, Engine3D,
 	PostProcessingComponent, LitMaterial, HoverCameraController,
 	KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry,
-	CameraUtil, webGPUContext, BoxGeometry, TAAPost, AtmosphericComponent, GTAOPost, Color, BloomPost, SSRPost, SSGIPost, GBufferPost, FXAAPost, SkyRenderer, Reflection, SphereReflection, GBufferFrame, ProfilerUtil, Time, SpotLight, Object3DUtil, Object3DTransformTools, PointLight, DepthOfFieldPost, OutlinePost
+	CameraUtil, BoxGeometry, TAAPost, AtmosphericComponent, GTAOPost, Color, BloomPost, SSRPost, SSGIPost, GBufferPost, FXAAPost, SkyRenderer, Reflection, SphereReflection, GBufferFrame, ProfilerUtil, Time, SpotLight, Object3DUtil, Object3DTransformTools, PointLight, DepthOfFieldPost, OutlinePost
 } from '@orillusion/core';
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { Stats } from '@orillusion/stats';
@@ -10,39 +10,40 @@ import { PhysicTransformController } from '@samples/physics/helps/components/Phy
 import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Sample_SSGI {
+    engine: Engine3D;
 	lightObj: Object3D;
 	scene: Scene3D;
 	view: View3D;
 
 	async run() {
-		Engine3D.setting.shadow.shadowSize = 2048
-		Engine3D.setting.shadow.shadowBound = 175;
-		Engine3D.setting.shadow.shadowBias = 0.0061;
-
-		Engine3D.setting.shadow.shadowBound = 250;
-		Engine3D.setting.shadow.shadowBias = 0.018;
-		Engine3D.setting.render.useCompressGBuffer = true;
-
-		Engine3D.setting.reflectionSetting.reflectionProbeMaxCount = 8;
-		Engine3D.setting.reflectionSetting.reflectionProbeSize = 128;
-		Engine3D.setting.reflectionSetting.enable = true;
-
-		Engine3D.setting.render.hdrExposure = 1.0;
-
 		GUIHelp.init();
-		await Engine3D.init();
+		const engine = this.engine = await Engine3D.init({
+			setting: {
+				shadow: {
+					shadowSize: 2048,
+				},
+				render: {
+					useCompressGBuffer: true,
+					hdrExposure: 1.0,
+				},
+				reflectionSetting: {
+					reflectionProbeMaxCount: 8,
+					reflectionProbeSize: 128,
+					enable: true,
+				},
+			},
+		});
 
 		this.scene = new Scene3D();
 		// this.scene.addComponent(Stats);
 		let sky = this.scene.addComponent(AtmosphericComponent);
 		// let sky = this.scene.getOrAddComponent(SkyRenderer);
-		// sky.map = await Engine3D.res.loadHDRTextureCube('/hdri/daytime2.hdr');
+		// sky.map = await this.engine.res.loadHDRTextureCube('/hdri/daytime2.hdr');
 		// this.scene.envMap = sky.map;
 		sky.exposure = 1.0;
 
 		let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera');
-		// mainCamera.enableCSM = true;
-		mainCamera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+		mainCamera.perspective(60, engine.context3D.aspect, 1, 5000.0);
 		let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
 		ctrl.setCamera(-90, -25, 200);
 		this.view = new View3D();
@@ -54,7 +55,7 @@ export class Sample_SSGI {
 		await this.initScene();
 		sky.relativeTransform = this.lightObj.transform;
 
-		Engine3D.startRenderView(this.view);
+		engine.startRenderView(this.view);
 
 		let ssgi: SSGIPost;
 		let postProcessing = this.scene.addComponent(PostProcessingComponent);
@@ -82,11 +83,11 @@ export class Sample_SSGI {
 		// ssgi = postProcessing.addPost(SSGIPost);
 		// GUIUtil.renderDirLight(this.lightObj.getComponent(DirectLight));
 
-		GUIUtil.renderShadowSetting();
+		GUIUtil.renderShadowSetting(engine);
 		let f = GUIHelp.addFolder("SSGI");
 		f.open();
-		GUIHelp.add(Engine3D.setting.sky, 'skyExposure', 0.0, 5.0, 0.0001);
-		GUIHelp.add(Engine3D.setting.render, 'hdrExposure', 0.0, 5.0, 0.0001);
+		GUIHelp.add(engine.setting.sky, 'skyExposure', 0.0, 5.0, 0.0001);
+		GUIHelp.add(engine.setting.render, 'hdrExposure', 0.0, 5.0, 0.0001);
 		GUIHelp.endFolder();
 	}
 
@@ -146,36 +147,36 @@ export class Sample_SSGI {
 			// GUIUtil.showPointLightGUI(pl);
 		}
 
-		// let giScene = await Engine3D.res.loadGltf("live/Archive/pxd.gltf");
-		// let giScene = await Engine3D.res.loadGltf("live/Archive/live.glb");
-		// let giScene = await Engine3D.res.loadGltf("live/Archive/live2.glb");
-		// let giScene = await Engine3D.res.loadGltf("gi/GITest.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/wukong/wukong.gltf");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_001.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_002.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_003.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_004.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_005.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Ground_Grass_01.glb");
+		// let giScene = await this.engine.res.loadGltf("live/Archive/pxd.gltf");
+		// let giScene = await this.engine.res.loadGltf("live/Archive/live.glb");
+		// let giScene = await this.engine.res.loadGltf("live/Archive/live2.glb");
+		// let giScene = await this.engine.res.loadGltf("gi/GITest.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/wukong/wukong.gltf");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_001.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_002.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_003.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_004.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_005.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Ground_Grass_01.glb");
 
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/frazer-nash.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/Example_Streets.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/Corridor_Gardens_Pergola01.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Statue_09.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Statue_08.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Female_Bust_Statuette_01a.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Old_Wooden_Figurine_01a.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Art_01c.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Art_01b.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Geode_01a.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_F_Display_Stand_01a.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_006.glb");
-		let giScene = await Engine3D.res.loadGltf("gltfs/dt/DingLeiChangFang.gltf");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/frazer-nash.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/Example_Streets.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/Corridor_Gardens_Pergola01.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Statue_09.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Statue_08.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Female_Bust_Statuette_01a.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Old_Wooden_Figurine_01a.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Art_01c.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Art_01b.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Geode_01a.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_F_Display_Stand_01a.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_006.glb");
+		let giScene = await this.engine.res.loadGltf("gltfs/dt/DingLeiChangFang.gltf");
 
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_007.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/Corridor_Gardens_FountainPool01.gltf");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/cim.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/pbrCar/car.gltf");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_007.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/Corridor_Gardens_FountainPool01.gltf");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/cim.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/pbrCar/car.gltf");
 		giScene.forChild((child: Object3D) => {
 			let mr = child.getComponent(MeshRenderer);
 			if (mr) {
@@ -186,8 +187,8 @@ export class Sample_SSGI {
 			}
 		});
 
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Platform_01d.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/SM_Outfit_01d.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Platform_01d.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/SM_Outfit_01d.glb");
 
 		// let ab = giScene.getChildByName("SM_Outfit_01d1") as Object3D;
 		// let abMR = ab.getComponent(MeshRenderer);
@@ -222,13 +223,13 @@ export class Sample_SSGI {
 				reflection.x = i * space - space * 0.5;
 				reflection.y = 10;
 				reflection.z = j * space - space * 0.5;
-				ref.debug(ii++, 0.1);
+				ref.debug(ii++, this.view, 0.1);
 				this.scene.addChild(reflection);
 			}
 		}
 
 		{
-			let emiss = Object3DUtil.GetCube();
+			let emiss = Object3DUtil.GetCube(this.engine.context3D);
 			let mr = emiss.getComponent(MeshRenderer);
 			let mat = mr.material as LitMaterial;
 			// mat.emissiveColor = new Color(0.2, 0.2, 0.8);

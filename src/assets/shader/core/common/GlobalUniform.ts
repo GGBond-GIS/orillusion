@@ -12,7 +12,7 @@ export function GlobalUniform(maxShadowMapNum: number): string {
     projMat: mat4x4<f32>,
     viewMat: mat4x4<f32>,
     cameraWorldMatrix: mat4x4<f32>,
-    pvMatrixInv : mat4x4<f32>,
+    projMatInv : mat4x4<f32>,
     viewToWorld : mat4x4<f32>,
     shadowMatrix: array<mat4x4<f32>, ${maxShadowMapNum}>,
 
@@ -59,6 +59,8 @@ export function GlobalUniform(maxShadowMapNum: number): string {
     pointShadowBias: f32,
     shadowMapSize: f32,
     shadowSoft: f32,
+    pcfKernelScale: f32,
+
     enableCSM:f32,
 
 
@@ -85,9 +87,9 @@ export function GlobalUniform(maxShadowMapNum: number): string {
   var<uniform> globalUniform: GlobalUniform;
 
   fn getViewPosition(z:f32,uv:vec2f) -> vec3f {
-    let pvMatrixInv = globalUniform.pvMatrixInv ;
+    let projMatInv = globalUniform.projMatInv ;
     let clip = vec4<f32>((uv * 2.0 - 1.0) , z , 1.0);
-    var viewPos = pvMatrixInv * clip ;
+    var viewPos = projMatInv * clip ;
     return viewPos.xyz / viewPos.w ;
   }
 

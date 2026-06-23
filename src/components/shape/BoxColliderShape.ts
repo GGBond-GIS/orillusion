@@ -34,7 +34,7 @@ export class BoxColliderShape extends ColliderShape {
         box.setFromCenterAndSize(this.center, this.size);
 
         let helpMatrix = ColliderShape.helpMatrix;
-        helpMatrix.copyFrom(fromMatrix).invert();
+        helpMatrix.copy(fromMatrix).invert();
 
         let helpRay = ColliderShape.helpRay.copy(ray);
         helpRay.applyMatrix(helpMatrix);

@@ -5,20 +5,23 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 
 
 class Sample_UVMove {
+    engine: Engine3D;
     scene: Scene3D;
     lightObj: Object3D;
     async run() {
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                material: { materialChannelDebug: true },
+                shadow: { },
+            },
+        });
         await GUIHelp.init();
-
-        Engine3D.setting.material.materialChannelDebug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
 
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 0.01, 5000.0);
+        camera.perspective(60, engine.aspect, 0.01, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(25, -25, 200);
 
@@ -26,7 +29,7 @@ class Sample_UVMove {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         await this.initScene();
         sky.relativeTransform = this.lightObj.transform;
@@ -50,7 +53,6 @@ class Sample_UVMove {
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = false;
             directLight.intensity = 2;
-            directLight.shadowBias = 0.2;
             directLight.shadowBoundWidth = 512;
             directLight.shadowBoundHeight = 512;
             directLight.shadowBoundFar = 512;
@@ -63,7 +65,7 @@ class Sample_UVMove {
             let floor = new Object3D();
             let material = new LitMaterial();
             material.doubleSide = true;
-            material.baseMap = await Engine3D.res.loadTexture("textures/diffuse.jpg");
+            material.baseMap = await this.engine.res.loadTexture("textures/diffuse.jpg");
 
             let renderer = floor.addComponent(MeshRenderer);
             renderer.material = material;
@@ -78,7 +80,7 @@ class Sample_UVMove {
             let plane = new Object3D();
             let renderer = plane.addComponent(MeshRenderer);
             let material = new LitMaterial();
-            material.baseMap = await Engine3D.res.loadTexture("particle/T_Fx_Object_229.png");;
+            material.baseMap = await this.engine.res.loadTexture("particle/T_Fx_Object_229.png");;
             renderer.material = material;
             material.blendMode = BlendMode.NORMAL;
             renderer.geometry = new PlaneGeometry(100, 100, 1, 1);

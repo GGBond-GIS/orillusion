@@ -96,18 +96,33 @@ fn CsMain( @builtin(workgroup_id) workgroup_id : vec3<u32> , @builtin(global_inv
       return;
   }
   var color = textureLoad(inTex, fragCoord, 0);
-  var linerColor = gammaToLiner(color.rgb);
-  var lum = dot(vec3<f32>(0.2126, 0.7152, 0.0722), linerColor.rgb) ;
-
-  var ret = linerColor.xyz;
-  var contribution = max(0, lum - bloomCfg.luminanceThreshole) ;
-  // if(contribution > 0.0){
-    // ret = linerColor * contribution;
-  ret = ACESToneMapping(linerColor,contribution);
-  // }else{
-  //   ret = vec3f(0.0,0.0,0.0);
-  // }
-  textureStore(outTex, fragCoord, vec4<f32>(vec3f(ret), color.w));
+  // Sanitize NaN / +Inf from upstream PBR / SSR before the bloom pyramid
+  // can blow up. Without this, a single bad pixel feeds (lum - threshold) /
+  // max(lum, eps) which turns +Inf into Inf/Inf = NaN, the gauss blur
+  // then propagates the NaN through the downsample / upsample chain,
+  // and the postCompute bilinear sample paints a hard-edged ~355x355
+  // square of zeros on the final composite (NaN tonemaps to 0).
+  //
+  // Detection uses clamp + self-equality. clamp(NaN) is impl-defined on
+  // some WebGPU backends (returns NaN, returns 0, or returns the bound),
+  // so a plain "x not equal x" NaN test was unreliable. Clamp first to
+  // kill +/-Inf deterministically, then select-on-self-equality as a
+  // second line in case clamp(NaN) leaks through.
+  let clamped = clamp(color.rgb, vec3<f32>(-65504.0), vec3<f32>(65504.0));
+  let is_finite = clamped == clamped;
+  let safe_rgb = select(vec3<f32>(0.0), clamped, is_finite);
+  // Soft-knee threshold: weight in [0,1]. Scaling by raw (lum - threshold)
+  // unbounded-amplifies HDR specular highlights into the bloom buffer
+  // (a 5-nit pixel becomes a 4x bloom seed; the upsample chain then sums
+  // ~3 mips of that, blowing past what ACES can recover and causing the
+  // big over-exposed halos seen on shiny PBR samples). Normalizing by lum
+  // keeps the bloom buffer a soft-masked copy of the scene rather than
+  // an amplified one — relative HDR is preserved, ACES handles the
+  // compression at the end of the chain.
+  var lum = dot(vec3<f32>(0.2126, 0.7152, 0.0722), safe_rgb);
+  var weight = max(0.0, lum - bloomCfg.luminanceThreshole) / max(lum, 1e-4);
+  var ret = safe_rgb * weight;
+  textureStore(outTex, fragCoord, vec4<f32>(ret, color.w));
 }
 `
 
@@ -221,12 +236,11 @@ fn CsMain( @builtin(workgroup_id) workgroup_id : vec3<u32> , @builtin(global_inv
 
   // var bloom = textureLoad(_BloomTex, fragCoord, 0).xyz;
   var bloom = textureSampleLevel(_BloomTex, _BloomTexSampler, uv, 0.0).xyz * bloomCfg.bloomIntensity;
-  
-  // tone map
-  bloom = ACESToneMapping(bloom, 1.0);
-  let g = 1.0 / 2.2;
-  bloom = saturate(pow(bloom, vec3<f32>(g)));
- 
+
+  // ACES + gamma now happen in the final TonemapPost. Just additively
+  // composite the linear HDR bloom onto the scene; the post-pass
+  // tonemap reads the combined HDR signal and produces the
+  // shoulder-compressed output for both scene and bloom in one pass.
   color = vec4<f32>(color.xyz + bloom.xyz, color.w);
   textureStore(outTex, fragCoord, color);
 }

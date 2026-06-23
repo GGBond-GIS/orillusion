@@ -8,6 +8,10 @@ import { Navi3DFunnel } from "./Navi3DFunnel";
 import { Navi3DPoint } from "./Navi3DPoint";
 import { Navi3DTriangle } from "./Navi3DTriangle";
 
+/**
+ * Navigation mesh built from geometry, used for 3D path-finding queries.
+ * @group Math
+ */
 export class Navi3DMesh {
 
     private _nav3dPoints: Array<Navi3DPoint>;
@@ -24,22 +28,27 @@ export class Navi3DMesh {
 
     private _triangleList: Array<Navi3DTriangle>;
 
+    /** The edges that make up this navigation mesh. */
     public get edges(): Array<Navi3DEdge> {
         return this._nav3dEdges;
     }
 
+    /** The points (vertices) that make up this navigation mesh. */
     public get points(): Array<Navi3DPoint> {
         return this._nav3dPoints;
     }
 
+    /** The path computed by the most recent {@link findPath} call. */
     public get path(): Array<Vector3> {
         return this._path;
     }
 
+    /** The triangles that make up this navigation mesh. */
     public get triangles(): Array<Navi3DTriangle> {
         return this._nav3dTriangles;
     }
 
+    /** Creates a navigation mesh from a list of points and triangle index lists. */
     constructor(pointList: Array<Vector3>, triangleIndexList: Array<Array<number>>) {
         this._nav3dPoints = new Array<Navi3DPoint>();
         this._nav3dEdges = new Array<Navi3DEdge>();
@@ -60,10 +69,12 @@ export class Navi3DMesh {
         this._terrainQuad.createQuadTree(this._nav3dTriangles);
     }
 
+    /** Returns the triangle located at the given point within the given threshold. */
     public getTriangleAtPoint(point: Vector3, threshold: number = 5): IQuadNode {
         return this._terrainQuad.getTriangleAtPoint(point, threshold);
     }
 
+    /** Finds a path between two points for an agent of the given radius; returns whether a path was found. */
     public findPath(startPt: Vector3, endPt: Vector3, aiRadius: number = 5): boolean {
         this._path = null;
         this._triangleList = null;
@@ -144,14 +155,14 @@ export class Navi3DMesh {
         var publicEdge: Navi3DEdge;
 
         for (var i: number = 0; i < triangleACount; i++) {
-            //边上面记录拥有这条边的三角形
+            // record on each edge which triangles own it
             triangleA = this._nav3dTriangles[i];
             for (edge of triangleA.edges) {
                 edge.addTriangleOwners(triangleA);
             }
 
             for (var j: number = 0; j < triangleBCount; j++) {
-                //三角形相邻关系
+                // triangle adjacency relationships
                 triangleB = this._nav3dTriangles[j];
                 if (triangleA == triangleB)
                     continue;

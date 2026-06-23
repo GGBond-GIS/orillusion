@@ -5,6 +5,7 @@ import { Stats } from "@orillusion/stats";
 import { Graphic3D, Graphic3DMesh } from "@orillusion/graphic";
 
 export class Sample_GraphicMesh_Trailing2 {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     parts: Object3D[];
@@ -24,10 +25,13 @@ export class Sample_GraphicMesh_Trailing2 {
         Matrix4.maxCount = 500000;
         Matrix4.allocCount = 500000;
 
-        await Engine3D.init({ beforeRender: () => this.update() });
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            beforeRender: () => this.update(),
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         this.colors = [];
 
@@ -38,7 +42,7 @@ export class Sample_GraphicMesh_Trailing2 {
         let sky = this.scene.addComponent(AtmosphericComponent);
         sky.enable = false;
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(30, 0, 120);
 
@@ -49,9 +53,9 @@ export class Sample_GraphicMesh_Trailing2 {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(this.view);
 
         let post = this.scene.addComponent(PostProcessingComponent);
         let bloom = post.addPost(BloomPost);
@@ -78,13 +82,13 @@ export class Sample_GraphicMesh_Trailing2 {
 
         let texts = [];
 
-        // texts.push(await Engine3D.res.loadTexture("particle/fx_a_fragment_003.png") as BitmapTexture2D);
-        // texts.push(await Engine3D.res.loadTexture("textures/grid.jpg") as BitmapTexture2D);
-        // texts.push(await Engine3D.res.loadTexture("textures/frame.png") as BitmapTexture2D);
-        // texts.push(await Engine3D.res.loadTexture("textures/128/line_0010.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/128/line_0001.PNG") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/128/line_0013.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/128/line_0017.png") as BitmapTexture2D);
+        // texts.push(await this.engine.res.loadTexture("particle/fx_a_fragment_003.png") as BitmapTexture2D);
+        // texts.push(await this.engine.res.loadTexture("textures/grid.jpg") as BitmapTexture2D);
+        // texts.push(await this.engine.res.loadTexture("textures/frame.png") as BitmapTexture2D);
+        // texts.push(await this.engine.res.loadTexture("textures/128/line_0010.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/128/line_0001.PNG") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/128/line_0013.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/128/line_0017.png") as BitmapTexture2D);
 
         let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length);
         bitmapTexture2DArray.setTextures(texts);
@@ -143,7 +147,7 @@ export class Sample_GraphicMesh_Trailing2 {
                 //     let p = j / (trail3d.length - 1);
 
                 //     let q = Quaternion.HELP_0;
-                //     q.fromEulerAngles(0, p * 360 * 4, 0);
+                //     q.setFromEuler(0, p * 360 * 4, 0);
                 //     q.transformVector(Vector3.RIGHT, dir);
 
                 //     trail3d[j].x = dir.x * lx * p;

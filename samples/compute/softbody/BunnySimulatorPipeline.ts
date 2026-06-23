@@ -1,4 +1,4 @@
-import { ComputeShader, Time, Vector3, webGPUContext } from '@orillusion/core';
+import { ComputeShader, Time, Vector3 } from '@orillusion/core';
 import { BunnySimulatorBuffer } from "./BunnySimulatorBuffer";
 import { BunnySimulatorConfig } from "./BunnySimulatorConfig";
 import { edgeconstraint } from "./shader/edgeconstraint.wgsl";
@@ -22,8 +22,8 @@ export class BunnySimulatorPipeline extends BunnySimulatorBuffer {
     protected mNormalUpdateComputeShader: ComputeShader;
     protected mUpdateVertexBufferComputeShader: ComputeShader;
 
-    constructor(config: BunnySimulatorConfig) {
-        super(config);
+    constructor(config: BunnySimulatorConfig, device: GPUDevice) {
+        super(config, device);
         this.mConfig = config;
         this.initPipeline(this.mConfig);
     }

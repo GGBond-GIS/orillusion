@@ -8,6 +8,9 @@ import { Navi3DPointFat } from "./Navi3DPointFat";
 import { Navi3DRouter } from "./Navi3DRouter";
 import { Navi3DTriangle } from "./Navi3DTriangle";
 
+/**
+ * @internal
+ */
 export class Navi3DFunnel {
 
     private _aiRadius: number = 0;
@@ -31,7 +34,7 @@ export class Navi3DFunnel {
             radius = 1;
         this._aiRadius = radius * 1.5;
         //
-        //起点终点判断
+        // validate start and end points
         if (!this.searchEnable(startPt, endPt, triangleList))
             return false;
 
@@ -119,7 +122,7 @@ export class Navi3DFunnel {
         //copy result
         let list: Vector3[] = [];
         for (let point of this._result) {
-            list.push(new Vector3().copyFrom(point));
+            list.push(new Vector3().copy(point));
         }
         this._result = list;
     }
@@ -179,7 +182,7 @@ export class Navi3DFunnel {
             else {
                 curEdgeJ = null;
                 toPoint = null;
-                //找到下一个点
+                // find the next point
                 for (var j: number = i + 1; j < crossedEdgeCount; j++) {
                     curEdgeJ = this._tempPublicEdgeList[j];
                     toPoint = curEdgeJ.crossPoint;
@@ -272,7 +275,7 @@ export class Navi3DFunnel {
             }
 
             if (checkEnable) {
-                Navi3DFunnel.CROSS_TEST_DIRECTION.copyFrom(pt0);
+                Navi3DFunnel.CROSS_TEST_DIRECTION.copy(pt0);
                 Navi3DFunnel.CROSS_TEST_DIRECTION.decrementBy(pt2);
                 centerEdge = fatPt1.ownerEdge;
 

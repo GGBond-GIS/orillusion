@@ -3,12 +3,17 @@ import { LoaderFunctions } from './LoaderFunctions';
 import { ParserBase } from './parser/ParserBase';
 import { Ctor, Parser } from "../util/Global";
 import { ParserFormat } from './parser/ParserFormat';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 
 /**
  * @internal
  * @group Loader
  */
 export class FileLoader extends LoaderBase {
+    constructor(ctx?: Context3D) {
+        super(ctx);
+    }
+
     /**
      * Load the file from the URL
      * @param url file URL
@@ -27,6 +32,7 @@ export class FileLoader extends LoaderBase {
                             parser.userData = userData;
                             parser.baseUrl = this.baseUrl;
                             parser.initUrl = url;
+                            parser.ctx = this.ctx;
                             await parser.parseBuffer(data);
                             if (parser.verification()) {
                                 succ(parser);
@@ -48,6 +54,7 @@ export class FileLoader extends LoaderBase {
                                 parser.baseUrl = this.baseUrl;
                                 parser.initUrl = url;
                                 parser.loaderFunctions = loaderFunctions;
+                                parser.ctx = this.ctx;
                                 await parser.parseJson(ret);
                                 succ(parser);
                             })
@@ -66,6 +73,7 @@ export class FileLoader extends LoaderBase {
                                 parser.baseUrl = this.baseUrl;
                                 parser.initUrl = url;
                                 parser.loaderFunctions = loaderFunctions;
+                                parser.ctx = this.ctx;
                                 if (!ret[`data`]) {
                                     fail(`text load is empty!`);
                                 } else {

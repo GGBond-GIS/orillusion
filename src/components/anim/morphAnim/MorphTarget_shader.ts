@@ -1,4 +1,10 @@
-﻿export class MorphTarget_shader {
+﻿/**
+ * @internal
+ * WGSL source provider for morph-target (blend-shape) skinning: vertex
+ * shader bindings/blend helpers and the compute shader that accumulates
+ * weighted morph deltas into output position/normal buffers.
+ */
+export class MorphTarget_shader {
     public static getMorphTargetShaderBinding(group: number, beginBinding: number): string {
         return /* wgsl */ `
             fn blendMorphTargetPosition(vertexID:i32, posIn:vec3<f32>) -> vec3<f32>{

@@ -32,7 +32,7 @@ export let ClusterBoundsSource_cs: string = /* wgsl */`
         var<private> clusterTileY:f32 ;
         var<private> clusterTileZ:f32 ;
         fn convertNDCToView( v4:vec4<f32> ) -> vec4<f32> {
-            var v = globalUniform.pvMatrixInv * v4 ;
+            var v = globalUniform.projMatInv * v4 ;
             v = v / v.w ;
             return v ;
         }

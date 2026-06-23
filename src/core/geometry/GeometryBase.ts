@@ -27,24 +27,37 @@ export type LODDescriptor = {
  * @group Geometry
  */
 export class SubGeometry {
+    /** The LOD levels making up this sub-geometry. */
     public lodLevels: LODDescriptor[];
 }
 
 
 /**
+ * Base class for all geometries, holding vertex/index attribute data,
+ * GPU buffers, bounds and the logic to generate them for rendering.
  * @group Geometry
  */
 export class GeometryBase {
 
+    /** Unique identifier of this geometry instance. */
     public instanceID: string;
+    /** Human-readable name of this geometry. */
     public name: string;
+    /** Sub-geometries with their per-LOD draw descriptors. */
     public subGeometries: SubGeometry[] = [];
+    /** Whether morph targets are stored as relative offsets. */
     public morphTargetsRelative: boolean;
+    /** Maps morph-target names to their attribute indices. */
     public morphTargetDictionary: { [blenderName: string]: number };
+    /** Names of the skin joints used by this geometry. */
     public skinNames: string[];
+    /** Inverse bind-pose matrices for skinning. */
     public bindPose: Matrix4[];
+    /** Blend-shape (morph target) data for this geometry. */
     public blendShapeData: BlendShapeData;
+    /** Number of floats per vertex for interleaved buffers. */
     public vertexDim: number;
+    /** Number of vertices in this geometry. */
     public vertexCount: number = 0;
 
     private _bounds: BoundingBox;
@@ -62,29 +75,36 @@ export class GeometryBase {
         this._vertexBuffer = new GeometryVertexBuffer();
     }
 
+    /** Get the GPU index buffer of this geometry. */
     public get indicesBuffer(): GeometryIndicesBuffer {
         return this._indicesBuffer;
     }
 
+    /** Get the GPU vertex buffer of this geometry. */
     public get vertexBuffer(): GeometryVertexBuffer {
         return this._vertexBuffer;
     }
 
+    /** Get the list of vertex attribute names present on this geometry. */
     public get vertexAttributes(): string[] {
         return this._attributes;
     }
 
+    /** Get the map from attribute name to its vertex attribute data. */
     public get vertexAttributeMap(): Map<string, VertexAttributeData> {
         return this._attributeMap;
     }
 
+    /** Get the vertex layout type of this geometry. */
     public get geometryType(): GeometryVertexType {
         return this._vertexBuffer.geometryType;
     }
+    /** Set the vertex layout type of this geometry. */
     public set geometryType(value: GeometryVertexType) {
         this._vertexBuffer.geometryType = value;
     }
 
+    /** Get the bounding box of this geometry, computing it from positions on first access. */
     public get bounds(): BoundingBox {
         if (!this._bounds) {
             this._bounds = new BoundingBox(new Vector3(), new Vector3(1, 1, 1));
@@ -128,6 +148,7 @@ export class GeometryBase {
         return this._bounds;
     }
 
+    /** Set the bounding box of this geometry. */
     public set bounds(value: BoundingBox) {
         this._bounds = value;
     }
@@ -145,19 +166,56 @@ export class GeometryBase {
     }
 
     /**
-     * create geometry by shaderReflection
-     * @param shaderReflection ShaderReflection
+     * Build the GPU vertex buffer + buffer-layout array from this
+     * geometry's attribute data, driven by the consuming pass's
+     * `ShaderReflection`. The layout array is indexed by shader slot
+     * (`attribute.location`), so the LAYOUT contents depend on which
+     * attributes the shader actually declares.
+     *
+     * Originally this was gated purely on `_onChange` — i.e. ran once
+     * after the geometry's attribute data was set. That broke
+     * multi-pass materials: when a single geometry is consumed by a
+     * color pass that declares N attributes (say position / normal /
+     * uv) AND a depth pass that declares N+1 (adding TEXCOORD_1 at
+     * slot 3 via VertexAttributes #include), the color pass ran
+     * first, populated slots 0..N-1, and cleared `_onChange`. The
+     * depth pass's `generate` call was then a no-op, so the pipeline
+     * built with `vertexBufferLayouts` was missing slot N — WebGPU
+     * rejects it with "Vertex attribute slot X used in shader is not
+     * present in VertexState".
+     *
+     * The fix: rebuild also when the incoming reflection requires a
+     * slot the current layout array doesn't yet have. The data is
+     * already in `_attributeMap`; `createVertexBuffer` will pick up
+     * the missing slot. We keep the `_onChange` short-circuit for the
+     * normal "shader requirements unchanged" case so dynamic geometry
+     * updates don't pay a per-frame `createVertexBuffer` cost.
      */
     generate(shaderReflection: ShaderReflection) {
-        if (this._onChange) {
-            this._onChange = false;
-            this._indicesBuffer.upload(this.getAttribute(VertexAttributeName.indices).data);
-            this._vertexBuffer.createVertexBuffer(this._attributeMap, shaderReflection);
-            this._vertexBuffer.updateAttributes(this._attributeMap);
-            this.vertexCount = this._vertexBuffer.vertexCount;
+        if (!this._onChange) {
+            const layouts = this._vertexBuffer?.vertexBufferLayouts;
+            // Any non-builtin attribute the new reflection asks for
+            // that isn't already present in the layouts means we have
+            // to rebuild — the shader will reference a slot the
+            // pipeline VertexState wouldn't otherwise provide.
+            const missingSlot = shaderReflection.attributes.some(a =>
+                a.name !== 'index'
+                && (a as any).type !== 'builtin'
+                && layouts?.[a.location] === undefined
+            );
+            if (!missingSlot) return;
         }
+        this._onChange = false;
+        this._indicesBuffer.upload(this.getAttribute(VertexAttributeName.indices).data);
+        this._vertexBuffer.createVertexBuffer(this._attributeMap, shaderReflection);
+        this._vertexBuffer.updateAttributes(this._attributeMap);
+        this.vertexCount = this._vertexBuffer.vertexCount;
     }
 
+    /**
+     * Set the index data of this geometry, creating its index buffer.
+     * @param data the index buffer data
+     */
     public setIndices(data: ArrayBufferData) {
         if (!this._attributeMap.has(VertexAttributeName.indices)) {
             let vertexInfo: VertexAttributeData = {
@@ -170,6 +228,10 @@ export class GeometryBase {
         }
     }
 
+    /**
+     * Set the position (vertex) data of this geometry.
+     * @param data the position buffer data
+     */
     public setVertexs(data: ArrayBufferData) {
         let vertexInfo: VertexAttributeData = {
             attribute: VertexAttributeName.position,
@@ -179,6 +241,11 @@ export class GeometryBase {
         this._attributes.push(vertexInfo.attribute);
     }
 
+    /**
+     * Set the data of a named vertex attribute (or indices/position).
+     * @param attribute the attribute name
+     * @param data the attribute buffer data
+     */
     public setAttribute(attribute: VertexAttributeName | string, data: ArrayBufferData) {
         if (attribute == VertexAttributeName.indices) {
             this.setIndices(data);
@@ -194,14 +261,26 @@ export class GeometryBase {
         }
     }
 
+    /**
+     * Get the data of a named vertex attribute.
+     * @param attribute the attribute name
+     */
     public getAttribute(attribute: VertexAttributeName | string): VertexAttributeData {
         return this._attributeMap.get(attribute) as VertexAttributeData;
     }
 
+    /**
+     * Whether this geometry has the given named attribute.
+     * @param attribute the attribute name
+     */
     public hasAttribute(attribute: VertexAttributeName | string): boolean {
         return this._attributeMap.has(attribute);
     }
 
+    /**
+     * Generate (and cache) the line list describing this geometry's wireframe.
+     * @returns the wireframe line vertices, or null if not available
+     */
     public genWireframe(): Vector3[] {
         if (this._wireframeLines) return this._wireframeLines;
         if (this.geometryType == GeometryVertexType.split || this.geometryType == GeometryVertexType.compose) {
@@ -255,6 +334,9 @@ export class GeometryBase {
         return null;
     }
 
+    /**
+     * Run the compute step on this geometry's index and vertex buffers.
+     */
     public compute() {
         if (this._indicesBuffer) {
             this._indicesBuffer.compute();
@@ -273,7 +355,10 @@ export class GeometryBase {
     private static point2: Vector3 = Vector3.UP.clone();
     private static point3: Vector3 = Vector3.UP.clone();
 
-    // compute normal by vertex position
+    /**
+     * Compute per-vertex normals from the position and index data and upload them.
+     * @returns this geometry for chaining
+     */
     public computeNormals(): this {
         let posAttrData = this.getAttribute(VertexAttributeName.position);
         let normalAttrData = this.getAttribute(VertexAttributeName.normal);
@@ -303,7 +388,8 @@ export class GeometryBase {
             Vector3.sub(point1, point2, crossA).normalize();
             Vector3.sub(point1, point3, crossB).normalize();
 
-            let normal = crossA.crossProduct(crossB, crossRet).normalize();
+            Vector3.cross(crossA, crossB, crossRet);
+            let normal = crossRet.normalize();
 
             normalAttrData.data[index1 * 3] = normalAttrData.data[index2 * 3] = normalAttrData.data[index3 * 3] = normal.x;
             normalAttrData.data[index1 * 3 + 1] = normalAttrData.data[index2 * 3 + 1] = normalAttrData.data[index3 * 3 + 1] = normal.y;
@@ -316,10 +402,17 @@ export class GeometryBase {
         return this;
     }
 
+    /**
+     * Whether this geometry is a built-in primitive.
+     */
     public isPrimitive(): boolean {
         return false;// this.geometrySource != null && this.geometrySource.type != 'none';
     }
 
+    /**
+     * Release the buffers and data held by this geometry.
+     * @param force whether to force-destroy
+     */
     destroy(force?: boolean) {
         this.instanceID = null;
         this.name = null;

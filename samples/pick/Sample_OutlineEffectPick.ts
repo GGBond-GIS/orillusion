@@ -4,6 +4,7 @@ import { createExampleScene } from "@samples/utils/ExampleScene";
 import { Object3D, Scene3D, Color, Engine3D, OutlinePost, SphereGeometry, LitMaterial, MeshRenderer, ColliderComponent, PointerEvent3D, outlinePostManager, FXAAPost } from "@orillusion/core";
 
 export class Sample_OutlineEffectPick {
+    engine: Engine3D;
     lightObj: Object3D;
     scene: Scene3D;
     selectColor: Color;
@@ -15,27 +16,35 @@ export class Sample_OutlineEffectPick {
     }
 
     async run() {
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.shadowSize = 2048
-        Engine3D.setting.shadow.shadowBound = 50;
-        Engine3D.setting.shadow.shadowBias = 0.05;
-
-        Engine3D.setting.pick.mode = `pixel`;
-
-        Engine3D.setting.render.postProcessing.outline.outlinePixel = 3;
-        Engine3D.setting.render.postProcessing.outline.fadeOutlinePixel = 6;
-        Engine3D.setting.render.postProcessing.outline.strength = 1;
-
         // init Engine3D
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    enable: true,
+                    shadowSize: 2048,
+                },
+                pick: {
+                    mode: `pixel`,
+                },
+                render: {
+                    postProcessing: {
+                        outline: {
+                            outlinePixel: 3,
+                            fadeOutlinePixel: 6,
+                            strength: 1,
+                        },
+                    },
+                },
+            },
+        });
 
-        let exampleScene = createExampleScene();
+        let exampleScene = createExampleScene(engine);
         this.scene = exampleScene.scene;
 
         GUIHelp.init();
         GUIUtil.renderDirLight(exampleScene.light, false);
 
-        let job = Engine3D.startRenderView(exampleScene.view);
+        let job = engine.startRenderView(exampleScene.view);
         job.addPost(new OutlinePost());
 
         this.initPickObject(this.scene);
@@ -51,7 +60,7 @@ export class Sample_OutlineEffectPick {
             obj.x = (i - 5) * 10;
 
             let mat = new LitMaterial();
-            mat.emissiveMap = Engine3D.res.grayTexture;
+            mat.emissiveMap = this.engine.res.grayTexture;
             mat.emissiveIntensity = 0.0;
 
             let renderer = obj.addComponent(MeshRenderer);
@@ -62,7 +71,7 @@ export class Sample_OutlineEffectPick {
             obj.addComponent(ColliderComponent);
         }
 
-        let pickFire = Engine3D.views[0].pickFire;
+        let pickFire = scene.view.pickFire;
         // register event
         pickFire.addEventListener(PointerEvent3D.PICK_UP, this.onMouseUp, this);
         pickFire.addEventListener(PointerEvent3D.PICK_DOWN, this.onMouseDown, this);

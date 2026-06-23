@@ -45,6 +45,9 @@ export class Rect {
         return this.w;
     }
 
+    /**
+     * Set the width of the rectangle
+     */
     public set width(v) {
         this.w = v;
     }
@@ -56,6 +59,9 @@ export class Rect {
         return this.h;
     }
 
+    /**
+     * Set the height of the rectangle
+     */
     public set height(v) {
         this.h = v;
     }
@@ -91,7 +97,7 @@ export class Rect {
      * @param v source object
      * @returns 
      */
-    public copyFrom(rect: Rect) {
+    public copy(rect: Rect) {
         this.x = rect.x;
         this.y = rect.y;
         this.w = rect.w;
@@ -104,7 +110,7 @@ export class Rect {
      * @returns 
      */
     public copyTo(rect: Rect): void {
-        rect.copyFrom(this);
+        rect.copy(this);
     }
 
     /**

@@ -1,35 +1,39 @@
+/**
+ * Constants describing how a point or geometry is classified relative to a plane.
+ * @group Math
+ */
 export class PlaneClassification {
     /**
-    * @language zh_CN
-    * 背面
+    * @language en_US
+    * Back side
     * @platform Web,Native
     */
     public static BACK: number = 0;
 
     /**
-    * @language zh_CN
-    * 正面
+    * @language en_US
+    * Front side
     * @platform Web,Native
     */
     public static FRONT: number = 1;
 
     /**
-    * @language zh_CN
-    * 在法线朝上的一面
+    * @language en_US
+    * The side that the normal points toward
     * @platform Web,Native
     */
     public static IN: number = 0;
 
     /**
-    * @language zh_CN
-    * 在法线朝下的一面
+    * @language en_US
+    * The side opposite the normal direction
     * @platform Web,Native
     */
     public static OUT: number = 1;
 
     /**
-    * @language zh_CN
-    * 相交
+    * @language en_US
+    * Intersecting
     * @platform Web,Native
     */
     public static INTERSECT: number = 2;

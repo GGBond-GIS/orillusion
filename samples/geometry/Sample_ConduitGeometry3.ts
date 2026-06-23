@@ -7,20 +7,23 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 // An sample to use ExtrudeGeometry and make uv move animation
 class Sample_ConduitGeometry3 {
 
+    engine: Engine3D;
     scene: Scene3D;
     material: LitMaterial;
     totalTime: number;
 
     async run() {
         GUIHelp.init();
-        Engine3D.setting.shadow.shadowBound = 50;
-        Engine3D.setting.shadow.shadowBias = 0.02;
         let param = createSceneParam();
         param.camera.distance = 50;
-        await Engine3D.init();
-        let exampleScene = createExampleScene(param);
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: { },
+            },
+        });
+        let exampleScene = createExampleScene(engine, param);
         this.scene = exampleScene.scene;
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
         await this.createMaterial();
 
         this.createConduit();
@@ -33,14 +36,14 @@ class Sample_ConduitGeometry3 {
     }
 
     async createMaterial() {
-        this.material = new LitMaterial();
+        this.material = new LitMaterial(this.engine.context3D);
         this.material.cullMode = 'none';
         this.material.depthCompare = 'always';
         this.material.blendMode = BlendMode.ADD;
         this.material.baseColor = new Color(0, 1, 0.5, 1.0);
         this.material.transparent = true;
 
-        let texture = new BitmapTexture2D();
+        let texture = new BitmapTexture2D(true, this.engine.context3D);
         texture.addressModeU = "repeat";
         texture.addressModeV = "repeat";
         await texture.load('textures/cell.png');

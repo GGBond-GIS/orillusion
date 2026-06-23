@@ -1,18 +1,18 @@
-import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, webGPUContext, HoverCameraController, Object3D, DirectLight, LitMaterial, MeshRenderer, Vector3, Object3DUtil, Color, } from "@orillusion/core";
+import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, HoverCameraController, Object3D, DirectLight, LitMaterial, MeshRenderer, Vector3, Object3DUtil, Color, } from "@orillusion/core";
 import { Graphic3D } from "@orillusion/graphic";
 import { Physics, Rigidbody, RopeSoftbody } from "@orillusion/physics";
 import dat from "dat.gui";
 
 class Sample_Rope {
     async run() {
-        await Physics.init({ useSoftBody: true, useDrag: true });
-        await Engine3D.init({ renderLoop: () => Physics.update() });
+        await Physics.init({ useSoftBody: true });
+        const engine = await Engine3D.init({ renderLoop: () => Physics.update() });
         let view = new View3D();
         view.scene = new Scene3D();
         let sky = view.scene.addComponent(AtmosphericComponent);
 
         view.camera = CameraUtil.createCamera3DObject(view.scene);
-        view.camera.perspective(60, webGPUContext.aspect, 1, 1000.0);
+        view.camera.perspective(60, engine.context3D.aspect, 1, 1000.0);
         view.camera.object3D.addComponent(HoverCameraController).setCamera(0, -30, 20, new Vector3(0, 3, 0));
 
         let lightObj3D = new Object3D();
@@ -20,13 +20,13 @@ class Sample_Rope {
         sunLight.intensity = 2;
         sunLight.castShadow = true;
         sunLight.enableCSM = true;
-        sunLight.shadowCSMBias = 0.005;
         lightObj3D.rotationX = 24;
         lightObj3D.rotationY = -151;
         view.scene.addChild(lightObj3D);
         sky.relativeTransform = lightObj3D.transform;
 
-        Engine3D.startRenderView(view);
+        Physics.enableDragger(view);
+        engine.startRenderView(view);
 
         this.createScene(view.scene);
     }
@@ -92,7 +92,7 @@ class Sample_Rope {
             timer = setTimeout(() => {
                 ballMaterial.baseColor = Color.COLOR_WHITE;
                 timer = null;
-            }, 100);
+            }, 100) as unknown as number;
         }
 
         return rigidbody;

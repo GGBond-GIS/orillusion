@@ -7,6 +7,11 @@ import { VertexAttributeSize } from "./VertexAttributeSize";
 import { VertexAttributeName } from "./VertexAttributeName";
 
 
+/**
+ * Holds the vertex attribute data of a geometry and manages its backing
+ * GPU vertex buffer and attribute layout.
+ * @group Geometry
+ */
 export class GeometryVertexBuffer {
 
     public vertexCount: number = 0;

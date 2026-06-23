@@ -1,9 +1,7 @@
 import { RenderNode } from '../../../components/renderer/RenderNode';
-import { PassType } from '../passRenderer/state/PassType';
 import { RenderGroup } from './RenderGroup';
 /**
  * @internal
- * @group Post
  */
 export class EntityBatchCollect {
     public renderGroup: Map<string, RenderGroup>;
@@ -21,14 +19,24 @@ export class EntityBatchCollect {
             s_key += mat.shader.getDefaultColorShader().shaderVariant;
         }
         let key = g_key + s_key;
-        if (!this.renderGroup.has(key)) {
-            this.renderGroup.set(key, {
-                bundleMap: new Map<PassType, GPURenderBundle>(),
+        let group = this.renderGroup.get(key);
+        if (!group) {
+            group = {
+                bundleMap: new Map<string, GPURenderBundle>(),
                 key: key,
                 renderNodes: [],
-            });
+                nodeVersion: 0,
+            };
+            this.renderGroup.set(key, group);
         }
-        if (this.renderGroup.get(key).renderNodes.indexOf(node) == -1)
-            this.renderGroup.get(key).renderNodes.push(node);
+        // A new node in a group invalidates any bundle previously
+        // recorded against that group — the bundle was encoded for
+        // the old renderNodes list and its draw calls won't reflect
+        // the new node.
+        if (group.renderNodes.indexOf(node) == -1) {
+            group.renderNodes.push(node);
+            group.nodeVersion++;
+            group.bundleMap.clear();
+        }
     }
 }

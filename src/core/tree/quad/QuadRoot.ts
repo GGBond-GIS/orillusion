@@ -3,6 +3,11 @@ import { IQuadNode } from "./IQuadNode";
 import { QuadAABB } from "./QuadAABB";
 import { QuadTree } from "./QuadTree";
 
+/**
+ * Root container of a quad-tree that owns the cells and manages node
+ * insertion against a maximum-nodes-per-cell budget.
+ * @group Core
+ */
 export class QuadRoot {
 
     private _maxNodesPerCell: number;
@@ -33,14 +38,14 @@ export class QuadRoot {
     }
 
     public getNodesByAABB(minX: number, minY: number, maxX: number, maxY: number): Array<IQuadNode> {
-        // 创建一个射线的boundingbox
+        // build a bounding box for the ray
         this._segBox.clear();
         this._segBox.maxPosX = maxX;
         this._segBox.maxPosY = maxY;
         this._segBox.minPosX = minX;
         this._segBox.minPosY = minY;
 
-        // 获取Boundingbox中的nodes
+        // collect nodes inside the bounding box
         this._collisionNodesIdx.length = 0;
         this._collisionNodes.length = 0;
         var numNodes: number = this._quadTree.getNodesIntersectingtAABox(this._collisionNodesIdx, this._segBox);
@@ -54,16 +59,16 @@ export class QuadRoot {
     }
 
     public getTriangleAtPoint(point: Vector3, threshold: number = 5): IQuadNode {
-        // 创建一个射线的boundingbox
+        // build a bounding box for the ray
         this._segBox.clear();
         this._segBox.setAABox(point.x, point.z, 1, 1);
 
         this._collisionNodesIdx.length = 0;
         this._collisionNodes.length = 0;
-        // 获取Boundingbox中的node的ID
+        // collect node IDs inside the bounding box
         var numTriangles: number = this._quadTree.getNodesIntersectingtAABox(this._collisionNodesIdx, this._segBox);
 
-        // 检查那个三角与点(x,y)相交
+        // find which triangle intersects point (x,y)
         var minDistance: number = 0xffffffff;
         var curDistance: number = 0;
         var minTriangle: IQuadNode;

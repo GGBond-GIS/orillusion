@@ -35,7 +35,7 @@ layout(set = 0, binding = 0) uniform ConstUniform {
     mat4 viewMat;
     mat4 shadowMatrix;
     mat4 cameraWorldMatrix;
-    mat4 pvMatrixInv;
+    mat4 projMatInv;
     float frame;
     float time;
     float delta;

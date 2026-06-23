@@ -6,7 +6,7 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 class Sample_UseComponent {
     async run() {
         // init engine
-        await Engine3D.init();
+        const engine = await Engine3D.init();
         // create new Scene
         let scene = new Scene3D();
         // add atmospheric sky
@@ -14,7 +14,7 @@ class Sample_UseComponent {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
         let hoverCameraController = mainCamera.object3D.addComponent(HoverCameraController);
         hoverCameraController.setCamera(15, -15, 10);
 
@@ -24,7 +24,7 @@ class Sample_UseComponent {
         view.camera = mainCamera;
 
         // start render
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         // create cube
         let cube = Object3DUtil.GetSingleCube(2, 4, 1, 0.7, 1, 0.5);

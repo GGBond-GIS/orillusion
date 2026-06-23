@@ -4,6 +4,11 @@ import { ValueEnumType } from "./ValueType";
 
 
 
+/**
+ * Internal key/value data carrier for a single prefab property. Holds the
+ * property key, its {@link ValueEnumType} and the decoded value.
+ * @internal
+ */
 export class KV {
 
     public key: string;

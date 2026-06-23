@@ -1,5 +1,4 @@
 import { Camera3D } from '../core/Camera3D';
-import { Engine3D } from '../Engine3D';
 import { MouseCode } from '../event/MouseCode';
 import { CEventDispatcher } from '../event/CEventDispatcher';
 import { Ray } from '../math/Ray';
@@ -65,21 +64,32 @@ export class PickFire extends CEventDispatcher {
         this._downEvent = new PointerEvent3D(PointerEvent3D.PICK_DOWN);
     }
 
+    private _inputSystem() {
+        // Multi-instance: prefer the input system owned by the view's
+        // engine. Fall back to the legacy static accessor so single-
+        // instance usage keeps working.
+        const owner = (this._view as any)?.engine3D;
+        return owner?.inputSystem;
+    }
+
     /**
     * start this manager
     */
     public start() {
-        if (Engine3D.setting.pick.enable) {
-            Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.onTouchStart, this);
-            Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_UP, this.onTouchEnd, this);
-            Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_CLICK, this.onTouchOnce, this);
-            Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_RIGHT_CLICK, this.onTouchOnce, this);
-            Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_MOVE, this.onTouchMove, this);
+        const input = this._inputSystem();
+        if (!input) return;
+        const pick = this._view.engine3D.setting.pick;
+        if (pick.enable) {
+            input.addEventListener(PointerEvent3D.POINTER_DOWN, this.onTouchStart, this);
+            input.addEventListener(PointerEvent3D.POINTER_UP, this.onTouchEnd, this);
+            input.addEventListener(PointerEvent3D.POINTER_CLICK, this.onTouchOnce, this);
+            input.addEventListener(PointerEvent3D.POINTER_RIGHT_CLICK, this.onTouchOnce, this);
+            input.addEventListener(PointerEvent3D.POINTER_MOVE, this.onTouchMove, this);
         }
 
-        if (Engine3D.setting.pick.mode == `pixel`) {
+        if (pick.mode == `pixel`) {
             this._pickCompute = new PickCompute();
-            this._pickCompute.init();
+            this._pickCompute.init(this._view);
         }
     }
 
@@ -88,11 +98,13 @@ export class PickFire extends CEventDispatcher {
      * stop this manager
      */
     public stop() {
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_DOWN, this.onTouchStart, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_UP, this.onTouchEnd, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_CLICK, this.onTouchOnce, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_RIGHT_CLICK, this.onTouchOnce, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_MOVE, this.onTouchMove, this);
+        const input = this._inputSystem();
+        if (!input) return;
+        input.removeEventListener(PointerEvent3D.POINTER_DOWN, this.onTouchStart, this);
+        input.removeEventListener(PointerEvent3D.POINTER_UP, this.onTouchEnd, this);
+        input.removeEventListener(PointerEvent3D.POINTER_CLICK, this.onTouchOnce, this);
+        input.removeEventListener(PointerEvent3D.POINTER_RIGHT_CLICK, this.onTouchOnce, this);
+        input.removeEventListener(PointerEvent3D.POINTER_MOVE, this.onTouchMove, this);
     }
 
     private onTouchStart(e: PointerEvent3D) {
@@ -140,7 +152,7 @@ export class PickFire extends CEventDispatcher {
     private _lastFocus: ColliderComponent;
 
     private getPickInfo() {
-        if(Engine3D.setting.pick.mode == `pixel`) {
+        if(this._view.engine3D.setting.pick.mode == `pixel`) {
             return {
                 worldPos: this._pickCompute.getPickWorldPosition(),
                 worldNormal: this._pickCompute.getPickWorldNormal(),
@@ -251,7 +263,8 @@ export class PickFire extends CEventDispatcher {
 
     private pick(camera: Camera3D) {
         this._interestList.length = 0;
-        if (Engine3D.setting.pick.mode == `pixel`) {
+        const mode = this._view.engine3D.setting.pick.mode;
+        if (mode == `pixel`) {
             this._pickCompute.compute(this._view);
             let meshID = this._pickCompute.getPickMeshID();
             let iterator = this.mouseEnableMap.get(meshID);
@@ -260,8 +273,9 @@ export class PickFire extends CEventDispatcher {
                 let distance = Vector3.distance(position, this.ray.origin);
                 this._interestList.push({ distance: distance, collider: iterator, intersectPoint: position });
             }
-        } else if (Engine3D.setting.pick.mode == `bound`) {
-            this.ray = camera.screenPointToRay(Engine3D.inputSystem.mouseX, Engine3D.inputSystem.mouseY);
+        } else if (mode == `bound`) {
+            const input = this._inputSystem();
+            this.ray = camera.screenPointToRay(input.mouseX, input.mouseY);
             let intersect: HitInfo;
             let colliders = ComponentCollect.componentsEnablePickerList.get(this._view);;
             if (colliders) {

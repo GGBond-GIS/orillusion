@@ -4,26 +4,30 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 import { Scene3D, PropertyAnimation, Engine3D, Object3D, Object3DUtil, PropertyAnimClip, WrapMode, PostProcessingComponent, FXAAPost, GBufferPost } from "@orillusion/core";
 
 class Sample_PropertyAnimation {
+    engine: Engine3D;
     scene: Scene3D;
     animation: PropertyAnimation;
 
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                },
+            },
+        });
         GUIHelp.init();
         let param = createSceneParam();
         param.camera.distance = 16;
-        let exampleScene = createExampleScene(param);
+        let exampleScene = createExampleScene(engine, param);
 
         GUIUtil.renderDirLight(exampleScene.light, false);
 
         this.scene = exampleScene.scene;
-        // exampleScene.camera.enableCSM = true;
         await this.initScene(this.scene);
 
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
 
         let postCom = this.scene.addComponent(PostProcessingComponent);
         postCom.addPost(FXAAPost);
@@ -40,7 +44,7 @@ class Sample_PropertyAnimation {
         scene.addChild(floor);
 
         // load external model
-        let model = await Engine3D.res.loadGltf('PBR/Duck/Duck.gltf') as Object3D;
+        let model = await this.engine.res.loadGltf('PBR/Duck/Duck.gltf') as Object3D;
         let container = new Object3D();
         container.addChild(model);
         model.rotationY = 180;
@@ -58,7 +62,7 @@ class Sample_PropertyAnimation {
         let animation = owner.addComponent(PropertyAnimation);
 
         //load a animation clip
-        let json: any = await Engine3D.res.loadJSON('json/anim_0.json');
+        let json: any = await this.engine.res.loadJSON('json/anim_0.json');
         let animClip = new PropertyAnimClip();
         animClip.parse(json);
         animClip.wrapMode = WrapMode.Loop;
@@ -71,7 +75,7 @@ class Sample_PropertyAnimation {
     }
 
     private displayGUI() {
-        GUIUtil.renderShadowSetting(true);
+        GUIUtil.renderShadowSetting(this.engine, true);
         // restart the animation clip
         GUIHelp.addFolder('Property Animation');
         GUIHelp.addButton('Restart', () => {

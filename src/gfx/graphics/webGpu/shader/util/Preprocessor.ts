@@ -1,4 +1,5 @@
 import { ShaderLib } from '../../../../../assets/shader/ShaderLib';
+import { evalCondition } from './PreprocessorExpr';
 
 /**
  * @internal
@@ -257,11 +258,12 @@ export class Preprocessor {
     }
 
     protected static parseCondition(condition: string, defineValue: { [name: string]: any }): boolean {
-        let value = defineValue[condition];
-        if (value == undefined) {
+        try {
+            return evalCondition(condition, defineValue);
+        } catch (e) {
+            console.error(`preprocess condition parse error: '${condition}'`, e);
             return false;
         }
-        return value == true || value != 0;
     }
 
     public static filterComment(code: string): string {

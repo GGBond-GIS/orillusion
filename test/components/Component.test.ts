@@ -2,8 +2,8 @@ import { test, expect, end, delay } from '../util'
 import { TestComponents } from './test/TestComponents';
 import { Camera3D, Engine3D, Object3D, Scene3D } from '@orillusion/core';
 
-await Engine3D.init();
-Engine3D.frameRate = 10;
+const engine = await Engine3D.init();
+engine.frameRate = 10;
 
 await test('component create', async () => {
     let obj = new Object3D();
