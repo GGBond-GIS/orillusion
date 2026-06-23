@@ -63,7 +63,6 @@ class Stats extends ComponentBase {
         if (time >= this.prevTime + 1000) {
             this.fpsPanel.update((this.frames * 1000) / (time - this.prevTime), 100)
             this.memPanel?.update((performance as any).memory.totalJSHeapSize / 1048576, 256)
-            // this.drawcallPanel.update( Engine3D.engineSetting.performance.drawCall, 512)
             this.prevTime = time
             this.frames = 0
         }

@@ -4,7 +4,7 @@ import { TempPhyMath } from '../utils/TempPhyMath';
 import { ConstraintBase } from './ConstraintBase';
 
 /**
- * 弹簧特性六自由度约束
+ * Generic six-degree-of-freedom constraint with spring behavior.
  */
 export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6DofSpringConstraint> {
     private _linearLowerLimit: Vector3 = new Vector3(-1e30, -1e30, -1e30);
@@ -12,7 +12,7 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
     private _angularLowerLimit: Vector3 = new Vector3(-Math.PI, -Math.PI, -Math.PI);
     private _angularUpperLimit: Vector3 = new Vector3(Math.PI, Math.PI, Math.PI);
 
-    // 缓存约束配置参数
+    // Cached constraint configuration parameters
     private _springParams: { index: number, onOff: boolean }[] = [];
     private _stiffnessParams: { index: number, stiffness: number }[] = [];
     private _dampingParams: { index: number, damping: number }[] = [];
@@ -25,7 +25,7 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
         return this._linearLowerLimit;
     }
     public set linearLowerLimit(value: Vector3) {
-        this._linearLowerLimit.copyFrom(value);
+        this._linearLowerLimit.copy(value);
         this._constraint?.setLinearLowerLimit(TempPhyMath.toBtVec(value));
     }
 
@@ -36,7 +36,7 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
         return this._linearUpperLimit;
     }
     public set linearUpperLimit(value: Vector3) {
-        this._linearUpperLimit.copyFrom(value);
+        this._linearUpperLimit.copy(value);
         this._constraint?.setLinearUpperLimit(TempPhyMath.toBtVec(value));
     }
 
@@ -47,7 +47,7 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
         return this._angularLowerLimit;
     }
     public set angularLowerLimit(value: Vector3) {
-        this._angularLowerLimit.copyFrom(value);
+        this._angularLowerLimit.copy(value);
         this._constraint?.setAngularLowerLimit(TempPhyMath.toBtVec(value));
     }
 
@@ -58,14 +58,14 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
         return this._angularUpperLimit;
     }
     public set angularUpperLimit(value: Vector3) {
-        this._angularUpperLimit.copyFrom(value);
+        this._angularUpperLimit.copy(value);
         this._constraint?.setAngularUpperLimit(TempPhyMath.toBtVec(value));
     }
 
     /**
-     * 启用或禁用弹簧功能。
-     * @param index 弹簧的索引
-     * @param onOff 是否启用
+     * Enable or disable the spring on a given axis.
+     * @param index Spring index
+     * @param onOff Whether to enable it
      */
     public enableSpring(index: number, onOff: boolean): void {
         if (this._constraint) {
@@ -76,9 +76,9 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
     }
 
     /**
-     * 设置弹簧的刚度。
-     * @param index 弹簧的索引
-     * @param stiffness 刚度值
+     * Set the stiffness of the spring.
+     * @param index Spring index
+     * @param stiffness Stiffness value
      */
     public setStiffness(index: number, stiffness: number): void {
         if (this._constraint) {
@@ -89,9 +89,9 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
     }
 
     /**
-     * 设置弹簧的阻尼。
-     * @param index 弹簧的索引
-     * @param damping 阻尼值
+     * Set the damping of the spring.
+     * @param index Spring index
+     * @param damping Damping value
      */
     public setDamping(index: number, damping: number): void {
         if (this._constraint) {
@@ -102,14 +102,14 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
     }
 
     /**
-     * 设置弹簧的平衡点。
-     * 
-     * @param index 弹簧的索引（可选）。如果不提供，则重置所有弹簧的平衡点。
-     * @param val 平衡点值（可选）。如果提供，则设置指定弹簧的平衡点为该值。
-     * 
-     * - 不带参数时，重置所有弹簧的平衡点。
-     * - 只带 `index` 参数时，设置指定弹簧的平衡点（值由系统内部处理）。
-     * - 带 `index` 和 `val` 参数时，设置指定弹簧的平衡点为 `val`。
+     * Set the equilibrium point of the spring.
+     *
+     * @param index Spring index (optional). If omitted, the equilibrium points of all springs are reset.
+     * @param val Equilibrium-point value (optional). If provided, the specified spring's equilibrium point is set to this value.
+     *
+     * - With no arguments, resets the equilibrium points of all springs.
+     * - With only `index`, sets the equilibrium point of the specified spring (the value is determined internally).
+     * - With both `index` and `val`, sets the equilibrium point of the specified spring to `val`.
      */
     public setEquilibriumPoint(index?: number, val?: number): void {
         if (this._constraint) {
@@ -126,8 +126,8 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
     }
 
     /**
-     * 是否使用线性参考坐标系。
-     * 默认值 `true`
+     * Whether to use the linear reference frame.
+     * Default `true`
      */
     public useLinearFrameReferenceFrame: boolean = true;
 
@@ -159,19 +159,19 @@ export class Generic6DofSpringConstraint extends ConstraintBase<Ammo.btGeneric6D
 
     private setConstraint() {
 
-        // 设置线性和角度限制
+        // Apply linear and angular limits
         this._constraint.setLinearLowerLimit(TempPhyMath.toBtVec(this._linearLowerLimit));
         this._constraint.setLinearUpperLimit(TempPhyMath.toBtVec(this._linearUpperLimit));
         this._constraint.setAngularLowerLimit(TempPhyMath.toBtVec(this._angularLowerLimit));
         this._constraint.setAngularUpperLimit(TempPhyMath.toBtVec(this._angularUpperLimit));
 
-        // 应用缓存的弹簧参数
+        // Apply cached spring parameters
         this._springParams.forEach(param => this._constraint.enableSpring(param.index, param.onOff));
         this._stiffnessParams.forEach(param => this._constraint.setStiffness(param.index, param.stiffness));
         this._dampingParams.forEach(param => this._constraint.setDamping(param.index, param.damping));
         this._equilibriumPointParams.forEach(param => this.setEquilibriumPoint(param.index, param.val));
 
-        // 清空缓存
+        // Clear the cache
         this._springParams = [];
         this._stiffnessParams = [];
         this._dampingParams = [];

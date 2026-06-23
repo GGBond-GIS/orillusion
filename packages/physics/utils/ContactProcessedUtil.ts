@@ -3,7 +3,7 @@ import { Physics, Ammo } from '../Physics';
 type Callback = (contactPoint: Ammo.btManifoldPoint, bodyA: Ammo.btRigidBody, bodyB: Ammo.btRigidBody) => void;
 
 /**
- * 碰撞处理工具
+ * Collision processing utility
  */
 export class ContactProcessedUtil {
     private static callbacks: Map<number, Callback> = new Map();
@@ -11,34 +11,34 @@ export class ContactProcessedUtil {
     private static contactProcessedCallbackPointer: number | null = null;
 
     /**
-     * 注册碰撞事件
-     * @param pointer 物理对象指针
-     * @param callback 事件回调
+     * Register a collision event.
+     * @param pointer Pointer to the physics object
+     * @param callback Event callback
      */
     public static registerCollisionCallback(pointer: number, callback: Callback): void {
         if (pointer == null) return;
 
         ContactProcessedUtil.callbacks.set(pointer, callback);
         if (ContactProcessedUtil.callbacks.size === 1) {
-            // 第一个注册的回调，注册碰撞处理回调
+            // First registered callback: register the contact-processed callback
             ContactProcessedUtil.registerContactProcessedCallback();
         }
     }
 
     /**
-     * 注销碰撞事件
-     * @param pointer 物理对象指针
+     * Unregister a collision event.
+     * @param pointer Pointer to the physics object
      */
     public static unregisterCollisionCallback(pointer: number): void {
         ContactProcessedUtil.callbacks.delete(pointer);
         if (ContactProcessedUtil.callbacks.size === 0) {
-            // 最后一个注销的回调，禁用碰撞处理回调
+            // Last callback unregistered: disable the contact-processed callback
             ContactProcessedUtil.unregisterContactProcessedCallback();
         }
     }
 
     /**
-     * 注册全局碰撞处理回调
+     * Register the global contact-processed callback.
      */
     private static registerContactProcessedCallback(): void {
         if (ContactProcessedUtil.contactProcessedCallbackPointer === null) {
@@ -48,18 +48,18 @@ export class ContactProcessedUtil {
     }
 
     /**
-     * 注销全局碰撞处理回调
+     * Unregister the global contact-processed callback.
      */
     private static unregisterContactProcessedCallback(): void {
         if (ContactProcessedUtil.contactProcessedCallbackPointer !== null) {
-            Physics.world.setContactProcessedCallback(null); // 禁用回调
+            Physics.world.setContactProcessedCallback(null); // Disable the callback
             ContactProcessedUtil.contactProcessedCallbackPointer = null;
         }
     }
 
     /**
-     * 将指针添加到忽略集合中，添加后，任何物体与该指针对象碰撞时都无法触发碰撞事件
-     * @param pointer 物理对象指针
+     * Add a pointer to the ignored set. Once added, no collision event will be triggered when any object collides with the object referenced by this pointer.
+     * @param pointer Pointer to the physics object
      */
     public static addIgnoredPointer(pointer: number): void {
         if (pointer != null) {
@@ -68,45 +68,45 @@ export class ContactProcessedUtil {
     }
 
     /**
-     * 从忽略集合中移除指针
-     * @param pointer 物理对象指针
+     * Remove a pointer from the ignored set.
+     * @param pointer Pointer to the physics object
      */
     public static removeIgnoredPointer(pointer: number): void {
         ContactProcessedUtil.ignoredPointers.delete(pointer);
     }
 
     /**
-     * 检查指针是否在忽略集合中
-     * @param pointer 物理对象指针
+     * Check whether the pointer is in the ignored set.
+     * @param pointer Pointer to the physics object
      */
     public static isIgnored(pointer: number): boolean {
         return ContactProcessedUtil.ignoredPointers.has(pointer);
     }
 
     /**
-     * 检查指针是否注册了碰撞事件
-     * @param pointer 物理对象指针
+     * Check whether the pointer has a registered collision event.
+     * @param pointer Pointer to the physics object
      */
     public static isCollision(pointer: number): boolean {
         return ContactProcessedUtil.callbacks.has(pointer);
     }
 
     /**
-     * 全局接触（碰撞）事件回调函数
+     * Global contact (collision) event callback.
      */
     private static contactProcessedCallback(cpPtr: number, colObj0WrapPtr: number, colObj1WrapPtr: number): number {
-        // 检查是否需要忽略
+        // Check whether the pair should be ignored
         if (ContactProcessedUtil.ignoredPointers.has(colObj0WrapPtr) || ContactProcessedUtil.ignoredPointers.has(colObj1WrapPtr)) {
             return 0;
         }
 
-        // 通过碰撞对象包装器指针获取其注册的事件
+        // Look up the registered events via the collision-object wrapper pointers
         const callbackA = ContactProcessedUtil.callbacks.get(colObj0WrapPtr);
         const callbackB = ContactProcessedUtil.callbacks.get(colObj1WrapPtr);
 
-        // 排除均未注册碰撞事件的碰撞对
+        // Skip collision pairs where neither side has a registered event
         if (callbackA || callbackB) {
-            // 指针转换
+            // Pointer conversion
             const cp = Ammo.wrapPointer(cpPtr, Ammo.btManifoldPoint);
             const bodyA = Ammo.wrapPointer(colObj0WrapPtr, Ammo.btRigidBody);
             const bodyB = Ammo.wrapPointer(colObj1WrapPtr, Ammo.btRigidBody);
@@ -115,16 +115,16 @@ export class ContactProcessedUtil {
             callbackB?.(cp, bodyB, bodyA);
         }
 
-        return 0; // 返回0表示已处理本次碰撞
+        return 0; // Returning 0 indicates this collision has been handled
     }
 
     /**
-     * 执行一次性的碰撞测试。
-     * 如果提供了 bodyB，则检测 bodyA 与 bodyB 是否碰撞。
-     * 否则，检测 bodyA 是否与其他所有刚体碰撞。
-     * @param bodyA - 第一个刚体。
-     * @param bodyB - （可选）第二个刚体。
-     * @returns 如果发生碰撞，返回包含碰撞信息的对象；否则返回 null。
+     * Perform a one-shot collision test.
+     * If bodyB is provided, tests whether bodyA collides with bodyB.
+     * Otherwise, tests whether bodyA collides with any other rigid body.
+     * @param bodyA - The first rigid body.
+     * @param bodyB - (Optional) The second rigid body.
+     * @returns An object with collision information if a collision occurred; otherwise null.
      */
     public static performCollisionTest(bodyA: Ammo.btRigidBody, bodyB?: Ammo.btRigidBody) {
         const callback = new Ammo.ConcreteContactResultCallback();
@@ -166,7 +166,7 @@ export class ContactProcessedUtil {
     }
 
     /**
-     * 碰撞检测，判断两个刚体是否正在发生碰撞
+     * Collision check: determines whether two rigid bodies are currently colliding.
      * @param bodyA
      * @param bodyB
      * @returns boolean

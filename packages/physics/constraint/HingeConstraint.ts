@@ -4,28 +4,28 @@ import { TempPhyMath } from '../utils/TempPhyMath';
 import { ConstraintBase } from './ConstraintBase';
 
 /**
- * 铰链约束
+ * Hinge constraint.
  */
 export class HingeConstraint extends ConstraintBase<Ammo.btHingeConstraint> {
     /**
-     * 自身刚体上的铰链轴方向。
-     * 默认值 `Vector3.UP`
+     * Hinge axis direction on this rigid body.
+     * Default `Vector3.UP`
      */
     public axisSelf: Vector3 = Vector3.UP;
     /**
-     * 目标刚体上的铰链轴方向。
-     * 默认值 `Vector3.UP`
+     * Hinge axis direction on the target rigid body.
+     * Default `Vector3.UP`
      */
     public axisTarget: Vector3 = Vector3.UP;
     /**
-     * 是否使用自身刚体的参考框架。
-     * 默认值 `true`
+     * Whether to use this rigid body's reference frame.
+     * Default `true`
      */
     public useReferenceFrameA: boolean = true;
     /**
-     * 是否使用两个刚体的变换重载方式。
-     * 如果为 true，则使用两个刚体的变换作为约束的参考框架。
-     * 默认值 `false`
+     * Whether to use the two-bodies-transform overload.
+     * If true, the transforms of both rigid bodies are used as the constraint's reference frames.
+     * Default `false`
      */
     public useTwoBodiesTransformOverload: boolean = false;
 
@@ -33,21 +33,21 @@ export class HingeConstraint extends ConstraintBase<Ammo.btHingeConstraint> {
     private _pendingMotorConfig: [boolean, number, number];
 
     /**
-     * 获取当前的限制参数。
+     * Get the current limit parameters.
      */
     public get limitInfo() { return this._pendingLimits; }
     /**
-     * 获取当前的马达配置参数。
+     * Get the current motor configuration parameters.
      */
     public get motorConfigInfo() { return this._pendingMotorConfig; }
 
     /**
-     * 设置铰链约束的旋转限制。
-     * @param low - 铰链旋转的最小角度（下限）。
-     * @param high - 铰链旋转的最大角度（上限）。
-     * @param softness - 软限制系数，表示限制的柔软程度。值在0到1之间，1表示完全刚性。
-     * @param biasFactor - 偏置因子，用于控制限制恢复力的力度。值通常在0到1之间。
-     * @param relaxationFactor -（可选）松弛因子，控制限制恢复的速度。值越大，恢复越快。
+     * Set the rotation limits of the hinge constraint.
+     * @param low - The minimum hinge angle (lower limit).
+     * @param high - The maximum hinge angle (upper limit).
+     * @param softness - Softness coefficient indicating how soft the limit is. In the range 0 to 1; 1 means fully rigid.
+     * @param biasFactor - Bias factor controlling the strength of the limit's restoring force. Typically in the range 0 to 1.
+     * @param relaxationFactor - (Optional) Relaxation factor controlling how quickly the limit recovers. Larger values mean faster recovery.
      */
     public setLimit(low: number, high: number, softness: number, biasFactor: number, relaxationFactor?: number): void {
         this._pendingLimits = [low, high, softness, biasFactor, relaxationFactor];
@@ -55,10 +55,10 @@ export class HingeConstraint extends ConstraintBase<Ammo.btHingeConstraint> {
     };
 
     /**
-     * 启用或禁用角度马达。
-     * @param enableMotor - 是否启用马达。
-     * @param targetVelocity - 马达的目标速度。
-     * @param maxMotorImpulse - 马达的最大推力。
+     * Enable or disable the angular motor.
+     * @param enableMotor - Whether to enable the motor.
+     * @param targetVelocity - The motor's target velocity.
+     * @param maxMotorImpulse - The motor's maximum impulse.
      */
     public enableAngularMotor(enableMotor: boolean, targetVelocity: number, maxMotorImpulse: number): void {
         this._pendingMotorConfig = [enableMotor, targetVelocity, maxMotorImpulse]

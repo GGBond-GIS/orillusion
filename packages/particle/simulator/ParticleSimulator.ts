@@ -1,4 +1,4 @@
-import { View3D, ComputeShader, GPUContext, Ctor } from "@orillusion/core";
+import { View3D, ComputeShader, Ctor } from "@orillusion/core";
 import { ParticleSystem } from '../ParticleSystem';
 import { ParticleGlobalMemory } from '../buffer/ParticleGlobalMemory';
 import { ParticleLocalMemory } from '../buffer/ParticleLocalMemory';
@@ -137,9 +137,9 @@ export class ParticleSimulator {
     protected initPipeline() {
     }
 
-    public compute(command: GPUCommandEncoder) {
+    public compute(view: View3D, command: GPUCommandEncoder) {
         if (this._computes && this._computes.length > 0) {
-            GPUContext.computeCommand(command, this._computes);
+            view.engine3D.context3D.gpuContext.computeCommand(command, this._computes);
         }
     }
 

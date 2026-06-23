@@ -12,37 +12,37 @@ export abstract class SoftbodyBase extends ComponentBase {
     protected _geometry: GeometryBase;
 
     /**
-     * 软体的总质量，默认值为 `1`
+     * Total mass of the soft body. Default value is `1`
      */
     public mass: number = 1;
 
     /**
-     * 碰撞边距，默认值为 `0.15`
+     * Collision margin. Default value is `0.15`
      */
     public margin: number = 0.15;
 
     /**
-     * 碰撞组，默认值为 `1`
+     * Collision group. Default value is `1`
      */
     public group: number = 1;
 
     /**
-     * 碰撞掩码，默认值为 `-1`
+     * Collision mask. Default value is `-1`
      */
     public mask: number = -1;
 
     /**
-     * 锚点的影响力。影响力值越大，软体节点越紧密地跟随刚体的运动。通常，这个值在0到1之间。默认值为 `1`。
+     * Anchor influence. The higher the influence, the more closely the soft body node follows the rigid body's motion. Typically this value is between 0 and 1. Default value is `1`.
      */
     public influence: number = 1;
 
     /**
-     * 是否禁用与锚定刚体之间的碰撞，默认值为 `false`。
+     * Whether to disable collisions with the anchored rigid body. Default value is `false`.
      */
     public disableCollision: boolean = false;
 
     /**
-     * 设置软体激活状态。
+     * Set the soft body activation state.
      */
     public set activationState(value: ActivationState) {
         this.wait().then(btSoftbody => btSoftbody.setActivationState(value));
@@ -77,7 +77,7 @@ export abstract class SoftbodyBase extends ComponentBase {
         Ammo.castObject(btSoftbody, Ammo.btCollisionObject).getCollisionShape().setMargin(this.margin);
         (Physics.world as Ammo.btSoftRigidDynamicsWorld).addSoftBody(btSoftbody, this.group, this.mask);
 
-        // 软体变换将由顶点更新表示，避免影响需要重置对象变换
+        // The soft body transform is expressed via vertex updates, so reset the object transform to avoid interference
         // this.transform.localPosition = this.transform.localRotation = Vector3.ZERO;
         // this.transform.localScale = Vector3.ONE;
         this.transform.worldMatrix.identity();
@@ -115,8 +115,8 @@ export abstract class SoftbodyBase extends ComponentBase {
     }
 
     /**
-     * 固定软体节点。
-     * @param fixedNodeIndices 需要固定的节点索引。
+     * Fix soft body nodes.
+     * @param fixedNodeIndices Indices of the nodes to fix.
      */
     public applyFixedNodes(fixedNodeIndices: number[]): void {
         this.wait().then(btSoftbody => {
@@ -134,8 +134,8 @@ export abstract class SoftbodyBase extends ComponentBase {
     }
 
     /**
-     * 清除固定节点
-     * @param index 需要清除的节点索引，如果未提供，则清除所有节点。
+     * Clear fixed nodes
+     * @param index Index of the node to clear. If not provided, clears all nodes.
      */
     public clearFixedNodes(index?: number): void {
         const nodes = this._btSoftbody.get_m_nodes();

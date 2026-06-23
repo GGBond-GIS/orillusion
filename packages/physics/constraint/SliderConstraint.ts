@@ -3,7 +3,7 @@ import { TempPhyMath } from '../utils/TempPhyMath';
 import { ConstraintBase } from './ConstraintBase';
 
 /**
- * 滑动关节约束
+ * Slider joint constraint
  */
 export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     private _lowerLinLimit: number = -1e30;
@@ -15,8 +15,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     private _targetLinMotorVelocity: number = 0;
 
     /**
-     * 是否使用线性参考框架。
-     * 默认值 `true`
+     * Whether to use the linear reference frame.
+     * Default value `true`
      */
     public useLinearReferenceFrame: boolean = true;
 
@@ -53,8 +53,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 线性运动的下限限制。
-     * 默认值 `-1e30` 表示无限制
+     * Lower limit of linear motion.
+     * Default value `-1e30` means no limit
      */
     public get lowerLinLimit(): number {
         return this._lowerLinLimit;
@@ -65,8 +65,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 线性运动的上限限制。
-     * 默认值 `1e30` 表示无限制
+     * Upper limit of linear motion.
+     * Default value `1e30` means no limit
      */
     public get upperLinLimit(): number {
         return this._upperLinLimit;
@@ -77,8 +77,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 角度运动的下限限制。
-     * 默认值 `-Math.PI`
+     * Lower limit of angular motion.
+     * Default value `-Math.PI`
      */
     public get lowerAngLimit(): number {
         return this._lowerAngLimit;
@@ -89,8 +89,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 角度运动的上限限制。
-     * 默认值 `Math.PI`
+     * Upper limit of angular motion.
+     * Default value `Math.PI`
      */
     public get upperAngLimit(): number {
         return this._upperAngLimit;
@@ -101,8 +101,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 是否启用线性马达。
-     * 默认值 `false`
+     * Whether to enable the linear motor.
+     * Default value `false`
      */
     public get poweredLinMotor(): boolean {
         return this._poweredLinMotor;
@@ -113,8 +113,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 线性马达的最大推力。
-     * 默认值 `0`
+     * Maximum force of the linear motor.
+     * Default value `0`
      */
     public get maxLinMotorForce(): number {
         return this._maxLinMotorForce;
@@ -125,8 +125,8 @@ export class SliderConstraint extends ConstraintBase<Ammo.btSliderConstraint> {
     }
 
     /**
-     * 线性马达的目标速度。
-     * 默认值 `0`
+     * Target velocity of the linear motor.
+     * Default value `0`
      */
     public get targetLinMotorVelocity(): number {
         return this._targetLinMotorVelocity;

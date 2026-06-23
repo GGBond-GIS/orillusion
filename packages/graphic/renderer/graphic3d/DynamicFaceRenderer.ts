@@ -1,5 +1,5 @@
 
-import { BitmapTexture2DArray, Color, ComputeShader, Ctor, GPUContext, GlobalBindGroup, MeshRenderer, Object3D, StorageGPUBuffer, Struct, StructStorageGPUBuffer, TriGeometry, UnLitTexArrayMaterial, Vector3, Vector4, View3D } from "@orillusion/core";
+import { BitmapTexture2DArray, Color, ComputeShader, Ctor, GlobalBindGroup, MeshRenderer, Object3D, StorageGPUBuffer, Struct, StructStorageGPUBuffer, TriGeometry, UnLitTexArrayMaterial, Vector3, Vector4, View3D } from "@orillusion/core";
 import { DynamicDrawStruct } from "./DynamicDrawStruct";
 
 export class DynamicFaceRenderer extends MeshRenderer {
@@ -221,14 +221,14 @@ export class DynamicFaceRenderer extends MeshRenderer {
     }
 
     protected onStartCompute(view: View3D, command: GPUCommandEncoder) {
-        GPUContext.computeCommand(command, this._onStartKernel);
+        view.engine3D.context3D.gpuContext.computeCommand(command, this._onStartKernel);
     }
 
     protected onChangeCompute(view: View3D, command: GPUCommandEncoder) {
-        GPUContext.computeCommand(command, this._onChangeKernelGroup);
+        view.engine3D.context3D.gpuContext.computeCommand(command, this._onChangeKernelGroup);
     }
 
     protected onFrameCompute(view: View3D, command: GPUCommandEncoder) {
-        GPUContext.computeCommand(command, this._onFrameKernelGroup);
+        view.engine3D.context3D.gpuContext.computeCommand(command, this._onFrameKernelGroup);
     }
 }

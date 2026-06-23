@@ -10,14 +10,14 @@ export interface ChildShape {
 
 /**
  * CollisionShapeUtil
- * 提供多种碰撞体构建功能
+ * Provides utilities for building various collision shapes.
  */
 export class CollisionShapeUtil {
     /**
-     * 创建静态平面碰撞形状，适用于静态无限平面的碰撞，如地面或墙壁。
-     * @param planeNormal - 平面法向量，默认值为 Vector3.UP。
-     * @param planeConstant - 平面常数，表示平面距离原点的距离，默认值为 0。
-     * @returns Ammo.btStaticPlaneShape - 静态平面碰撞形状实例。
+     * Creates a static plane collision shape, suitable for static infinite planes such as the ground or walls.
+     * @param planeNormal - The plane normal vector. Defaults to Vector3.UP.
+     * @param planeConstant - The plane constant, representing the distance from the plane to the origin. Defaults to 0.
+     * @returns Ammo.btStaticPlaneShape - The static plane collision shape instance.
      */
     public static createStaticPlaneShape(planeNormal: Vector3 = Vector3.UP, planeConstant: number = 0) {
         const normal = TempPhyMath.toBtVec(planeNormal);
@@ -27,11 +27,11 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建盒型碰撞形状，适用于具有明确尺寸的盒形物体。
-     * 如果未指定尺寸，则使用三维对象的包围盒大小。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param size - 可选参数，盒型碰撞体的尺寸。
-     * @returns Ammo.btBoxShape - 盒型碰撞形状实例。
+     * Creates a box collision shape, suitable for box-shaped objects with well-defined dimensions.
+     * If no size is specified, the bounding box size of the 3D object is used.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param size - Optional. The dimensions of the box collision shape.
+     * @returns Ammo.btBoxShape - The box collision shape instance.
      */
     public static createBoxShape(object3D: Object3D, size?: Vector3) {
         size ||= this.calculateLocalBoundingBox(object3D).size;
@@ -42,11 +42,11 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建球型碰撞形状，适用于球形物体。
-     * 如果未指定半径，则使用三维对象的包围盒半径 `X`。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param radius - 可选参数，球型碰撞体的半径。
-     * @returns Ammo.btSphereShape - 球型碰撞形状实例。
+     * Creates a sphere collision shape, suitable for spherical objects.
+     * If no radius is specified, the bounding box radius `X` of the 3D object is used.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param radius - Optional. The radius of the sphere collision shape.
+     * @returns Ammo.btSphereShape - The sphere collision shape instance.
      */
     public static createSphereShape(object3D: Object3D, radius?: number) {
         radius ||= this.calculateLocalBoundingBox(object3D).extents.x;
@@ -56,12 +56,12 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建胶囊型碰撞形状，适用于胶囊形物体。
-     * 如果未指定尺寸，则使用三维对象的包围盒半径 `X` 和高度 `Y`。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param radius - 可选参数，胶囊的半径。
-     * @param height - 可选参数，胶囊中间的圆柱部分的高度。
-     * @returns Ammo.btCapsuleShape - 胶囊型碰撞形状实例。
+     * Creates a capsule collision shape, suitable for capsule-shaped objects.
+     * If no dimensions are specified, the bounding box radius `X` and height `Y` of the 3D object are used.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param radius - Optional. The radius of the capsule.
+     * @param height - Optional. The height of the cylindrical middle section of the capsule.
+     * @returns Ammo.btCapsuleShape - The capsule collision shape instance.
      */
     public static createCapsuleShape(object3D: Object3D, radius?: number, height?: number) {
         let boundSize: Vector3
@@ -75,12 +75,12 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建圆柱型碰撞形状，适用于圆柱形物体。
-     * 如果未指定尺寸，则使用三维对象的包围盒半径 `X` 和高度 `Y`。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param radius - 可选参数，圆柱的半径。
-     * @param height - 可选参数，圆柱的完整高度。
-     * @returns Ammo.btCylinderShape - 圆柱型碰撞形状实例。
+     * Creates a cylinder collision shape, suitable for cylindrical objects.
+     * If no dimensions are specified, the bounding box radius `X` and height `Y` of the 3D object are used.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param radius - Optional. The radius of the cylinder.
+     * @param height - Optional. The full height of the cylinder.
+     * @returns Ammo.btCylinderShape - The cylinder collision shape instance.
      */
     public static createCylinderShape(object3D: Object3D, radius?: number, height?: number) {
         let boundSize: Vector3
@@ -95,12 +95,12 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建圆锥形碰撞形状，适用于圆锥形物体。
-     * 如果未指定尺寸，则使用三维对象的包围盒半径 `X` 和高度 `Y`。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param radius - 可选参数，圆锥的半径。
-     * @param height - 可选参数，圆锥的高度。
-     * @returns Ammo.btConeShape - 圆锥形碰撞形状实例。
+     * Creates a cone collision shape, suitable for cone-shaped objects.
+     * If no dimensions are specified, the bounding box radius `X` and height `Y` of the 3D object are used.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param radius - Optional. The radius of the cone.
+     * @param height - Optional. The height of the cone.
+     * @returns Ammo.btConeShape - The cone collision shape instance.
      */
     public static createConeShape(object3D: Object3D, radius?: number, height?: number) {
         let boundSize: Vector3
@@ -114,9 +114,9 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建复合形状，将多个子形状组合成一个形状。
-     * @param childShapes - 包含子形状实例与位置、旋转属性的数组。
-     * @returns Ammo.btCompoundShape - 复合形状实例。
+     * Creates a compound shape that combines multiple child shapes into a single shape.
+     * @param childShapes - An array containing child shape instances along with their position and rotation properties.
+     * @returns Ammo.btCompoundShape - The compound shape instance.
      */
     public static createCompoundShape(childShapes: ChildShape[]) {
         const compoundShape = new Ammo.btCompoundShape();
@@ -134,16 +134,16 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 根据 Object3D 对象及其子对象创建复合碰撞形状。
-     * @param object3D - 三维对象，包含多个子对象。
-     * @param includeParent - 是否包含父对象的几何体，默认值为 `true`。
-     * @returns 复合碰撞形状。
+     * Creates a compound collision shape from an Object3D and its child objects.
+     * @param object3D - The 3D object containing multiple child objects.
+     * @param includeParent - Whether to include the parent object's geometry. Defaults to `true`.
+     * @returns The compound collision shape.
      */
     public static createCompoundShapeFromObject(object3D: Object3D, includeParent: boolean = true) {
 
         const childShapes: ChildShape[] = [];
 
-        // 处理父对象几何体
+        // Process the parent object's geometry
         if (includeParent) {
             const shape = this.createShapeFromObject(object3D);
             if (shape) {
@@ -153,15 +153,15 @@ export class CollisionShapeUtil {
             }
         }
 
-        // 计算父对象的逆矩阵
+        // Compute the parent object's inverse matrix
         const parentMatrixInverse = object3D.transform.worldMatrix.clone();
         parentMatrixInverse.invert();
 
-        // 遍历并处理子对象
+        // Iterate over and process child objects
         object3D.forChild((child: Object3D) => {
             const shape = this.createShapeFromObject(child);
             if (shape) {
-                // 矩阵相乘并分解
+                // Multiply matrices and decompose
                 const childMatrix = child.transform.worldMatrix;
                 const localMatrix = Matrix4.help_matrix_0;
                 localMatrix.multiplyMatrices(parentMatrixInverse, childMatrix);
@@ -173,17 +173,17 @@ export class CollisionShapeUtil {
             }
         });
 
-        // 创建复合碰撞形状
+        // Create the compound collision shape
         const compoundShape = this.createCompoundShape(childShapes);
         return compoundShape;
     }
 
     /**
-     * 根据 Object3D 对象的几何体类型创建相应的碰撞形状。
-     * 
-     * 仅支持Box、Sphere、Plane、Cylinder类型的几何体。对于不匹配的几何体类型，返回 btConvexHullShape 凸包形状。
+     * Creates a collision shape that matches the geometry type of the Object3D.
+     *
+     * Only Box, Sphere, Plane, and Cylinder geometries are supported. For any other geometry type, a btConvexHullShape (convex hull) is returned.
      * @param object3D
-     * @returns Ammo.btCollisionShape 
+     * @returns Ammo.btCollisionShape
      */
     public static createShapeFromObject(object3D: Object3D): Ammo.btCollisionShape | null {
 
@@ -191,13 +191,13 @@ export class CollisionShapeUtil {
         if (!geometry) return null;
 
         let shape: Ammo.btCollisionShape;
-        let scale = Vector3.HELP_0.copyFrom(object3D.localScale);
+        let scale = Vector3.HELP_0.copy(object3D.localScale);
 
-        // 根据几何类型创建相应的碰撞形状
+        // Create the corresponding collision shape based on the geometry type
         switch (true) {
             case geometry instanceof BoxGeometry: {
                 const { width, height, depth } = geometry;
-                const size = new Vector3(width, height, depth).scale(scale);
+                const size = new Vector3(width, height, depth).multiply(scale);
                 shape = this.createBoxShape(object3D, size);
                 break;
             }
@@ -208,7 +208,7 @@ export class CollisionShapeUtil {
             }
             case geometry instanceof PlaneGeometry: {
                 const { width, height } = geometry;
-                const size = new Vector3(width, 0, height).scale(scale);
+                const size = new Vector3(width, 0, height).multiply(scale);
                 shape = this.createBoxShape(object3D, size);
                 break;
             }
@@ -235,13 +235,13 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建高度场形状，基于平面顶点数据模拟地形。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param heightScale - 高度缩放比例，默认值为 `1`。
-     * @param upAxis - 高度场的上轴，默认值为 `1`。
-     * @param hdt - 高度场的数据类型，默认值为 `Ammo.PHY_FLOAT`。
-     * @param flipQuadEdges - 是否翻转四边形的边，默认值为 `false`。
-     * @returns Ammo.btHeightfieldTerrainShape - 高度场形状实例。
+     * Creates a heightfield shape that simulates terrain based on plane vertex data.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param heightScale - The height scaling factor. Defaults to `1`.
+     * @param upAxis - The up axis of the heightfield. Defaults to `1`.
+     * @param hdt - The data type of the heightfield. Defaults to `Ammo.PHY_FLOAT`.
+     * @param flipQuadEdges - Whether to flip the quad edges. Defaults to `false`.
+     * @returns Ammo.btHeightfieldTerrainShape - The heightfield terrain shape instance.
      */
     public static createHeightfieldTerrainShape(
         object3D: Object3D,
@@ -290,11 +290,11 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建凸包形状，适用于具有凹陷填充的模型。
-     * 此形状适用于动态物体并提供快速的碰撞检测。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param modelVertices - 可选参数，提供碰撞体所需的顶点数据，默认为三维对象的顶点数据。
-     * @returns Ammo.btConvexHullShape - 凸包形状实例。
+     * Creates a convex hull shape, suitable for models with filled-in concavities.
+     * This shape is appropriate for dynamic objects and provides fast collision detection.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param modelVertices - Optional. Vertex data for the collision shape. Defaults to the 3D object's vertex data.
+     * @returns Ammo.btConvexHullShape - The convex hull shape instance.
      */
     public static createConvexHullShape(object3D: Object3D, modelVertices?: Float32Array) {
         let vertices = modelVertices || this.getAllMeshVerticesAndIndices(object3D).vertices;
@@ -312,15 +312,15 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建凸包网格形状，适用于需要复杂几何表示的动态物体。
-     * 此形状不要求额外的凸包生成步骤，适用于凸的三角形网格。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param modelVertices - 可选参数，提供碰撞体所需的顶点数据。
-     * @param modelIndices - 可选参数，提供碰撞体所需的索引数据。
-     * @returns Ammo.btConvexTriangleMeshShape - 凸包网格形状实例。
+     * Creates a convex triangle mesh shape, suitable for dynamic objects that require complex geometric representation.
+     * This shape does not require a separate convex hull generation step and is suitable for convex triangle meshes.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param modelVertices - Optional. Vertex data for the collision shape.
+     * @param modelIndices - Optional. Index data for the collision shape.
+     * @returns Ammo.btConvexTriangleMeshShape - The convex triangle mesh shape instance.
      */
     public static createConvexTriangleMeshShape(object3D: Object3D, modelVertices?: Float32Array, modelIndices?: Uint16Array): Ammo.btBvhTriangleMeshShape {
-        // 检查 modelVertices 和 modelIndices 是否同时被提供或同时未提供
+        // Verify that modelVertices and modelIndices are either both provided or both omitted
         if ((modelVertices && !modelIndices) || (!modelVertices && modelIndices)) {
             console.warn('createConvexTriangleMeshShape: Both modelVertices and modelIndices must be provided or neither should be provided.');
         }
@@ -339,15 +339,15 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建边界体积层次（BVH）网格形状，适用于需要复杂几何表示的静态物体。
-     * 此形状适合大规模静态网格，但对动态对象不适用。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param modelVertices - 可选参数，提供碰撞体所需的顶点数据。
-     * @param modelIndices - 可选参数，提供碰撞体所需的索引数据。
-     * @returns Ammo.btBvhTriangleMeshShape - BVH 网格形状实例。
+     * Creates a bounding volume hierarchy (BVH) triangle mesh shape, suitable for static objects that require complex geometric representation.
+     * This shape is well-suited for large-scale static meshes but is not appropriate for dynamic objects.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param modelVertices - Optional. Vertex data for the collision shape.
+     * @param modelIndices - Optional. Index data for the collision shape.
+     * @returns Ammo.btBvhTriangleMeshShape - The BVH triangle mesh shape instance.
      */
     public static createBvhTriangleMeshShape(object3D: Object3D, modelVertices?: Float32Array, modelIndices?: Uint16Array): Ammo.btBvhTriangleMeshShape {
-        // 检查 modelVertices 和 modelIndices 是否同时被提供或同时未提供
+        // Verify that modelVertices and modelIndices are either both provided or both omitted
         if ((modelVertices && !modelIndices) || (!modelVertices && modelIndices)) {
             console.warn('createBvhTriangleMeshShape: Both modelVertices and modelIndices must be provided or neither should be provided.');
         }
@@ -366,15 +366,15 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 创建 GImpact 网格形状，适用于需要复杂几何表示的动态物体。
-     * 基于 GIMPACT 算法，可以用于复杂的三角网格碰撞检测，包括动态物体的交互，此形状性能消耗较高，但提供更精确的碰撞检测。
-     * @param object3D - 用于创建碰撞体的三维对象。
-     * @param modelVertices - 可选参数，提供碰撞体所需的顶点数据。
-     * @param modelIndices - 可选参数，提供碰撞体所需的索引数据。
-     * @returns Ammo.btGImpactMeshShape - GImpact 网格形状实例。
+     * Creates a GImpact mesh shape, suitable for dynamic objects that require complex geometric representation.
+     * Based on the GIMPACT algorithm, it can be used for complex triangle mesh collision detection, including interactions between dynamic objects. This shape has a higher performance cost but provides more precise collision detection.
+     * @param object3D - The 3D object used to create the collision shape.
+     * @param modelVertices - Optional. Vertex data for the collision shape.
+     * @param modelIndices - Optional. Index data for the collision shape.
+     * @returns Ammo.btGImpactMeshShape - The GImpact mesh shape instance.
      */
     public static createGImpactMeshShape(object3D: Object3D, modelVertices?: Float32Array, modelIndices?: Uint16Array): Ammo.btGImpactMeshShape {
-        // 检查 modelVertices 和 modelIndices 是否同时被提供或同时未提供
+        // Verify that modelVertices and modelIndices are either both provided or both omitted
         if ((modelVertices && !modelIndices) || (!modelVertices && modelIndices)) {
             console.warn('createGImpactMeshShape: Both modelVertices and modelIndices must be provided or neither should be provided.');
         }
@@ -394,10 +394,10 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 构建 btTriangleMesh 对象，用于创建网格形状。
-     * @param vertices - 顶点数据，按 xyz 顺序排列。
-     * @param indices - 索引数据，定义三角形的顶点索引。
-     * @returns Ammo.btTriangleMesh - 构建的三角形网格。
+     * Builds a btTriangleMesh object used to create mesh shapes.
+     * @param vertices - Vertex data laid out in xyz order.
+     * @param indices - Index data defining the vertex indices of each triangle.
+     * @returns Ammo.btTriangleMesh - The constructed triangle mesh.
      */
     public static buildTriangleMesh(vertices: Float32Array, indices: Uint16Array): Ammo.btTriangleMesh {
         let triangleMesh = new Ammo.btTriangleMesh();
@@ -418,10 +418,10 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 获取3D对象所有网格的顶点与索引。
-     * @param object3D - 三维对象。
-     * @param isTransformChildren - 是否将子对象的顶点转换到父对象的局部坐标系。默认值为 `true`。
-     * @returns 顶点数据和索引数据。
+     * Gets the vertices and indices of all meshes belonging to a 3D object.
+     * @param object3D - The 3D object.
+     * @param isTransformChildren - Whether to transform child object vertices into the parent object's local coordinate space. Defaults to `true`.
+     * @returns The combined vertex data and index data.
      */
     public static getAllMeshVerticesAndIndices(object3D: Object3D, isTransformChildren: boolean = true) {
         let meshRenderers = object3D.getComponents(MeshRenderer);
@@ -450,7 +450,7 @@ export class CollisionShapeUtil {
 
         let parentMatrixInverse: Matrix4;
         if (isTransformChildren) {
-            // 计算父对象的逆矩阵
+            // Compute the parent object's inverse matrix
             parentMatrixInverse = object3D.transform.worldMatrix.clone();
             parentMatrixInverse.invert();
         }
@@ -461,7 +461,7 @@ export class CollisionShapeUtil {
             if (isTransformChildren) {
                 const childWorldMatrix = renderer.object3D.transform.worldMatrix;
 
-                // 计算子对象相对父对象的局部变换矩阵
+                // Compute the child's local transform matrix relative to the parent
                 let localMatrix = Matrix4.help_matrix_1;
                 localMatrix.multiplyMatrices(parentMatrixInverse, childWorldMatrix);
 
@@ -498,9 +498,9 @@ export class CollisionShapeUtil {
     }
 
     /**
-     * 计算三维对象的局部包围盒
-     * @param object3D - 三维对象
-     * @returns 局部包围盒
+     * Computes the local bounding box of a 3D object.
+     * @param object3D - The 3D object.
+     * @returns The local bounding box.
      */
     private static calculateLocalBoundingBox(object3D: Object3D): BoundingBox {
         if (object3D.renderNode && !object3D.numChildren) {

@@ -1,4 +1,4 @@
-import { Engine3D, ShaderLib, Texture, GPUCompareFunction, BlendMode, Color, Vector4, RenderShaderPass, Material, PassType, Shader } from "@orillusion/core";
+import { Context3D, Engine3D, ShaderLib, Texture, GPUCompareFunction, BlendMode, Color, Vector4, RenderShaderPass, Material, PassType, Shader } from "@orillusion/core";
 import { ParticleRenderShader } from "../shader/ParticleRenderShader";
 
 /**
@@ -6,7 +6,7 @@ import { ParticleRenderShader } from "../shader/ParticleRenderShader";
  * @group Particle 
  */
 export class ParticleMaterial extends Material {
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
         ShaderLib.register("ParticleRenderShader", ParticleRenderShader);
 
@@ -34,7 +34,7 @@ export class ParticleMaterial extends Material {
         this.shader = newShader;
 
         // default value
-        this.baseMap = Engine3D.res.whiteTexture;
+        this.baseMap = Engine3D.resFor(ctx).whiteTexture;
         this.blendMode = BlendMode.ADD;
     }
 

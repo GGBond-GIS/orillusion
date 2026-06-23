@@ -65,8 +65,6 @@ export class GrassMaterial extends Material {
         shadowPass.setUniformFloat("soft", 5);
         shadowPass.setUniformFloat("specular", 0.15);
 
-        // default value
-        // this.baseMap = Engine3D.res.whiteTexture;
         colorPass.doubleSide = true;
         shadowPass.doubleSide = true;
 

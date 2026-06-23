@@ -4,7 +4,7 @@ import { TempPhyMath } from '../utils/TempPhyMath';
 import { ConstraintBase } from './ConstraintBase';
 
 /**
- * 通用六自由度约束
+ * Generic six-degree-of-freedom constraint
  */
 export class Generic6DofConstraint extends ConstraintBase<Ammo.btGeneric6DofConstraint> {
     private _linearLowerLimit: Vector3 = new Vector3(-1e30, -1e30, -1e30);
@@ -19,7 +19,7 @@ export class Generic6DofConstraint extends ConstraintBase<Ammo.btGeneric6DofCons
         return this._linearLowerLimit;
     }
     public set linearLowerLimit(value: Vector3) {
-        this._linearLowerLimit.copyFrom(value);
+        this._linearLowerLimit.copy(value);
         this._constraint?.setLinearLowerLimit(TempPhyMath.toBtVec(value));
     }
 
@@ -30,7 +30,7 @@ export class Generic6DofConstraint extends ConstraintBase<Ammo.btGeneric6DofCons
         return this._linearUpperLimit;
     }
     public set linearUpperLimit(value: Vector3) {
-        this._linearUpperLimit.copyFrom(value);
+        this._linearUpperLimit.copy(value);
         this._constraint?.setLinearUpperLimit(TempPhyMath.toBtVec(value));
     }
 
@@ -41,7 +41,7 @@ export class Generic6DofConstraint extends ConstraintBase<Ammo.btGeneric6DofCons
         return this._angularLowerLimit;
     }
     public set angularLowerLimit(value: Vector3) {
-        this._angularLowerLimit.copyFrom(value);
+        this._angularLowerLimit.copy(value);
         this._constraint?.setAngularLowerLimit(TempPhyMath.toBtVec(value));
     }
 
@@ -52,13 +52,13 @@ export class Generic6DofConstraint extends ConstraintBase<Ammo.btGeneric6DofCons
         return this._angularUpperLimit;
     }
     public set angularUpperLimit(value: Vector3) {
-        this._angularUpperLimit.copyFrom(value);
+        this._angularUpperLimit.copy(value);
         this._constraint?.setAngularUpperLimit(TempPhyMath.toBtVec(value));
     }
 
     /**
-     * 是否使用线性参考坐标系。
-     * 默认值: `true`
+     * Whether to use the linear reference frame.
+     * Default: `true`
      */
     public useLinearFrameReferenceFrame: boolean = true;
 

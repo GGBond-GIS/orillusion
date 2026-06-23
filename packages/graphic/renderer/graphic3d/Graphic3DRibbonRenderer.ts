@@ -1,4 +1,4 @@
-import { BitmapTexture2DArray, Color, ComputeShader, GeometryBase, GeometryUtil, GlobalBindGroup, GPUContext, MeshRenderer, Object3D, StorageGPUBuffer, Struct, StructStorageGPUBuffer, TrailGeometry, UnLitTexArrayMaterial, Vector2, Vector4, View3D } from "@orillusion/core";
+import { BitmapTexture2DArray, Color, ComputeShader, GeometryBase, GeometryUtil, GlobalBindGroup, MeshRenderer, Object3D, StorageGPUBuffer, Struct, StructStorageGPUBuffer, TrailGeometry, UnLitTexArrayMaterial, Vector2, Vector4, View3D } from "@orillusion/core";
 import { graphicTrailCompute } from '../../compute/graphic3d/GraphicTrailCompute'
 
 export enum FaceMode {
@@ -102,9 +102,10 @@ export class Graphic3DRibbonRenderer extends MeshRenderer {
         this._ribbonBuffer.apply();
 
         this.start = () => {
+            const ctx = this.transform.scene3D.view.engine3D.context3D;
             this._computeShader.setStorageBuffer("vertexBuffer", this.geometry.vertexBuffer.vertexGPUBuffer);
             this._computeShader.setStorageBuffer("trailBuffer", this._ribbonBuffer);
-            this._computeShader.setStorageBuffer("models", GlobalBindGroup.modelMatrixBindGroup.matrixBufferDst);
+            this._computeShader.setStorageBuffer("models", GlobalBindGroup.getModelMatrixBindGroup(ctx).matrixBufferDst);
             this._computeShader.setStorageBuffer("globalUniform", GlobalBindGroup.getCameraGroup(this.transform.scene3D.view.camera).uniformGPUBuffer);
         }
 
@@ -157,7 +158,7 @@ export class Graphic3DRibbonRenderer extends MeshRenderer {
         this._computeShader.workerSizeX = this.ribbonCount;
         this._computeShader.workerSizeY = 1;// Math.floor(this.ribbonSegment / Graphic3DRibbonRenderer.maxRibbonSegment);
         // this._computeShader.workerSizeX = 1;
-        GPUContext.computeCommand(command, [this._computeShader]);
+        view.engine3D.context3D.gpuContext.computeCommand(command, [this._computeShader]);
     }
 
 }

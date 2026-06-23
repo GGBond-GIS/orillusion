@@ -66,7 +66,7 @@ export class Point3D {
         this.invalid = invalid;
     }
 
-    public copyFrom(src: Point3D): this {
+    public copy(src: Point3D): this {
         this.x = src.x;
         this.y = src.y;
         this.h = src.h;
@@ -128,7 +128,7 @@ export class Shape3D {
     }
 
     public set lineColor(value: Color) {
-        this._lineColor.copyFrom(value);
+        this._lineColor.copy(value);
         this._isChange = true;
     }
 
@@ -137,7 +137,7 @@ export class Shape3D {
     }
 
     public set fillColor(value: Color) {
-        this._fillColor.copyFrom(value);
+        this._fillColor.copy(value);
         this._isChange = true;
     }
 
@@ -289,7 +289,7 @@ export class Shape3D {
         return this._lineUVRect;
     }
     public set lineUVRect(value: Vector4) {
-        this._lineUVRect.copyFrom(value);
+        this._lineUVRect.copy(value);
         this._isChange = true;
     }
 
@@ -306,7 +306,7 @@ export class Shape3D {
         return this._fillUVRect;
     }
     public set fillUVRect(value: Vector4) {
-        this._fillUVRect.copyFrom(value);
+        this._fillUVRect.copy(value);
         this._isChange = true;
     }
 
@@ -323,7 +323,7 @@ export class Shape3D {
         return this._uvSpeed;
     }
     public set uvSpeed(value: Vector4) {
-        this._uvSpeed.copyFrom(value);
+        this._uvSpeed.copy(value);
         this._isChange = true;
     }
 

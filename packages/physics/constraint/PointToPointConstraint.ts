@@ -3,7 +3,7 @@ import { TempPhyMath } from '../utils/TempPhyMath';
 import { ConstraintBase } from './ConstraintBase';
 
 /**
- * 点到点约束
+ * Point-to-point constraint
  */
 export class PointToPointConstraint extends ConstraintBase<Ammo.btPoint2PointConstraint> {
     protected createConstraint(selfBody: Ammo.btRigidBody, targetBody: Ammo.btRigidBody | null) {

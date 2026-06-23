@@ -4,7 +4,7 @@ import { Ammo } from '../Physics';
 /**
  * Temporary Physics Math Utility
  * 
- * 提供临时的 Ammo btVector3 和 btQuaternion 实例，并支持与引擎数据相互转换
+ * Provides reusable Ammo btVector3 and btQuaternion instances and helpers to convert to/from engine data.
  */
 export class TempPhyMath {
     public static readonly tmpVecA: Ammo.btVector3;
@@ -15,7 +15,7 @@ export class TempPhyMath {
     public static readonly tmpQuaB: Ammo.btQuaternion;
 
     /**
-     * 初始化 Ammo 后创建预定义的 btVector3 和 btQuaternion 实例，以便复用
+     * Create predefined btVector3 and btQuaternion instances after Ammo is initialized so they can be reused.
      */
     public static init() {
         (this as any).tmpVecA = new Ammo.btVector3(0, 0, 0);

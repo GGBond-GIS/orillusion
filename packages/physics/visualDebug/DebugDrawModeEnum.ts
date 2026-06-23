@@ -1,18 +1,18 @@
 export type DebugDrawerOptions = Partial<{
     /**
-     * 启用状态，默认 false
+     * Enabled state, default false
      */
     enable: boolean;
     /**
-     * 设置 debug 模式，默认值为 1 （DrawWireframe: 绘制物理对象的线框）
+     * Sets the debug mode, default value is 1 (DrawWireframe: draws the wireframe of physics objects)
      */
     debugDrawMode: DebugDrawMode;
     /**
-     * 更新频率，默认每 1 帧更新一次
+     * Update frequency, defaults to updating every 1 frame
      */
     updateFreq: number;
     /**
-     * 最多渲染的线条，默认 25,000 （超过 32,000 可能会导致错误 V0.8.2）
+     * Maximum number of lines rendered, default 25,000 (exceeding 32,000 may cause errors as of V0.8.2)
      */
     maxLineCount: number;
 }>;
@@ -20,71 +20,71 @@ export type DebugDrawerOptions = Partial<{
 
 export enum DebugDrawMode {
     /**
-     * 不显示调试信息
+     * Do not display debug information
      */
     NoDebug = 0,
     /**
-     * 绘制物理对象的线框
+     * Draw the wireframe of physics objects
      */
     DrawWireframe = 1,
     /**
-     * 绘制物理对象的包围盒（AABB）
+     * Draw the axis-aligned bounding box (AABB) of physics objects
      */
     DrawAabb = 2,
     /**
-     * 绘制特征点文本
+     * Draw feature point text
      */
     DrawFeaturesText = 4,
     /**
-     * 绘制接触点
+     * Draw contact points
      */
     DrawContactPoints = 8,
     /**
-     * 禁用去激活
+     * Disable deactivation
      */
     NoDeactivation = 16,
     /**
-     * 不显示帮助文本
+     * Do not display help text
      */
     NoHelpText = 32,
     /**
-     * 绘制文本信息
+     * Draw text information
      */
     DrawText = 64,
     /**
-     * 显示性能计时信息
+     * Show performance timing information
      */
     ProfileTimings = 128,
     /**
-     * 启用 SAT 比较
+     * Enable SAT comparison
      */
     EnableSatComparison = 256,
     /**
-     * 禁用 Bullet 的 LCP 算法
+     * Disable Bullet's LCP algorithm
      */
     DisableBulletLCP = 512,
     /**
-     * 启用连续碰撞检测
+     * Enable continuous collision detection
      */
     EnableCCD = 1024,
     /**
-     * 绘制约束
+     * Draw constraints
      */
     DrawConstraints = 2048,
     /**
-     * 绘制约束限制
+     * Draw constraint limits
      */
     DrawConstraintLimits = 4096,
     /**
-     * 绘制快速剔除代理的 AABB
+     * Draw the AABB of fast culling proxies
      */
     FastWireframe = 8192,
     /**
-     * 绘制动态 AABB 树
+     * Draw the dynamic AABB tree
      */
     DrawAabbDynamic = 16384,
     /**
-     * 绘制软体物理
+     * Draw soft body physics
      */
     DrawSoftBodies = 32768,
 }

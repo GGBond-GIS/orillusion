@@ -6,39 +6,39 @@ import { Rigidbody } from '../rigidbody/Rigidbody';
 
 export class RopeSoftbody extends SoftbodyBase {
     /**
-     * 绳索两端的固定选项，默认值为 `0`
-     * 
-     * `0`：两端不固定，`1`：起点固定，`2`：终点固定，`3`：两端固定
+     * Fix options for the two ends of the rope. Default is `0`.
+     *
+     * `0`: neither end fixed, `1`: head fixed, `2`: tail fixed, `3`: both ends fixed.
      */
     public fixeds: number = 0;
 
     /**
-     * 固定节点索引，与 `fixeds` 属性作用相同，但可以更自由的控制任意节点。
+     * Indices of fixed nodes. Serves the same purpose as `fixeds`, but allows arbitrary nodes to be pinned individually.
      */
     public fixNodeIndices: number[] = [];
 
     /**
-     * 绳索弹性，值越大弹性越低，通常设置为 0 到 1 之间，默认值为 `0.5`。
+     * Rope elasticity. Larger values mean less elasticity. Typically in the range 0 to 1. Default is `0.5`.
      */
     public elasticity: number = 0.5;
 
     /**
-     * 绳索起点处锚定的刚体，设置此项后绳索的起点将与该刚体的位置相同。
+     * Rigid body anchored at the head of the rope. When set, the head of the rope is placed at the rigid body's position.
      */
     public anchorRigidbodyHead: Rigidbody;
 
     /**
-     * 绳索终点处锚定的刚体，设置此项后绳索的终点将与该刚体的位置相同。
+     * Rigid body anchored at the tail of the rope. When set, the tail of the rope is placed at the rigid body's position.
      */
     public anchorRigidbodyTail: Rigidbody;
 
     /**
-     * 锚点的起点偏移量，表示起点与锚定的刚体之间的相对位置。
+     * Anchor offset for the head, representing the relative position between the head and its anchored rigid body.
      */
     public anchorOffsetHead: Vector3 = new Vector3();
 
     /**
-     * 锚点的终点偏移量，表示终点与锚定的刚体之间的相对位置。
+     * Anchor offset for the tail, representing the relative position between the tail and its anchored rigid body.
      */
     public anchorOffsetTail: Vector3 = new Vector3();
 
@@ -49,12 +49,12 @@ export class RopeSoftbody extends SoftbodyBase {
         if (this.anchorRigidbodyHead) {
             const bodyA = await this.anchorRigidbodyHead.wait();
             this._positionHead = TempPhyMath.fromBtVec(bodyA.getWorldTransform().getOrigin());
-            this._positionHead.add(this.anchorOffsetHead, this._positionHead);
+            Vector3.add(this._positionHead, this.anchorOffsetHead, this._positionHead);
         }
         if (this.anchorRigidbodyTail) {
             const bodyB = await this.anchorRigidbodyTail.wait();
             this._positionTail = TempPhyMath.fromBtVec(bodyB.getWorldTransform().getOrigin());
-            this._positionTail.add(this.anchorOffsetTail, this._positionTail);
+            Vector3.add(this._positionTail, this.anchorOffsetTail, this._positionTail);
         }
         super.start();
     }
@@ -82,17 +82,17 @@ export class RopeSoftbody extends SoftbodyBase {
 
     protected configureSoftBody(ropeSoftbody: Ammo.btSoftBody): void {
 
-        // 设置软体配置与材质
+        // Configure soft-body settings and material
         const sbConfig = ropeSoftbody.get_m_cfg();
-        sbConfig.set_viterations(10); // 位置迭代次数
-        sbConfig.set_piterations(10); // 位置求解器迭代次数 
+        sbConfig.set_viterations(10); // Velocity solver iterations
+        sbConfig.set_piterations(10); // Position solver iterations
 
         this.setElasticity(this.elasticity);
 
-        // 固定节点
+        // Fixed nodes
         if (this.fixNodeIndices.length > 0) this.applyFixedNodes(this.fixNodeIndices);
 
-        // 锚定刚体
+        // Anchor to rigid bodies
         if (this.anchorRigidbodyHead) {
             const body = this.anchorRigidbodyHead.btRigidbody;
             ropeSoftbody.appendAnchor(0, body, this.disableCollision, this.influence);
@@ -111,14 +111,14 @@ export class RopeSoftbody extends SoftbodyBase {
         this.elasticity = value;
         this.wait().then(ropeSoftbody => {
             const material = ropeSoftbody.get_m_materials().at(0);
-            material.set_m_kLST(value); // 线性弹性
-            material.set_m_kAST(value); // 角度弹性
+            material.set_m_kLST(value); // Linear stiffness
+            material.set_m_kAST(value); // Angular stiffness
         })
     }
 
     /**
-     * 清除锚点，软体将会从附加的刚体上脱落
-     * @param isPopBack 是否只删除一个锚点，当存在首尾两个锚点时，删除终点的锚点。
+     * Clear anchors. The soft body will detach from the rigid bodies it was attached to.
+     * @param isPopBack If true, removes only one anchor. When both head and tail anchors exist, the tail anchor is removed.
      */
     public clearAnchors(isPopBack?: boolean): void {
         if (isPopBack) {
@@ -154,10 +154,10 @@ export class RopeSoftbody extends SoftbodyBase {
     }
 
     /**
-     * 构建绳索（线条）几何体，注意添加材质时需要将拓扑结构 `topology` 设置为 `'line-list'`。
-     * @param segmentCount 分段数
-     * @param startPos 起点
-     * @param endPos 终点
+     * Build a rope (line) geometry. Note: when attaching a material, the `topology` must be set to `'line-list'`.
+     * @param segmentCount Number of segments
+     * @param startPos Start position
+     * @param endPos End position
      * @returns GeometryBase
      */
     public static buildRopeGeometry(segmentCount: number, startPos: Vector3, endPos: Vector3): GeometryBase {
@@ -170,7 +170,7 @@ export class RopeSoftbody extends SoftbodyBase {
             indices[i * 2 + 1] = i + 1;
         }
 
-        // 计算每个顶点之间的增量
+        // Compute the per-vertex delta
         const deltaX = (endPos.x - startPos.x) / segmentCount;
         const deltaY = (endPos.y - startPos.y) / segmentCount;
         const deltaZ = (endPos.z - startPos.z) / segmentCount;
