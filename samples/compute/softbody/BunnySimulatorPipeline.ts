@@ -28,6 +28,21 @@ export class BunnySimulatorPipeline extends BunnySimulatorBuffer {
         this.initPipeline(this.mConfig);
     }
 
+    // Re-point the final stage at the geometry's current GPU vertex buffer.
+    // The renderer (GeometryBase.generate) re-allocates vertexGPUBuffer lazily
+    // at draw time, orphaning the instance captured when the pipeline was built.
+    // `setStorageBuffer` only rebuilds a bind group the first time a name is
+    // bound, so replacing an existing binding requires a fresh ComputeShader.
+    public rebindVertexBuffer(vertexBuffer: any) {
+        const { NUMTSURFACES } = this.mConfig;
+        this.mUpdateVertexBufferComputeShader = new ComputeShader(updatevertexbuffer.cs);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`input`, this.mInputBuffer);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`position`, this.mVertexPositionBuffer);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`normal`, this.mNormalBuffer);
+        this.mUpdateVertexBufferComputeShader.setStorageBuffer(`vertexBuffer`, vertexBuffer);
+        this.mUpdateVertexBufferComputeShader.workerSizeX = Math.ceil(NUMTSURFACES / 128);
+    }
+
     public compute(command: GPUCommandEncoder, pos: Vector3) {
         let computePass = command.beginComputePass();
 

@@ -90,9 +90,21 @@ export class BunnySimulator extends MeshRenderer {
     private _tickTime = 0;
 
     public onCompute(view: View3D, command?: GPUCommandEncoder) {
+        // The renderer (GeometryBase.generate) allocates/replaces the geometry's
+        // GPU vertex buffer lazily at draw time, so the instance captured when the
+        // pipeline was built can become stale — the compute would then keep writing
+        // into an orphaned buffer while the renderer draws an untouched one. Re-read
+        // the live buffer every frame and re-bind the final stage whenever it changes.
+        const vertexBuffer = this.mBunnyGeometry.vertexBuffer.vertexGPUBuffer;
+        if (!vertexBuffer)
+            return; // geometry GPU buffer not built yet
+
         if (!this.mBunnyComputePipeline) {
-            this.mConfig.bunnyVertexBuffer = this.mBunnyGeometry.vertexBuffer.vertexGPUBuffer;
+            this.mConfig.bunnyVertexBuffer = vertexBuffer;
             this.mBunnyComputePipeline = new BunnySimulatorPipeline(this.mConfig, view.engine3D.context3D.device);
+        } else if (this.mConfig.bunnyVertexBuffer !== vertexBuffer) {
+            this.mConfig.bunnyVertexBuffer = vertexBuffer;
+            this.mBunnyComputePipeline.rebindVertexBuffer(vertexBuffer);
         }
 
         var pos = new Vector3();
