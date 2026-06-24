@@ -17,9 +17,21 @@ export class GeometryVertexBuffer {
     public vertexCount: number = 0;
     public vertexGPUBuffer: VertexGPUBuffer;
     public geometryType: GeometryVertexType = GeometryVertexType.split;
+    /**
+     * Set to `true` whenever `vertexGPUBuffer` is replaced by a fresh
+     * allocation (first build or a packing-size change). Consumers that
+     * captured the GPU buffer handle — e.g. compute pipelines writing
+     * deformed/generated vertices — must observe this flag and rebind,
+     * otherwise they keep writing into an orphaned buffer while the
+     * renderer draws the new one. The owner resets it after handling.
+     */
+    public bufferChanged: boolean = false;
     private _vertexBufferLayouts: VertexBufferLayout[];
     private _attributeSlotLayouts: VertexAttribute[][];
     private _attributeLocation: { [attribute: string]: number };
+    /** Float count the current `vertexGPUBuffer` was allocated with, used
+     *  to reuse the same GPU buffer when the packing size is unchanged. */
+    private _allocFloatCount: number = -1;
 
     constructor() {
         this._vertexBufferLayouts = [];
@@ -29,6 +41,23 @@ export class GeometryVertexBuffer {
 
     public get vertexBufferLayouts() {
         return this._vertexBufferLayouts;
+    }
+
+    /**
+     * Allocate the backing GPU vertex buffer, reusing the existing one
+     * when the required float count is unchanged so its handle stays
+     * stable across the per-pass `generate()` calls. The buffer's
+     * interleaved/split packing is a property of the geometry data, not
+     * of any single consuming pass, so re-running `generate()` for a
+     * different pass must not orphan a buffer that compute consumers
+     * already bound. Only a genuine size change forces a new allocation,
+     * which is signalled via `bufferChanged`.
+     */
+    private allocVertexBuffer(floatCount: number) {
+        if (this.vertexGPUBuffer && this._allocFloatCount === floatCount) return;
+        this.vertexGPUBuffer = new VertexGPUBuffer(floatCount);
+        this._allocFloatCount = floatCount;
+        this.bufferChanged = true;
     }
 
     public createVertexBuffer(vertexDataInfos: Map<string, VertexAttributeData>, shaderReflection: ShaderReflection) {
@@ -90,7 +119,7 @@ export class GeometryVertexBuffer {
             vertexOffset += this.vertexCount * attributeInfo.size;
         }
 
-        this.vertexGPUBuffer = new VertexGPUBuffer(vertexOffset);
+        this.allocVertexBuffer(vertexOffset);
     }
 
     private createComposeVertexBuffer(vertexDataInfos: Map<string, VertexAttributeData>, shaderReflection: ShaderReflection) {
@@ -139,7 +168,7 @@ export class GeometryVertexBuffer {
             size: this.vertexCount * attributeOffset * 4
         }
 
-        this.vertexGPUBuffer = new VertexGPUBuffer(this.vertexCount * attributeOffset);
+        this.allocVertexBuffer(this.vertexCount * attributeOffset);
     }
 
     private createComposBinVertexBuffer(vertexDataInfos: Map<string, VertexAttributeData>, shaderReflection: ShaderReflection) {
@@ -192,7 +221,7 @@ export class GeometryVertexBuffer {
             size: this.vertexCount * attributeOffset * 4
         }
 
-        this.vertexGPUBuffer = new VertexGPUBuffer(this.vertexCount * attributeOffset);
+        this.allocVertexBuffer(this.vertexCount * attributeOffset);
     }
 
     public upload(attribute: string, vertexDataInfo: VertexAttributeData) {
@@ -277,5 +306,7 @@ export class GeometryVertexBuffer {
         if (this.vertexGPUBuffer)
             this.vertexGPUBuffer.destroy();
         this.vertexGPUBuffer = null;
+        this._allocFloatCount = -1;
+        this.bufferChanged = false;
     }
 }
