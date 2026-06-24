@@ -22,6 +22,10 @@ class Sample_AtmosphericSky {
         let ulitMaterial = new UnLitMaterial(engine.context3D);
         ulitMaterial.baseMap = texture.texture2D;
         ulitMaterial.cullMode = GPUCullMode.none;
+        // The sky texture is linear HDR (rgba16float). Skip UnLit's sRGB->linear
+        // decode so the plane feeds the global ACES tonemap the same linear
+        // values the skybox does — otherwise gammaToLiner blows out HDR>1 values.
+        ulitMaterial.shader.getDefaultColorShader().setDefine('USE_SRGB_ALBEDO', true);
         let obj = new Object3D();
         scene.addChild(obj);
         let r = obj.addComponent(MeshRenderer);
