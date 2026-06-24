@@ -53,7 +53,6 @@ export class Demo_Softbody {
         boxMat.metallic = 0.1
         boxMat.cullMode = `front`
         mr.material = boxMat;
-        mr.castShadow = false;
         scene.addChild(box);
 
         let bunny = new Object3D();
