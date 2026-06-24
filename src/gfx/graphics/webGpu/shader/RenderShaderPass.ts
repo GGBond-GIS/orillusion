@@ -1067,7 +1067,7 @@ export class RenderShaderPass extends ShaderPassBase {
             renderPipelineDescriptor[`vertex`] = {
                 module: this._vsShaderModule,
                 entryPoint: this.vsEntryPoint,
-                buffers: bufferMesh.vertexBuffer.vertexBufferLayouts,
+                buffers: bufferMesh.vertexBuffer.getPipelineLayout(this.shaderReflection),
             }
         }
 

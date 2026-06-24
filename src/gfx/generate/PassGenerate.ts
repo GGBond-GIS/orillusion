@@ -80,22 +80,6 @@ export class PassGenerate {
         let colorPassList = shader.getSubShaders(PassType.COLOR);
         for (let i = 0; i < colorPassList.length; i++) {
             const colorPass = colorPassList[i];
-            // Mirror the color pass's USE_TANGENT rather than asking geometry.
-            // The geometry's vertexBufferLayouts are generated once against the
-            // color pass's shader reflection (GeometryBase.generate is gated by
-            // _onChange); if the shadow pass disagrees and declares TANGENT at
-            // slot 4 while the color pass didn't, the pipeline's VertexState is
-            // missing slot 4 and WebGPU rejects the shadow pipeline with
-            // "Vertex attribute slot 4 used in shadowcastmap_vert is not
-            // present in the VertexState".
-            //
-            // Must set the define unconditionally (even when false). Otherwise
-            // RenderShaderPass.preDefine's `if (!('USE_TANGENT' in defineValue))`
-            // fallback re-derives it from geometry.hasAttribute(TANGENT) inside
-            // preCompile and silently flips the shadow pass back to true for any
-            // model whose mesh carries tangent data (e.g. wukong.gltf), even
-            // after the user explicitly disabled it on the color pass.
-            let useTangent = colorPass.defineValue[`USE_TANGENT`] === true;
             let shadowPassList = shader.getSubShaders(PassType.SHADOW);
             if (!shadowPassList || shadowPassList.length < (i + 1)) {
                 let shadowPass = new CastShadowMaterialPass();
@@ -103,7 +87,14 @@ export class PassGenerate {
                 shadowPass.setTexture(`baseMap`, colorPass.getTexture(`baseMap`));
                 shadowPass.setUniform(`alphaCutoff`, colorPass.getUniform(`alphaCutoff`));
                 // shadowPass.setDefine("USE_ALPHACUT", colorPass.shaderState.alphaCutoff < 1.0);
-                shadowPass.setDefine(`USE_TANGENT`, useTangent);
+                // Shadow is a depth-only pass; tangents only feed fragment-side
+                // normal mapping, so it never needs TANGENT. Set false
+                // explicitly (rather than mirroring the color pass) so preDefine
+                // can't re-derive it from geometry attributes. The color/shadow
+                // attribute-layout divergence this used to cause is now absorbed
+                // by the geometry's per-pass VertexState (canonical-by-name
+                // offsets), so the two passes no longer have to agree.
+                shadowPass.setDefine(`USE_TANGENT`, false);
                 if (use_skeleton) {
                     shadowPass.setDefine(`USE_SKELETON`, use_skeleton);
                 }
@@ -135,10 +126,8 @@ export class PassGenerate {
                 castPointShadowPass.setDefine("USE_ALPHACUT", 1);
                 // castPointShadowPass.doubleSide = false ;
                 for (let j = 0; j < 1; j++) {
-                    // Same rationale as CastShadowMaterialPass above — mirror
-                    // the color pass's USE_TANGENT unconditionally so preDefine
-                    // can't re-derive it from geometry attributes.
-                    castPointShadowPass.setDefine(`USE_TANGENT`, useTangent);
+                    // Depth-only pass — never needs TANGENT (see createShadowPass).
+                    castPointShadowPass.setDefine(`USE_TANGENT`, false);
                     if (use_skeleton) {
                         castPointShadowPass.setDefine(`USE_SKELETON`, use_skeleton);
                     }
@@ -166,8 +155,6 @@ export class PassGenerate {
 
         for (let i = 0; i < colorListPass.length; i++) {
             const colorPass = colorListPass[i];
-            // Mirror color pass's USE_TANGENT (see createShadowPass for rationale).
-            let useTangent = colorPass.defineValue[`USE_TANGENT`] === true;
             // `getSubShaders` returns `[] || []` — never null/undefined.
             // The previous guard `!depthPassList` was always false on a
             // fresh shader, so DepthMaterialPass was never registered
@@ -176,8 +163,8 @@ export class PassGenerate {
             if (depthPassList.length <= i && colorPass.shaderState.useZ) {
                 let depthPass = new DepthMaterialPass();
                 depthPass.setTexture(`baseMap`, colorPass.getTexture(`baseMap`));
-                // Same rationale as createShadowPass — mirror unconditionally.
-                depthPass.setDefine(`USE_TANGENT`, useTangent);
+                // Depth prepass — never needs TANGENT (see createShadowPass).
+                depthPass.setDefine(`USE_TANGENT`, false);
                 if (use_skeleton) {
                     depthPass.setDefine(`USE_SKELETON`, use_skeleton);
                 }
