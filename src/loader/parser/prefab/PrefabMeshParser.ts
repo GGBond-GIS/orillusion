@@ -2,6 +2,7 @@ import { Engine3D } from "../../../Engine3D";
 import { GeometryBase, LODDescriptor } from "../../../core/geometry/GeometryBase";
 import { GeometryVertexType } from "../../../core/geometry/GeometryVertexType";
 import { VertexAttributeName } from "../../../core/geometry/VertexAttributeName";
+import { VertexAttribute } from "../../../core/geometry/VertexAttribute";
 import { BytesArray } from "../../../util/BytesArray";
 import { ParserBase } from "../ParserBase";
 import { ParserFormat } from "../ParserFormat";
@@ -112,6 +113,26 @@ export class PrefabMeshParser extends ParserBase {
             geometry.geometryType = GeometryVertexType.compose_bin;
             geometry.setIndices(prefabMesh.indices);
             geometry.setAttribute(VertexAttributeName.all, prefabMesh.vertexBuffer);
+
+            // Record the real interleave layout (attribute name → byte offset
+            // within the vertex stride) so each render pass can build its own
+            // VertexState over this shared packed buffer, instead of forcing
+            // every pass to declare the identical full attribute set.
+            const dimFormat = ['', 'float32', 'float32x2', 'float32x3', 'float32x4'] as GPUVertexFormat[];
+            let composeBinLayout: VertexAttribute[] = [];
+            let floatOffset = 0;
+            for (let i = 0; i < attributes.length; i++) {
+                const dim = attributes[i].dim;
+                composeBinLayout.push({
+                    name: attributes[i].att,
+                    format: dimFormat[dim] || `float32`,
+                    offset: floatOffset * 4,
+                    shaderLocation: i,
+                    stride: dim
+                });
+                floatOffset += dim;
+            }
+            geometry.vertexBuffer.setComposeBinLayout(composeBinLayout);
             if (useSkeleton) {
                 geometry.skinNames = prefabMesh.bones;
                 geometry.bindPose = prefabMesh.bindPose;

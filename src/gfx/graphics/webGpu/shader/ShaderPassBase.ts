@@ -119,11 +119,18 @@ export class ShaderPassBase {
     * @param buffer storage useAge gpu buffer
     */
     public setStorageBuffer(name: string, buffer: StorageGPUBuffer) {
-        if (!this._bufferDic.has(name)) {
-            this._bufferDic.set(name, buffer);
+        // Rebuild the bind group whenever the buffer instance actually
+        // changes (including the first bind, where noticeBufferChange is a
+        // no-op because no group is cached yet). Re-binding a different
+        // buffer to an existing name used to be silently dropped, leaving
+        // the old GPUBuffer bound — e.g. a compute pipeline kept writing
+        // into a vertex buffer the geometry had since re-allocated. Matches
+        // the rebuild-on-replace semantics of setStructStorageBuffer /
+        // setUniformBuffer.
+        const prev = this._bufferDic.get(name);
+        this._bufferDic.set(name, buffer);
+        if (prev !== buffer) {
             this.noticeBufferChange(name);
-        } else {
-            this._bufferDic.set(name, buffer);
         }
     }
 

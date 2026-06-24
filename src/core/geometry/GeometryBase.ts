@@ -193,17 +193,12 @@ export class GeometryBase {
      */
     generate(shaderReflection: ShaderReflection) {
         if (!this._onChange) {
-            const layouts = this._vertexBuffer?.vertexBufferLayouts;
-            // Any non-builtin attribute the new reflection asks for
-            // that isn't already present in the layouts means we have
-            // to rebuild — the shader will reference a slot the
-            // pipeline VertexState wouldn't otherwise provide.
-            const missingSlot = shaderReflection.attributes.some(a =>
-                a.name !== 'index'
-                && (a as any).type !== 'builtin'
-                && layouts?.[a.location] === undefined
-            );
-            if (!missingSlot) return;
+            // A pass may need a buffer rebuild even when the geometry data
+            // is unchanged — its reflection can require an attribute the
+            // current packing doesn't hold yet. GeometryVertexBuffer decides
+            // this per layout type (canonical-by-name for compose, slot
+            // presence for split/compose_bin).
+            if (!this._vertexBuffer?.needsRebuild(shaderReflection)) return;
         }
         this._onChange = false;
         this._indicesBuffer.upload(this.getAttribute(VertexAttributeName.indices).data);

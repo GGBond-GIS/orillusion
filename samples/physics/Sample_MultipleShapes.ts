@@ -78,7 +78,7 @@ class Sample_MultipleShapes {
         await this.initTerrain();
         this.createStaticPlanes();
 
-        // this.scene.addComponent(BoxGenerator);
+        this.scene.addComponent(BoxGenerator);
     }
 
     async initTerrain() {

@@ -205,8 +205,37 @@ export class DynamicFaceRenderer extends MeshRenderer {
         }
     }
 
+    /**
+     * Re-point every compute kernel at the geometry's current vertex GPU
+     * buffer. The v2 geometry re-allocates its `vertexGPUBuffer` when the
+     * per-pass packing size changes (e.g. a depth pass adds an attribute),
+     * which orphans the handle these kernels captured in `start`. Driven by
+     * `GeometryVertexBuffer.bufferChanged`; `setStorageBuffer` rebuilds the
+     * bind group because the buffer instance differs.
+     */
+    protected reBindVertexBuffer(): void {
+        const vertexBuffer = this.geometry.vertexBuffer.vertexGPUBuffer;
+        if (!vertexBuffer) return;
+        const kernelGroups = [this._onStartKernel, this._onChangeKernelGroup, this._onFrameKernelGroup];
+        for (const group of kernelGroups) {
+            for (const compute of group) {
+                compute.setStorageBuffer("vertexBuffer", vertexBuffer);
+            }
+        }
+    }
+
     public onCompute(view: View3D, command: GPUCommandEncoder): void {
         this.drawAtomicBuffer.apply();
+
+        if (this.geometry.vertexBuffer.bufferChanged) {
+            this.geometry.vertexBuffer.bufferChanged = false;
+            // The geometry re-allocated its vertex buffer (first build, or a
+            // per-pass packing-size change). Re-point the kernels at it and
+            // force a recompute so the freshly-drawn geometry is filled in
+            // the new buffer instead of being left at rest pose.
+            this.reBindVertexBuffer();
+            this._needCompute = true;
+        }
 
         if (!this._initCompute) {
             this._initCompute = true;
