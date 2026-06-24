@@ -51,7 +51,7 @@ export class Sample_Grass {
 
     private async createScene(scene: Scene3D) {
         //bitmap
-        let bitmapTexture = await this.engine.res.loadTexture('terrain/test01/bitmap.png');
+        let bitmapTexture = await this.engine.res.loadTexture('terrain/test01/bitmap.png', undefined, undefined, 'srgb');
         let heightTexture = await this.engine.res.loadTexture('terrain/test01/height.png');
         let grassTexture = await this.engine.res.loadTexture('terrain/grass/GrassThick.png');
         let gustNoiseTexture = await this.engine.res.loadTexture('terrain/grass/displ_noise_curl_1.png');
