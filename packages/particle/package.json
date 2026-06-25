@@ -1,6 +1,6 @@
 {
     "name": "@orillusion/particle",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "author": "Orillusion",
     "description": "Orillusion Particle Plugin",
     "main": "./dist/particle.umd.js",
