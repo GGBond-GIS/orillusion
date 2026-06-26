@@ -114,29 +114,29 @@ export class Context3D extends CEventDispatcher {
         const ainfo: any = (this.adapter as any).info;
         if (ainfo) {
             const f = (k: string) => (ainfo[k] !== undefined && ainfo[k] !== '') ? ainfo[k] : '<empty>';
-            console.log(
-                `[Context3D] adapter.info backend=${f('backend')} vendor=${f('vendor')} ` +
-                `architecture=${f('architecture')} device=${f('device')} description=${f('description')}`
-            );
+            // if (import.meta.env.DEV) console.log(
+            //     `[Context3D] adapter.info backend=${f('backend')} vendor=${f('vendor')} ` +
+            //     `architecture=${f('architecture')} device=${f('device')} description=${f('description')}`
+            // );
         } else {
             // Older Chrome / Electron didn't expose adapter.info synchronously.
             // Try the deprecated async requestAdapterInfo() as a fallback.
             try {
                 const infoAsync = await (this.adapter as any).requestAdapterInfo?.();
                 if (infoAsync) {
-                    console.log(
-                        `[Context3D] requestAdapterInfo() vendor=${infoAsync.vendor ?? '?'} ` +
-                        `architecture=${infoAsync.architecture ?? '?'} device=${infoAsync.device ?? '?'}`
-                    );
+                    // if (import.meta.env.DEV) console.log(
+                    //     `[Context3D] requestAdapterInfo() vendor=${infoAsync.vendor ?? '?'} ` +
+                    //     `architecture=${infoAsync.architecture ?? '?'} device=${infoAsync.device ?? '?'}`
+                    // );
                 } else {
-                    console.log('[Context3D] adapter.info not exposed by this Chrome/Electron build');
+                    if (import.meta.env.DEV) console.log('[Context3D] adapter.info not exposed by this Chrome/Electron build');
                 }
             } catch (e: any) {
                 console.log('[Context3D] adapter.info probe failed:', e?.message ?? e);
             }
         }
         const avail = Array.from((this.adapter.features as any) || []);
-        console.log('[Context3D] adapter.features =', avail.join(', '));
+        // if (import.meta.env.DEV) console.log('[Context3D] adapter.features =', avail.join(', '));
         this.device = await this.adapter.requestDevice({
             requiredFeatures: [
                 'bgra8unorm-storage',
@@ -172,7 +172,7 @@ export class Context3D extends CEventDispatcher {
             this.presentationFormat = preferred;
             this._swapchainConfigureFormat = preferred;
         }
-        console.log(`[Context3D] presentationFormat = ${this.presentationFormat} (preferred=${preferred})`);
+        // if (import.meta.env.DEV) console.log(`[Context3D] presentationFormat = ${this.presentationFormat} (preferred=${preferred})`);
         // Catch *every* validation / out-of-memory error from the device so
         // silent D3D12 failures (e.g. shadow pipeline creation, depth texture
         // copy) surface in the console instead of just "no shadows".

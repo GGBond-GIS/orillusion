@@ -356,11 +356,11 @@ export class ShadowPass extends RenderGraphPass {
             }
             const total = w * h;
             const mean = sum / total;
-            console.log(
-                `[ShadowMapDebug] directional shadow VirtualTexture readback: ` +
-                `size=${w}x${h}  min=${mn.toFixed(5)}  max=${mx.toFixed(5)}  ` +
-                `mean=${mean.toFixed(5)}  non-1.0-texels=${nonOneCount}/${total} (${(100 * nonOneCount / total).toFixed(2)}%)`,
-            );
+            // if (import.meta.env.DEV) console.log(
+            //     `[ShadowMapDebug] directional shadow VirtualTexture readback: ` +
+            //     `size=${w}x${h}  min=${mn.toFixed(5)}  max=${mx.toFixed(5)}  ` +
+            //     `mean=${mean.toFixed(5)}  non-1.0-texels=${nonOneCount}/${total} (${(100 * nonOneCount / total).toFixed(2)}%)`,
+            // );
         } catch (e: any) {
             console.log('[ShadowMapDebug] readback failed:', e?.message ?? e);
             this._debugProbeDone = false;

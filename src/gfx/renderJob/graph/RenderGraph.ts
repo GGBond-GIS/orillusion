@@ -443,15 +443,15 @@ export class RenderGraph {
             this._lastUseByName.set(lt.name, lt.lastUseIdx);
         }
         this._dirty = false;
-        console.debug('[RenderGraph] compiled pass order:', this._compiled.join(' → '));
+        // if (import.meta.env.DEV) console.debug('[RenderGraph] compiled pass order:', this._compiled.join(' → '));
         if (this._lifetimes.length > 0) {
             const ts = this._texturePool.stats();
-            console.debug(
-                `[RenderGraph] transient: ${this._lifetimes.length} lifetimes ` +
-                `(${texAssign.bindings.size} tex / ${bufAssign.bindings.size} buf bound), ` +
-                `tex pool ${ts.slotCount} slots / ${(ts.currentBytes / 1024 / 1024).toFixed(2)} MB ` +
-                `(peak ${(ts.peakBytes / 1024 / 1024).toFixed(2)} MB)`,
-            );
+            // if (import.meta.env.DEV) console.debug(
+            //     `[RenderGraph] transient: ${this._lifetimes.length} lifetimes ` +
+            //     `(${texAssign.bindings.size} tex / ${bufAssign.bindings.size} buf bound), ` +
+            //     `tex pool ${ts.slotCount} slots / ${(ts.currentBytes / 1024 / 1024).toFixed(2)} MB ` +
+            //     `(peak ${(ts.peakBytes / 1024 / 1024).toFixed(2)} MB)`,
+            // );
         }
     }
 
