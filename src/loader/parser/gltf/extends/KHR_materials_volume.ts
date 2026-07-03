@@ -44,6 +44,13 @@ export class KHR_materials_volume {
 
         if (ext[`thicknessTexture`]) {
             dmaterial.thicknessTexture = ext[`thicknessTexture`];
+            // The async parser (GLTFSubParserMaterial.parse) already
+            // resolved thicknessTexture into a real Texture and stashed
+            // it on dmaterial — bind it here, mirroring
+            // KHR_materials_transmission.apply's transmissionMap wiring.
+            if (dmaterial.thicknessTextureResolved && tMaterial instanceof LitMaterial) {
+                (tMaterial as LitMaterial).thicknessMap = dmaterial.thicknessTextureResolved;
+            }
         }
     }
 }

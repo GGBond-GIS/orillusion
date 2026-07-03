@@ -54,6 +54,12 @@ export let PBRLItShader: string = /*wgsl*/ `
             @group(1) @binding(auto)
             var transmissionMap: texture_2d<f32>;
         #endif
+        #if USE_THICKNESSMAP
+            @group(1) @binding(auto)
+            var thicknessMapSampler: sampler;
+            @group(1) @binding(auto)
+            var thicknessMap: texture_2d<f32>;
+        #endif
     #endif
 
     var<private> debugOut : vec4f = vec4f(0.0) ;
@@ -213,13 +219,21 @@ export let PBRLItShader: string = /*wgsl*/ `
             // non-negative so refract never returns the zero TIR
             // sentinel here.
             let refractDir = refract(-viewDir, normalWS, 1.0 / max(materialUniform.ior, 1.0));
+            // glTF KHR_materials_volume: thicknessTexture G channel
+            // scales thicknessFactor per-fragment, so thin regions
+            // (wings, fins) stay bright while only thick regions (a
+            // body core) reach full attenuation.
+            var thickness = materialUniform.thicknessFactor;
+            #if USE_THICKNESSMAP
+                thickness = thickness * textureSample(thicknessMap, thicknessMapSampler, uv).g;
+            #endif
             // Ray length in world units, scaled per-axis by modelScale
             // (vertex stage computed length(worldMat[i].xyz) into
             // ORI_VertexVarying.modelScale). Uniform meshes collapse to
             // (s,s,s); unscaled to (1,1,1). Matches the standard
             // KHR_materials_volume transmission ray so a stretched
             // glass cube refracts proportionally to its world dims.
-            let transmissionRay = refractDir * materialUniform.thicknessFactor * ORI_VertexVarying.modelScale;
+            let transmissionRay = refractDir * thickness * ORI_VertexVarying.modelScale;
             let exitWorld = ORI_VertexVarying.vWorldPos.xyz + transmissionRay;
             // Project exit point back to NDC, then to UV space. Y is
             // flipped because WGSL's fragCoord origin is top-left
@@ -253,17 +267,20 @@ export let PBRLItShader: string = /*wgsl*/ `
             // Volumetric attenuation, log-space form (the standard
             // KHR_materials_volume derivation):
             //   coeff       = -log(attenuationColor) / attenuationDistance
-            //   transmittance = exp(-coeff * thickness)
-            //                 = pow(attenuationColor, thickness / distance)
-            // which is exactly what KHR_materials_volume specifies and
-            // produces a softer falloff than the (1 - color) Beer-
-            // Lambert variant we used to ship — the color stays in the
-            // expected hue rather than collapsing toward red as soon as
-            // the path length grows.
+            //   transmittance = exp(-coeff * distance)
+            //                 = pow(attenuationColor, distance / attenuationDistance)
+            // distance is the actual world-space path length light
+            // travels through the medium — length(transmissionRay),
+            // i.e. thickness already scaled by modelScale (and by the
+            // thickness texture above). Using the raw, unscaled
+            // thicknessFactor here (as opposed to the ray actually
+            // traced above) previously made the exponent too large on
+            // any scaled-down mesh, crushing attenuationColor's minor
+            // channels toward zero and biasing the result red.
             var transmittance = vec3f(1.0);
-            if (materialUniform.attenuationDistance < 1.0e18 && materialUniform.thicknessFactor > 0.0) {
+            if (materialUniform.attenuationDistance < 1.0e18 && thickness > 0.0) {
                 let safeColor = max(materialUniform.attenuationColor.rgb, vec3f(1e-4));
-                let ratio = materialUniform.thicknessFactor / materialUniform.attenuationDistance;
+                let ratio = length(transmissionRay) / materialUniform.attenuationDistance;
                 transmittance = pow(safeColor, vec3f(ratio));
             }
             var tf = clamp(materialUniform.transmissionFactor, 0.0, 1.0);
@@ -273,15 +290,13 @@ export let PBRLItShader: string = /*wgsl*/ `
                 // opaque + glassy regions (e.g. a window frame).
                 tf = tf * textureSample(transmissionMap, transmissionMapSampler, uv).r;
             #endif
-            // Tint the transmitted backdrop by both baseColor (the
-            // user's material colour) AND attenuationColor (the
-            // volume tint along the light path, KHR_materials_volume).
-            // Previously only attenuationColor was applied, so the
-            // color slider had no effect on glass with high
-            // transmission — the standard PBR derivation multiplies
-            // both because they describe different physical quantities
-            // (surface tint vs volume absorption).
-            let tint = materialUniform.attenuationColor.rgb * materialUniform.baseColor.rgb;
+            // Tint the transmitted backdrop by baseColor (the user's
+            // surface tint) only — transmittance above already fully
+            // encodes the attenuationColor absorption via Beer-Lambert,
+            // so multiplying attenuationColor in again here would
+            // apply it twice (squaring it), over-darkening and
+            // red-shifting the result.
+            let tint = materialUniform.baseColor.rgb;
             let transmittedTinted = transmitted * transmittance * tint;
             // Default behavior matches the standard KHR_materials_
             // transmission path on an opaque canvas: mix lit color

@@ -275,6 +275,21 @@ export class LitMaterial extends Material {
         return this.shader.getUniformFloat(`thicknessFactor`);
     }
 
+    /** glTF KHR_materials_volume `thicknessTexture` — G channel scales
+     *  `thicknessFactor` per fragment, so a single material can vary
+     *  from thin (bright, near source color) to thick (heavily
+     *  attenuated) across its surface. Setting it enables the
+     *  USE_THICKNESSMAP shader path. */
+    public set thicknessMap(texture: Texture) {
+        this.shader.setTexture(`thicknessMap`, texture);
+        this.shader.setDefine(`USE_THICKNESSMAP`, true);
+    }
+
+    /** Get the thickness texture. */
+    public get thicknessMap(): Texture {
+        return this.shader.getTexture(`thicknessMap`);
+    }
+
     /** Distance (in world units) after which the transmitted radiance
      *  has been attenuated to `1/e` of its initial intensity. Use
      *  `Number.POSITIVE_INFINITY` to disable attenuation. */
