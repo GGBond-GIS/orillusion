@@ -5,7 +5,7 @@ import { Object3D } from "../core/entities/Object3D";
 import { CEvent } from "../event/CEvent";
 import { ComponentCollect } from "../gfx/renderJob/collect/ComponentCollect";
 import { MathUtil } from "../math/MathUtil";
-import { Matrix4, makeMatrix44, append } from "../math/Matrix4";
+import { Matrix4, append } from "../math/Matrix4";
 import { Orientation3D } from "../math/Orientation3D";
 import { Quaternion } from "../math/Quaternion";
 import { Vector3 } from "../math/Vector3";
@@ -222,7 +222,7 @@ export class Transform extends ComponentBase {
         this._localScale = new Vector3(1, 1, 1);
 
         WasmMatrix.setScale(this.index, this._localScale.x, this._localScale.y, this._localScale.z);
-        WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
+        WasmMatrix.setRotation(this.index, this._localRotQuat.x, this._localRotQuat.y, this._localRotQuat.z, this._localRotQuat.w);
         WasmMatrix.setTranslate(this.index, this._localPos.x, this._localPos.y, this._localPos.z);
     }
 
@@ -250,6 +250,21 @@ export class Transform extends ComponentBase {
             }
         }
         this.eventDispatcher.dispatchEvent(this.eventLocalChange);
+    }
+
+    /**
+     * @internal
+     * Push a rotation (given as both its Euler and quaternion form) into the
+     * transform's local state and to the WASM matrix solver, which stores
+     * rotation as a quaternion to avoid Euler gimbal lock. Does not invoke
+     * `onRotationChange` or dispatch `eventRotationChange` — callers differ
+     * in when/how they do that.
+     */
+    private _applyLocalRotation(euler: Vector3, quat: Quaternion) {
+        this._localRot.copy(euler);
+        this._localRotQuat.copy(quat);
+        WasmMatrix.setRotation(this.index, quat.x, quat.y, quat.z, quat.w);
+        this.notifyLocalChange();
     }
 
     /** World-space up direction; setting it rotates the object to face that up. */
@@ -367,11 +382,8 @@ export class Transform extends ComponentBase {
             || value.y != this._localRotQuat.y
             || value.z != this._localRotQuat.z
             || value.w != this._localRotQuat.w) {
-            this._localRotQuat.copy(value);
-            this._localRotQuat.getEulerAngles(this._localRot);
-
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            value.getEulerAngles(Vector3.HELP_0);
+            this._applyLocalRotation(Vector3.HELP_0, value);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -414,11 +426,13 @@ export class Transform extends ComponentBase {
      */
     public updateWorldMatrix(force: boolean = false) {
         if (this.localChange || force) {
+            // Compose from the quaternion, not _localRot — getEulerAngles() has a
+            // singularity (gimbal lock) whenever the decomposed pitch approaches
+            // ±90°, which a pure yaw rotation of ±90°/270° hits exactly. Composing
+            // from the quaternion sidesteps that entirely.
+            this._worldMatrix.compose(this._localPos, this._localRotQuat, this._localScale);
             if (this.parent) {
-                makeMatrix44(this._localRot, this._localPos, this._localScale, this._worldMatrix);
                 append(this._worldMatrix, this.parent.worldMatrix, this._worldMatrix);
-            } else {
-                makeMatrix44(this._localRot, this._localPos, this._localScale, this._worldMatrix);
             }
             this.localChange = false;
         }
@@ -624,9 +638,8 @@ export class Transform extends ComponentBase {
     public set rotationX(value: number) {
         if (this._localRot.x != value) {
             this._localRot.x = value;
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this._localRotQuat.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            Quaternion.HELP_1.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
+            this._applyLocalRotation(this._localRot, Quaternion.HELP_1);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -645,9 +658,8 @@ export class Transform extends ComponentBase {
     public set rotationY(value: number) {
         if (this._localRot.y != value) {
             this._localRot.y = value;
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this._localRotQuat.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            Quaternion.HELP_1.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
+            this._applyLocalRotation(this._localRot, Quaternion.HELP_1);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -666,9 +678,8 @@ export class Transform extends ComponentBase {
     public set rotationZ(value: number) {
         if (this._localRot.z != value) {
             this._localRot.z = value;
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this._localRotQuat.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            Quaternion.HELP_1.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
+            this._applyLocalRotation(this._localRot, Quaternion.HELP_1);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -726,16 +737,14 @@ export class Transform extends ComponentBase {
             }
         }
 
-        WasmMatrix.setRotation(this.index, v.x, v.y, v.z);
-        this._localRot.copy(v);
         // Keep _localRotQuat in sync — multiple downstream consumers
         // (CCDIK.composeWorldQuat, retargeter, look-at) read
         // localQuaternion to compose world rotations. Without this sync,
         // the quat field stays at its default (0,0,0,1) after Euler-only
         // setup like buildSkeletonPose, and quat-based world rotation
         // composition silently produces wrong results.
-        this._localRotQuat.setFromEuler(v.x, v.y, v.z);
-        this.notifyLocalChange();
+        Quaternion.HELP_1.setFromEuler(v.x, v.y, v.z);
+        this._applyLocalRotation(v, Quaternion.HELP_1);
 
         if (this.eventRotationChange) {
             this.eventDispatcher.dispatchEvent(this.eventRotationChange);

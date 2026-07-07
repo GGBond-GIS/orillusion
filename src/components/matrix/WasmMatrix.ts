@@ -26,7 +26,7 @@ export class WasmMatrix {
     public static matrixBuffer: FloatArray;
     /** 32-bit copy of the world matrices (used when running in double precision). */
     public static matrixBuffer_32bit: Float32Array;
-    /** Per-object scale/rotation/translation input buffer. */
+    /** Per-object scale/rotation(quaternion)/translation input buffer. */
     public static matrixSRTBuffer: FloatArray;
     /** Per-object continuous (per-frame delta) SRT buffer for animated transforms. */
     public static matrixContinuedSRTBuffer: FloatArray;
@@ -48,6 +48,10 @@ export class WasmMatrix {
     static wasm: typeof matrix;
     /** Number of Int32 entries per object in the state buffer. */
     static stateStruct: number = 4;
+    /** Number of float entries per object in {@link matrixSRTBuffer}: 3 scale + 4 rotation quaternion (x, y, z, w) + 3 translation. */
+    static srtStride: number = 10;
+    /** Number of float entries per object in {@link matrixContinuedSRTBuffer}: 3 scale + 3 Euler rotation delta + 3 translation delta. */
+    static continuedSrtStride: number = 9;
     /** Whether matrices are stored in 64-bit (double) precision. */
     static useDoublePrecision: boolean = false;
 
@@ -85,14 +89,14 @@ export class WasmMatrix {
         if (this.useDoublePrecision) {
             this.matrixBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixBufferPtr, 16 * count);
             this.matrixBuffer_32bit = new Float32Array(16 * count);
-            this.matrixSRTBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixSRTBufferPtr, (3 * 3) * count);
-            this.matrixContinuedSRTBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixContinuedSRTBufferPtr, (3 * 3) * count);
+            this.matrixSRTBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixSRTBufferPtr, WasmMatrix.srtStride * count);
+            this.matrixContinuedSRTBuffer = CreateFloatArray(this.wasm.HEAPF64.buffer, this.matrixContinuedSRTBufferPtr, WasmMatrix.continuedSrtStride * count);
             this.matrixWorldPositionHLBuffer = new Float32Array(this.wasm.HEAPF32.buffer, this.matrixWorldPositionHLBufferPtr, (4 * 2) * count);
             Matrix4.blockBytes = Matrix4.block * 8;
         } else {
             this.matrixBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixBufferPtr, 16 * count);
-            this.matrixSRTBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixSRTBufferPtr, (3 * 3) * count);
-            this.matrixContinuedSRTBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixContinuedSRTBufferPtr, (3 * 3) * count);
+            this.matrixSRTBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixSRTBufferPtr, WasmMatrix.srtStride * count);
+            this.matrixContinuedSRTBuffer = CreateFloatArray(this.wasm.HEAPF32.buffer, this.matrixContinuedSRTBufferPtr, WasmMatrix.continuedSrtStride * count);
             this.matrixWorldPositionHLBuffer = new Float32Array(this.wasm.HEAPF32.buffer, this.matrixWorldPositionHLBufferPtr, (4 * 2) * count);
             Matrix4.blockBytes = Matrix4.block * 4;
         }
@@ -128,41 +132,42 @@ export class WasmMatrix {
 
     /** Set the local translation of a matrix. */
     public static setTranslate(matIndex: number, x: number, y: number, z: number) {
-        this.matrixSRTBuffer[matIndex * 9 + 6] = x;
-        this.matrixSRTBuffer[matIndex * 9 + 7] = y;
-        this.matrixSRTBuffer[matIndex * 9 + 8] = z;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 7] = x;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 8] = y;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 9] = z;
     }
 
-    /** Set the local rotation of a matrix (Euler degrees). */
-    public static setRotation(matIndex: number, x: number, y: number, z: number) {
-        this.matrixSRTBuffer[matIndex * 9 + 3] = (x % 360);
-        this.matrixSRTBuffer[matIndex * 9 + 4] = (y % 360);
-        this.matrixSRTBuffer[matIndex * 9 + 5] = (z % 360);
+    /** Set the local rotation of a matrix (quaternion x, y, z, w). */
+    public static setRotation(matIndex: number, x: number, y: number, z: number, w: number) {
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 3] = x;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 4] = y;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 5] = z;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 6] = w;
     }
 
     /** Set the local scale of a matrix. */
     public static setScale(matIndex: number, x: number, y: number, z: number) {
-        this.matrixSRTBuffer[matIndex * 9 + 0] = x;
-        this.matrixSRTBuffer[matIndex * 9 + 1] = y;
-        this.matrixSRTBuffer[matIndex * 9 + 2] = z;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 0] = x;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 1] = y;
+        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 2] = z;
     }
 
     /** Set a per-frame continuous translation delta (auto-applied each update). */
     public static setContinueTranslate(matIndex: number, x: number, y: number, z: number) {
         if (x != 0 || y != 0 || z != 0) {
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 6] = x;
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 7] = y;
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 8] = z;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 6] = x;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 7] = y;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 8] = z;
             this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 1] = 1;
         }
     }
 
-    /** Set a per-frame continuous rotation delta (auto-applied each update). */
+    /** Set a per-frame continuous rotation delta (Euler degrees/frame, auto-applied each update). */
     public static setContinueRotation(matIndex: number, x: number, y: number, z: number) {
         if (x != 0 || y != 0 || z != 0) {
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 3] = x;
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 4] = y;
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 5] = z;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 3] = x;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 4] = y;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 5] = z;
             this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 1] = 1;
         }
     }
@@ -170,9 +175,9 @@ export class WasmMatrix {
     /** Set a per-frame continuous scale delta (auto-applied each update). */
     public static setContinueScale(matIndex: number, x: number, y: number, z: number) {
         if (x != 0 || y != 0 || z != 0) {
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 0] = x;
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 1] = y;
-            this.matrixContinuedSRTBuffer[matIndex * 9 + 2] = z;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 0] = x;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 1] = y;
+            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 2] = z;
             this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 1] = 1;
         }
     }
