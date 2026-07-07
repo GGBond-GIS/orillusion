@@ -60,7 +60,6 @@ class Sample_FlightHelmet {
         {
             let atmospheric = this.scene.addComponent(AtmosphericComponent);
             atmospheric.sunY = 0.73;
-            atmospheric.sunRadiance = 47;
             atmospheric.enable = false;
         }
         /******** light *******/
