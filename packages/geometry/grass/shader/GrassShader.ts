@@ -166,7 +166,11 @@ export let GrassShader = /* wgsl */`
         let specular = vec3<f32>( pow(max(dot(viewDir, reflectDir), 0.0), (1.0 - roughness + 0.001) * 200.0 ) ) * mainLightColor * materialUniform.specular;
 
         var diffuse = color.rgb / PI * grassColor.rgb * directShadowVisibility[0] ;
-        var finalColor = diffuse + specular + irradiance * grassColor.rgb * sunLight.quadratic;//+ backColor;
+        // Match the engine's standard diffuse-IBL normalization (BxDF_frag divides
+        // indirectionDiffuse by PI) — without it this ambient term is ~3.14x hotter
+        // than an equivalent PBR material, which pushes grass into ACES's
+        // highlight-desaturation range now that the sky feeds unclamped linear HDR.
+        var finalColor = diffuse + specular + (irradiance * grassColor.rgb * sunLight.quadratic) / PI;//+ backColor;
 
         ORI_ShadingInput.BaseColor = vec4<f32>(finalColor.rgb,1.0) ;
         UnLit();

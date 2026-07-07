@@ -57,6 +57,7 @@ export class SkyMaterial extends Material {
     }
     public set exposure(value: number) {
         this._exposure = value;
+        this.shader.setUniformFloat('exposure', value);
     }
 
     public get roughness() {

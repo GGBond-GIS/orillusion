@@ -92,7 +92,11 @@ export class CubeSky_Shader {
         // legacy non-srgb-swapchain + LinearToGammaSpace pairing.
 
         // let o_Target: vec4<f32> = globalUniform.hdrExposure * vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure ;
-        let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure;
+        // global.exposure is the per-sky-material control (SkyMaterial.exposure /
+        // AtmosphericComponent.exposure GUI slider) — previously unused here, so
+        // the slider had no visible effect. globalUniform.skyExposure is the
+        // separate scene-wide multiplier; both apply.
+        let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure * global.exposure;
         var fixProjMat = globalUniform.projMat ;
         if(global.enableFixOrthProj > 0.5){
           fixProjMat = global.fixOrthProj;
