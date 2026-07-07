@@ -117,11 +117,23 @@ fn CsMain( @builtin(workgroup_id) workgroup_id : vec3<u32> , @builtin(global_inv
   // ~3 mips of that, blowing past what ACES can recover and causing the
   // big over-exposed halos seen on shiny PBR samples). Normalizing by lum
   // keeps the bloom buffer a soft-masked copy of the scene rather than
-  // an amplified one — relative HDR is preserved, ACES handles the
-  // compression at the end of the chain.
+  // an amplified one.
   var lum = dot(vec3<f32>(0.2126, 0.7152, 0.0722), safe_rgb);
   var weight = max(0.0, lum - bloomCfg.luminanceThreshole) / max(lum, 1e-4);
-  var ret = safe_rgb * weight;
+  // weight alone only fixes the amplification — it still lets an
+  // arbitrarily bright seed (weight approaches 1 as lum grows) pass its
+  // raw HDR magnitude straight into the blur/downsample/upsample
+  // pyramid. That pyramid spatially smears the value across a whole
+  // blur radius *before* it ever reaches a tonemap curve, since the
+  // single global ACES pass now runs once at the very end of the whole
+  // frame (see TonemapPost) instead of once per post effect like in
+  // 0.8 — so a lone blown-out highlight (specular, emissive, an SSR
+  // mirror of a light) turns into a wide saturated-white halo instead
+  // of a tight glow. Bound the seed's own magnitude here, the same way
+  // 0.8's threshold pass did via this same ACESToneMapping helper,
+  // before the soft-knee weight is applied.
+  var toned = ACESToneMapping(safe_rgb, 1.0);
+  var ret = toned * weight;
   textureStore(outTex, fragCoord, vec4<f32>(ret, color.w));
 }
 `
