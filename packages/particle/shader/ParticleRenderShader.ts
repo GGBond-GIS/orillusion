@@ -123,8 +123,7 @@ export let ParticleRenderShader = /* wgsl */ `
             worldMatrix[2].xyz
          );
         let v3Look: vec3<f32> = normalize(dir * mat3);
-        let up: vec3<f32> = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), v3Look));
-        let v3Right: vec3<f32> = normalize(cross(v3Look, up));
+        let v3Right: vec3<f32> = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), v3Look));
         let v3Up: vec3<f32> = cross(v3Look, v3Right);
         return mat3x3<f32>(v3Right, v3Up, v3Look);
     }
