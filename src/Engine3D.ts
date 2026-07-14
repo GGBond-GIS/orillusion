@@ -296,6 +296,12 @@ export class Engine3D {
     public inputSystem: InputSystem;
     public running: boolean = false;
 
+    /** Per-instance pause flag. When true the shared render loop skips this
+     *  engine's frame while other engines keep rendering. Toggled by the
+     *  instance `pause()` / `resume()` methods (and, for all instances at
+     *  once, the static `pause()` / `resume()`). */
+    private _paused: boolean = false;
+
     /**
      * Per-engine resource manager. All GPU resources created through
      * `engine.res` (shaders, textures, loaders) bind to this engine's
@@ -517,14 +523,28 @@ export class Engine3D {
         return this.renderJobs.get(view);
     }
 
+    /** Pause every engine instance. The shared render loop keeps ticking
+     *  until the current frame finishes, then stops on its own once every
+     *  instance is paused (see `_tick`). Resume any instance to restart it. */
     public static pause() {
-        if (this._rafId !== 0) {
-            cancelAnimationFrame(this._rafId);
-            this._rafId = 0;
-        }
+        for (const inst of Engine3D._instances) inst._paused = true;
     }
 
+    /** Resume every engine instance and restart the shared render loop. */
     public static resume() {
+        for (const inst of Engine3D._instances) inst._paused = false;
+        Engine3D._ensureLoop();
+    }
+
+    /** Pause only this engine instance. Other instances keep rendering. */
+    public pause() {
+        this._paused = true;
+    }
+
+    /** Resume only this engine instance, restarting the shared render loop
+     *  if it stopped while every instance was paused. */
+    public resume() {
+        this._paused = false;
         Engine3D._ensureLoop();
     }
 
@@ -537,9 +557,10 @@ export class Engine3D {
     }
 
     private static async _tick(time: number) {
-        // Gate on the smallest desired frame interval across instances.
+        // Gate on the smallest desired frame interval across active instances.
         let minGate = 0;
         for (let inst of this._instances) {
+            if (inst._paused) continue;
             if (inst._frameRateValue > 0 && (minGate === 0 || inst._frameRateValue < minGate)) {
                 minGate = inst._frameRateValue;
             }
@@ -562,12 +583,18 @@ export class Engine3D {
         Time.frame += 1;
         Interpolator.tick(Time.delta);
 
+        let anyActive = false;
         for (let inst of this._instances) {
+            if (inst._paused) continue;
+            anyActive = true;
             await inst._renderOnce(time);
         }
 
         this._rafId = 0;
-        this._ensureLoop();
+        // Keep the shared loop alive only while at least one instance is
+        // active; when every instance is paused it stops here and a later
+        // resume() restarts it via _ensureLoop().
+        if (anyActive) this._ensureLoop();
     }
 
     private async _renderOnce(_time: number) {
