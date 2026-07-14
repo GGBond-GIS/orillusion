@@ -1,6 +1,6 @@
 {
     "name": "@orillusion/core",
-    "version": "0.9.0",
+    "version": "0.9.1",
     "author": "Orillusion",
     "description": "Orillusion WebGPU Engine",
     "type": "module",
