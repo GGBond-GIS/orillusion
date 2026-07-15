@@ -43,7 +43,6 @@
         "minify": "node scripts/minify.mjs",
         "test": "electron test/ci/main.js",
         "test:ci": "xvfb-maybe -- electron --enable-unsafe-webgpu --enable-features=Vulkan --use-vulkan=swiftshader --use-webgpu-adapter=swiftshader --no-sandbox test/ci/main.js",
-        "test:demos": "node test/multi/playwright/runner.mjs",
         "docs": "npm run docs:core && npm run docs:physics && npm run docs:physics-rapier && npm run docs:media && npm run docs:stats && npm run docs:particle && npm run docs:graphic",
         "docs:typedoc": "npx typedoc --plugin typedoc-plugin-markdown --tsconfig tsconfig.build.json --gitRevision main --hideBreadcrumbs --router member --readme none --excludeInternal --excludePrivate --excludeProtected --excludeExternals --sort source-order --out",
         "docs:core": "npm run docs:typedoc docs/api src/index.ts",
@@ -59,11 +58,11 @@
         "@webgpu/types": "^0.1.45",
         "conventional-changelog-cli": "^2.2.2",
         "electron": "^38.8.6",
-        "pngjs": "^7.0.0",
         "typedoc": "^0.28.19",
         "typedoc-plugin-markdown": "^4.12.0",
         "typescript": "^5.3.3",
         "vite": "^5.3.1",
-        "xvfb-maybe": "^0.2.1"
+        "xvfb-maybe": "^0.2.1",
+        "@dimforge/rapier3d-compat": "^0.19.3"
     }
 }
