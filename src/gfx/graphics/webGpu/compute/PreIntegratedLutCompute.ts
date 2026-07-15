@@ -1,10 +1,10 @@
 import { VirtualTexture } from '../../../../textures/VirtualTexture';
 import { GPUTextureFormat } from '../WebGPUConst';
-import { GPUContext } from '../../../renderJob/GPUContext';
 import { RenderShaderCompute } from './RenderShaderCompute';
 import { PreIntegratedLut } from '../../../../assets/shader/compute/PreIntegratedLut';
 import { MaterialDataUniformGPUBuffer } from '../core/buffer/MaterialDataUniformGPUBuffer';
 import { Shader } from '../shader/Shader';
+import { View3D } from '../../../../core/View3D';
 /**
  * @internal
  * @group GFX
@@ -26,15 +26,16 @@ export class PreIntegratedLutCompute extends RenderShaderCompute {
         return texture;
     }
 
-    public onFrame() {
+    public onFrame(view: View3D) {
 
         //set worker size
         this.compute.workerSizeX = 256 / 8;
         this.compute.workerSizeY = 256 / 8;
 
         //active
-        let commandEncoder = GPUContext.beginCommandEncoder();
-        GPUContext.computeCommand(commandEncoder, [this.compute]);
-        GPUContext.endCommandEncoder(commandEncoder);
+        const gpu = view.engine3D.context3D.gpuContext;
+        let commandEncoder = gpu.beginCommandEncoder();
+        gpu.computeCommand(commandEncoder, [this.compute]);
+        gpu.endCommandEncoder(commandEncoder);
     }
 }

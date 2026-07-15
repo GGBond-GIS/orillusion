@@ -29,7 +29,8 @@ var<uniform> global: uniformData;
 fn main(@location(auto) fragUV: vec2<f32>,@location(auto) vClipPos: vec4<f32>, @location(auto) vWorldPos: vec4<f32>, @location(auto) vWorldNormal: vec3<f32> , @builtin(position) fragCoord : vec4<f32> ) -> FragmentOutput {
     let maxLevel: u32 = textureNumLevels(baseMap);
     let textureColor:vec3<f32> = textureSampleLevel(baseMap, baseMapSampler, normalize(vWorldPos.xyz), global.roughness * f32(maxLevel) ).xyz;
-    let o_Color = 0.618 * vec4<f32>(LinearToGammaSpace(textureColor) * globalUniform.skyExposure , 1.0);
+    // Linear HDR sky out; swapchain handles the linear-to-sRGB encode.
+    let o_Color = 0.618 * vec4<f32>(textureColor * globalUniform.skyExposure , 1.0);
     let o_Normal = vec4(vWorldNormal,1.0) ;
     let o_Position = vec4<f32>(vWorldPos.xyz,100000.0) ;
     return FragmentOutput(o_Position,o_Normal,o_Color);

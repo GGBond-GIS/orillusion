@@ -32,7 +32,15 @@ export let VideoShader = /*wgsl*/`
         
         let size = textureDimensions(baseMap).xy - 1;
         let iuv = vec2<i32>(uv * vec2<f32>(size));
-        let videoColor = textureLoad(baseMap, iuv) ;
+        var videoColor = textureLoad(baseMap, iuv) ;
+
+        // texture_external samples come back in the destination
+        // color space — by default sRGB (gamma-encoded). With the
+        // sRGB-view swapchain doing a second linear→sRGB encode on
+        // present, those values land double-encoded → over-bright
+        // washed-out video. Decode to linear first, same as the
+        // other UnLit-family shaders post-#1.
+        videoColor = vec4f(gammaToLiner(videoColor.rgb), videoColor.a);
 
         ORI_ShadingInput.BaseColor = videoColor * materialUniform.baseColor ;
         UnLit();

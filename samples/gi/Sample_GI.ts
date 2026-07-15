@@ -3,43 +3,48 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
 
 class Sample_GI {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
+    view: View3D;
     async run() {
 
-        Engine3D.setting.material.materialChannelDebug = true;
-        Engine3D.setting.material.materialDebug = false;
-
-        Engine3D.setting.gi.enable = true;
-        Engine3D.setting.gi.debug = true;
-        Engine3D.setting.render.debug = true;
-
-        Engine3D.setting.gi.probeYCount = 3;
-        Engine3D.setting.gi.probeXCount = 6;
-        Engine3D.setting.gi.probeZCount = 6;
-        Engine3D.setting.gi.probeSpace = 60;
-        Engine3D.setting.gi.offsetX = 0;
-        Engine3D.setting.gi.offsetY = 60;
-        Engine3D.setting.gi.offsetZ = 0;
-        Engine3D.setting.gi.indirectIntensity = 1;
-        Engine3D.setting.gi.probeSize = 64;
-        Engine3D.setting.gi.octRTSideSize = 64;
-        Engine3D.setting.gi.octRTMaxSize = 2048;
-        Engine3D.setting.gi.ddgiGamma = 1;
-        Engine3D.setting.gi.autoRenderProbe = true;
-
-        Engine3D.setting.shadow.shadowBound = 400;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBias = 0.05;
-        Engine3D.setting.shadow.debug = true;
-
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-
-        await Engine3D.init({
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                material: {
+                    materialChannelDebug: true,
+                    materialDebug: false,
+                },
+                gi: {
+                    enable: true,
+                    debug: true,
+                    probeYCount: 3,
+                    probeXCount: 6,
+                    probeZCount: 6,
+                    probeSpace: 60,
+                    offsetX: 0,
+                    offsetY: 60,
+                    offsetZ: 0,
+                    indirectIntensity: 1,
+                    probeSize: 64,
+                    octRTSideSize: 64,
+                    octRTMaxSize: 2048,
+                    ddgiGamma: 1,
+                    autoRenderProbe: true,
+                },
+                render: {
+                    debug: true,
+                },
+                shadow: {
+                    shadowSize: 2048,
+                    debug: true,
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                },
+            },
             renderLoop: () => {
                 if (this.giComponent?.isStart) {
-                    GUIUtil.renderGIComponent(this.giComponent);
+                    GUIUtil.renderGIComponent(this.giComponent, this.view);
                     this.giComponent = null;
                 }
             }
@@ -49,7 +54,7 @@ class Sample_GI {
         let sky = this.scene.addComponent(AtmosphericComponent);
 
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 0.01, 5000.0);
+        camera.perspective(60, engine.aspect, 0.01, 5000.0);
 
         let ctrl = camera.object3D.addComponent(HoverCameraController);
         ctrl.setCamera(0, -45, 200);
@@ -58,28 +63,36 @@ class Sample_GI {
         let view = new View3D();
         view.scene = this.scene;
         view.camera = camera;
+        this.view = view;
 
         await this.initScene();
 
-        this.addGIProbes(view);
+        // startRenderView binds view.engine3D — must precede addGIProbes,
+        // since GlobalIlluminationComponent.init reaches scene.view.engine3D
+        // to size light/GI buffers.
+        engine.startRenderView(view);
 
-        Engine3D.startRenderView(view);
+        this.addGIProbes(view);
 
         let postCom = this.scene.addComponent(PostProcessingComponent);
         postCom.addPost(FXAAPost);
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(view);
 
         /******** light *******/
         {
             this.lightObj3D = new Object3D();
+            this.lightObj3D.y = 60;
             this.lightObj3D.rotationX = 35;
-            this.lightObj3D.rotationY = 110;
+            this.lightObj3D.rotationY = 90;
             this.lightObj3D.rotationZ = 0;
             let directLight = this.lightObj3D.addComponent(DirectLight);
             directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             directLight.castShadow = true;
             directLight.intensity = 3;
+            directLight.shadowBoundWidth = 512;
+            directLight.shadowBoundHeight = 512;
+            directLight.shadowBoundFar = 512;
             this.scene.addChild(this.lightObj3D);
 
             GUIUtil.renderDirLight(directLight);
@@ -115,7 +128,7 @@ class Sample_GI {
         }
 
         {
-            let chair = await Engine3D.res.loadGltf('PBR/SheenChair/SheenChair.gltf') as Object3D;
+            let chair = await this.engine.res.loadGltf('PBR/SheenChair/SheenChair.gltf') as Object3D;
             chair.scaleX = chair.scaleY = chair.scaleZ = 100;
             chair.rotationZ = chair.rotationX = 130;
             chair.z = -120;
@@ -123,7 +136,7 @@ class Sample_GI {
         }
 
         {
-            let Duck = await Engine3D.res.loadGltf('PBR/Duck/Duck.gltf') as Object3D;
+            let Duck = await this.engine.res.loadGltf('PBR/Duck/Duck.gltf') as Object3D;
             Duck.scaleX = Duck.scaleY = Duck.scaleZ = 0.3;
             Duck.transform.y = 0;
             Duck.transform.x = 0;
@@ -132,7 +145,7 @@ class Sample_GI {
         }
 
         {
-            let car = await Engine3D.res.loadGltf('gltfs/pbrCar/pbrCar.gltf');
+            let car = await this.engine.res.loadGltf('gltfs/pbrCar/pbrCar.gltf');
             car.scaleX = car.scaleY = car.scaleZ = 1.5;
             car.x = 20;
             obj3dList.push(car);

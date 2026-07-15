@@ -1,5 +1,9 @@
 import { Vector3 } from "../../../math/Vector3";
 
+/**
+ * Axis-aligned bounding box used by the quad-tree to describe cell bounds.
+ * @group Core
+ */
 export class QuadAABB {
 
     public minPosX: number = 0;
@@ -42,7 +46,7 @@ export class QuadAABB {
         this.minPosY += vec.z - this.offsetPosition.z;
         this.maxPosY += vec.z - this.offsetPosition.z;
 
-        this.offsetPosition.copyFrom(vec);
+        this.offsetPosition.copy(vec);
     }
 
     public setContainRect(minX: number, minY: number, maxX: number, maxY: number): void {

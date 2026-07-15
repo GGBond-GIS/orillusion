@@ -32,6 +32,13 @@ export let PhysicMaterialUniform_frag = /* wgsl */`
                   clearcoatRoughnessFactor: f32,
                   clearcoatIor: f32,
 
+                  transmissionFactor: f32,
+                  thicknessFactor: f32,
+                  attenuationDistance: f32,
+                  transmissionAlphaMode: f32,
+
+                  attenuationColor: vec4<f32>,
+
                   baseMapOffsetSize:vec4<f32>,
                   normalMapOffsetSize:vec4<f32>,
                   emissiveMapOffsetSize:vec4<f32>,

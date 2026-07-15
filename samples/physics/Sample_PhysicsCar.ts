@@ -1,9 +1,10 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { Ammo, Physics, Rigidbody } from "@orillusion/physics";
 import { createExampleScene, createSceneParam } from "@samples/utils/ExampleScene";
-import { Scene3D, Object3D, Engine3D, ColliderComponent, BoxColliderShape, Vector3, ComponentBase, KeyCode, KeyEvent, Quaternion, BoundUtil, Camera3D, Vector3Ex, MeshRenderer, LitMaterial, Color, BoxGeometry } from "@orillusion/core";
+import { Scene3D, Object3D, Engine3D, ColliderComponent, BoxColliderShape, Vector3, ComponentBase, KeyCode, KeyEvent, Quaternion, BoundUtil, Camera3D, Vector3Ex, MeshRenderer, LitMaterial, Color, BoxGeometry, Matrix4 } from "@orillusion/core";
 
 class Sample_PhysicsCar {
+    engine: Engine3D;
     private scene: Scene3D;
     private car: Object3D;
     private boxes: Object3D[];
@@ -13,21 +14,25 @@ class Sample_PhysicsCar {
 
     public score = { Score: 0 }
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBound = 150;
-
         await Physics.init();
-        await Engine3D.init({ renderLoop: () => this.loop() });
+        const engine = this.engine = await Engine3D.init({
+            renderLoop: () => this.loop(),
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+            },
+        });
 
         let sceneParam = createSceneParam();
-        let exampleScene = createExampleScene(sceneParam);
+        let exampleScene = createExampleScene(engine, sceneParam);
         this.camera = exampleScene.camera;
         this.scene = exampleScene.scene;
         await this.initScene(this.scene);
 
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
         
         GUIHelp.init();
         GUIHelp.open();
@@ -41,7 +46,7 @@ class Sample_PhysicsCar {
     async initScene(scene: Scene3D) {
         // load a car model
         {
-            this.car = await Engine3D.res.loadGltf(
+            this.car = await this.engine.res.loadGltf(
                 "https://cdn.orillusion.com/gltfs/glb/vevhicle.glb"
             );
             this.car.y = 2
@@ -66,7 +71,7 @@ class Sample_PhysicsCar {
             let mat = (mr.material = new LitMaterial());
             mat.roughness = 1;
             mat.metallic = 0;
-            mat.baseMap = await Engine3D.res.loadTexture("data:image/webp;base64,UklGRqAAAABXRUJQVlA4TJMAAAAvV8INER8gEEhxXGstIEmxu7qVgCTF7upWAgFCiv8qJwJXoF8wimQrDiiLCnCG0KzXL4DlRKoj+j8BtSxpW5XY2teypI3/+I//+I//+I//+I//+I//+I//+I//+I//+G8vkFO/Yzuj24P/flBy6nds0+Q//uM//uM//uM//uM//uM//uM//uM//uM//gOwL9Z0FwUA");
+            mat.baseMap = await this.engine.res.loadTexture("data:image/webp;base64,UklGRqAAAABXRUJQVlA4TJMAAAAvV8INER8gEEhxXGstIEmxu7qVgCTF7upWAgFCiv8qJwJXoF8wimQrDiiLCnCG0KzXL4DlRKoj+j8BtSxpW5XY2teypI3/+I//+I//+I//+I//+I//+I//+I//+I//+G8vkFO/Yzuj24P/flBy6nds0+Q//uM//uM//uM//uM//uM//uM//uM//uM//gOwL9Z0FwUA");
             let collider = this.road.addComponent(ColliderComponent);
             collider.shape = new BoxColliderShape();
             collider.shape.size = BoundUtil.genMeshBounds(
@@ -227,13 +232,18 @@ class VehicleKeyboardController extends ComponentBase {
         addWheel(false, -x, -y, -z, r);
         addWheel(false, x, -y, -z, r);
     }
+    private _inputSystem() {
+        return (this.transform as any)?.view3D?.engine3D?.inputSystem;
+    }
     onEnable() {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, this.onKeyUp, this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, this.onKeyDown, this);
+        const input = this._inputSystem();
+        input.addEventListener(KeyEvent.KEY_UP, this.onKeyUp, this);
+        input.addEventListener(KeyEvent.KEY_DOWN, this.onKeyDown, this);
     }
     onDisable() {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, this.onKeyUp, this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, this.onKeyDown, this);
+        const input = this._inputSystem();
+        input.addEventListener(KeyEvent.KEY_UP, this.onKeyUp, this);
+        input.addEventListener(KeyEvent.KEY_DOWN, this.onKeyDown, this);
     }
     // onUpdate() {
     onLateUpdate() {
@@ -377,12 +387,9 @@ class fixedCameraController extends ComponentBase {
         if (!this._target) return;
         this._tempDir.set(0, 0, -1);
         const q = Quaternion.HELP_0;
-        q.fromEulerAngles(this.pitch, 0, 0.0);
+        q.setFromEuler(this.pitch, 0, 0.0);
         this._tempDir.applyQuaternion(q);
-        this._tempDir = this._target.transform.worldMatrix.transformVector(
-            this._tempDir,
-            this._tempDir
-        );
+        this._tempDir = Matrix4.transformVector(this._target.transform.worldMatrix, this._tempDir, this._tempDir);
         this._tempDir.normalize();
         let position = this._target.transform.worldPosition;
         this._tempPos = Vector3Ex.mulScale(
@@ -390,7 +397,7 @@ class fixedCameraController extends ComponentBase {
             this.distance,
             this._tempPos
         );
-        this._tempPos = position.add(this._tempPos, this._tempPos);
+        this._tempPos = Vector3.add(position, this._tempPos, this._tempPos);
         this.camera.lookAt(this._tempPos, this._target.transform.worldPosition);
     }
 }

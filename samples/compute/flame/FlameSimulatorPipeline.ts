@@ -1,4 +1,4 @@
-import { AnimatorComponent, ComputeGPUBuffer, ComputeShader, GPUContext, GlobalBindGroup, SkeletonAnimationComponent, SkinnedMeshRenderer, SkinnedMeshRenderer2, VertexAttributeData, VertexAttributeName } from '@orillusion/core';
+import { AnimatorComponent, ComputeGPUBuffer, ComputeShader, Context3D, GlobalBindGroup, SkeletonAnimationComponent, SkinnedMeshRenderer, SkinnedMeshRenderer2, VertexAttributeData, VertexAttributeName, View3D } from '@orillusion/core';
 import { FlameSimulatorBuffer } from './FlameSimulatorBuffer';
 import { FlameSimulatorConfig } from './FlameSimulatorConfig';
 import { Copy } from './shader/copy.wgsl';
@@ -13,15 +13,21 @@ export class FlameSimulatorPipeline extends FlameSimulatorBuffer {
     protected mFirstFrame: boolean = false;
     protected mAnimatorComponent: AnimatorComponent;
     protected mSkinnedMeshRenderer: SkinnedMeshRenderer2;
-    constructor(config: FlameSimulatorConfig, skeletonAnimation: AnimatorComponent, skinnedMeshRenderer: SkinnedMeshRenderer2) {
+    protected mCtx: Context3D;
+    constructor(config: FlameSimulatorConfig, skeletonAnimation: AnimatorComponent, skinnedMeshRenderer: SkinnedMeshRenderer2, ctx: Context3D) {
         super(config);
         this.mConfig = config;
         this.mAnimatorComponent = skeletonAnimation;
         this.mSkinnedMeshRenderer = skinnedMeshRenderer;
+        this.mCtx = ctx;
     }
 
     public get positionBuffer(): ComputeGPUBuffer {
         return this.mPositionBuffer;
+    }
+
+    public get modelInverseMatrixBuffer(): ComputeGPUBuffer {
+        return this.mModelInverseMatrixBuffer;
     }
 
     public initParticle(attributeArrays: Map<string, VertexAttributeData>) {
@@ -117,18 +123,18 @@ export class FlameSimulatorPipeline extends FlameSimulatorBuffer {
         this.initPipeline();
     }
 
-    public compute(command: GPUCommandEncoder) {
+    public compute(view: View3D, command: GPUCommandEncoder) {
         const { BASE_LIFETIME, PRESIMULATION_DELTA_TIME, NUM, GROUP_SIZE } = this.mConfig;
 
-        let compute_command = GPUContext.beginCommandEncoder();
-        GPUContext.computeCommand(compute_command, [this.mCopyBoneMatrixComputeShader]);
+        const gpu = view.engine3D.context3D.gpuContext;
+        let compute_command = gpu.beginCommandEncoder();
+        gpu.computeCommand(compute_command, [this.mCopyBoneMatrixComputeShader]);
 
         for (var i = 0; i < (this.mFirstFrame ? BASE_LIFETIME / PRESIMULATION_DELTA_TIME : 1); ++i) {
-            GPUContext.computeCommand(compute_command, [this.mSimulationComputeShader, this.mCopyComputeShader]);
-            // GPUContext.computeCommand(compute_command, [this.mSimulationComputeShader]);
+            gpu.computeCommand(compute_command, [this.mSimulationComputeShader, this.mCopyComputeShader]);
         }
 
-        GPUContext.endCommandEncoder(command);
+        gpu.endCommandEncoder(command);
 
         this.mFirstFrame = false;
     }
@@ -138,9 +144,10 @@ export class FlameSimulatorPipeline extends FlameSimulatorBuffer {
         this.mBoneMatrixBuffer = new ComputeGPUBuffer(16 * this.mAnimatorComponent.numJoint);
 
         this.mCopyBoneMatrixComputeShader = new ComputeShader(CopyBoneMatrix.cs);
-        this.mCopyBoneMatrixComputeShader.setStorageBuffer(`matrixs`, GlobalBindGroup.modelMatrixBindGroup.matrixBufferDst);
+        this.mCopyBoneMatrixComputeShader.setStorageBuffer(`matrixs`, GlobalBindGroup.getModelMatrixBindGroup(this.mCtx).matrixBufferDst);
         this.mCopyBoneMatrixComputeShader.setStorageBuffer(`jointsMatrixIndexTable`, this.mAnimatorComponent.jointMatrixIndexTableBuffer);
         this.mCopyBoneMatrixComputeShader.setStorageBuffer(`bonesTransformMatrix`, this.mBoneMatrixBuffer);
+        this.mCopyBoneMatrixComputeShader.setStorageBuffer(`modelInverseMatrix`, this.mModelInverseMatrixBuffer);
         this.mCopyBoneMatrixComputeShader.workerSizeX = Math.ceil(this.mAnimatorComponent.numJoint / 16);
 
         const { NUM, GROUP_SIZE } = this.mConfig;

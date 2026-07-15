@@ -4,27 +4,30 @@ import { Physics, Rigidbody } from "@orillusion/physics";
 import dat from "dat.gui";
 
 class Sample_ShootTheBox {
+    engine: Engine3D;
     view: View3D;
     ballSpeed: number = 5;
     async run() {
         //init Physics System
         await Physics.init();
-        await Engine3D.init({
+        const engine = this.engine = await Engine3D.init({
             //make Physics System continuously effective
             renderLoop: () => {
                 if (Physics.isInited) {
                     Physics.update();
                 }
-            }
+            },
+            //set shadow
+            setting: {
+                shadow: {
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+            },
         });
-        //set shadow
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBound = 50;
-        Engine3D.setting.shadow.shadowBias = 0.005;
 
         //add mouse event listener
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.MouseDown, this);
+        engine.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.MouseDown, this);
 
         //create scene,add sky and FPS
         let scene = new Scene3D();
@@ -33,8 +36,7 @@ class Sample_ShootTheBox {
 
         //create camera
         let camera = CameraUtil.createCamera3DObject(scene);
-        // camera.enableCSM = true;
-        camera.perspective(60, Engine3D.aspect, 1, 5000);
+        camera.perspective(60, engine.aspect, 1, 5000);
         let controller = camera.object3D.addComponent(HoverCameraController);
         //disable controller move
         controller.mouseRightFactor = 0;
@@ -45,6 +47,7 @@ class Sample_ShootTheBox {
         let light = lightObj.addComponent(DirectLight);
         light.intensity = 4;
         light.castShadow = true;
+        light.enableCSM = true;
         lightObj.rotationX = 60;
         lightObj.rotationY = 140;
         sky.relativeTransform = light.transform;
@@ -95,7 +98,7 @@ class Sample_ShootTheBox {
         let mat = new LitMaterial();
         mr.material = mat;
         mat.baseColor = KelvinUtil.color_temperature_to_rgb(1325);
-        Engine3D.res.addPrefab("ball", sphereObj);
+        this.engine.res.addPrefab("ball", sphereObj);
 
         //add some tips
         const gui = new dat.GUI();
@@ -116,14 +119,14 @@ class Sample_ShootTheBox {
         this.view = new View3D();
         this.view.scene = scene;
         this.view.camera = camera;
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
     }
 
     private MouseDown(e: PointerEvent3D) {
         //right mouse down
         if (e.mouseCode == 2) {
             let ray = this.view.camera.screenPointToRay(e.mouseX, e.mouseY);
-            let ball = Engine3D.res.getPrefab("ball");
+            let ball = this.engine.res.getPrefab("ball");
             let collider = ball.addComponent(ColliderComponent);
             collider.shape = new SphereColliderShape(1);
             let rigidBody = ball.addComponent(Rigidbody);

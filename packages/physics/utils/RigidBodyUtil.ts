@@ -3,17 +3,17 @@ import { Physics, Ammo } from '../Physics';
 import { TempPhyMath } from './TempPhyMath';
 
 /**
- * 提供一系列AMMO刚体相关的方法
+ * Provides a set of methods related to AMMO rigid bodies
  */
 export class RigidBodyUtil {
     /**
-     * 创建 Ammo 刚体。
-     * @param object3D - 三维对象。
-     * @param shape - 碰撞形状。
-     * @param mass - 碰撞体的质量。
-     * @param position - 可选参数，刚体的位置，默认使用三维对象的 `localPosition`
-     * @param rotation - 可选参数，刚体的旋转，默认使用三维对象的 `localRotation`
-     * @returns 新创建的 Ammo.btRigidBody 对象。
+     * Creates an Ammo rigid body.
+     * @param object3D - The 3D object.
+     * @param shape - The collision shape.
+     * @param mass - The mass of the collision body.
+     * @param position - Optional parameter, the position of the rigid body; defaults to the 3D object's `localPosition`.
+     * @param rotation - Optional parameter, the rotation of the rigid body; defaults to the 3D object's `localRotation`.
+     * @returns The newly created Ammo.btRigidBody object.
      */
     public static createRigidBody(object3D: Object3D, shape: Ammo.btCollisionShape, mass: number, position?: Vector3, rotation?: Vector3 | Quaternion): Ammo.btRigidBody {
         position ||= object3D.localPosition;
@@ -35,13 +35,13 @@ export class RigidBodyUtil {
         return bodyRb;
     }
 
-    /**  
-     * 更新刚体的位置和旋转。  
-     * 此函数将新的位置和旋转应用到刚体上。  
-     * @param bodyRb - 刚体对象。  
-     * @param position - 刚体的新位置，以 Vector3 形式表示。  
-     * @param rotation - 刚体的新旋转，可选，可以是 Vector3 形式表示的欧拉角（将自动转换为四元数），默认为四元数零值。
-     * @param clearFV - 清除力和速度，可选，默认为 false 。 
+    /**
+     * Updates the position and rotation of the rigid body.
+     * This function applies the new position and rotation to the rigid body.
+     * @param bodyRb - The rigid body object.
+     * @param position - The new position of the rigid body, expressed as a Vector3.
+     * @param rotation - The new rotation of the rigid body, optional; can be a Vector3 representing Euler angles (automatically converted to a quaternion); defaults to a zero quaternion.
+     * @param clearFV - Whether to clear forces and velocities, optional; defaults to false.
      */
     public static updateTransform(bodyRb: Ammo.btRigidBody, position: Vector3, rotation: Vector3 | Quaternion, clearFV?: boolean) {
         rotation ||= Quaternion._zero;
@@ -61,7 +61,7 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 更新刚体位置
+     * Updates the position of the rigid body
      * @param bodyRb
      * @param value
      */
@@ -77,7 +77,7 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 更新刚体旋转
+     * Updates the rotation of the rigid body
      * @param bodyRb
      * @param value
      */
@@ -93,7 +93,7 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 更新刚体缩放
+     * Updates the scale of the rigid body
      * @param bodyRb
      * @param value
      * @param mass
@@ -110,8 +110,8 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 清除力和速度
-     * @param bodyRb 
+     * Clears forces and velocities
+     * @param bodyRb
      */
     public static clearForcesAndVelocities(bodyRb: Ammo.btRigidBody) {
         bodyRb.clearForces();
@@ -120,7 +120,7 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 激活物理世界中的全部碰撞对
+     * Activates all collision pairs in the physics world
      */
     public static activateCollisionBodies(): void {
         const dispatcher = Physics.world.getDispatcher();
@@ -143,7 +143,7 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 销毁刚体及其状态和形状
+     * Destroys the rigid body along with its motion state and collision shape
      * @param bodyRb
      */
     public static destroyRigidBody(bodyRb: Ammo.btRigidBody): void {
@@ -156,7 +156,7 @@ export class RigidBodyUtil {
     }
 
     /**
-     * 销毁约束
+     * Destroys a constraint
      * @param constraint
      */
     public static destroyConstraint(constraint: Ammo.btTypedConstraint) {

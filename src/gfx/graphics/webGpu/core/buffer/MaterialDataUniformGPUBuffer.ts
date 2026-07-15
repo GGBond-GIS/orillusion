@@ -1,6 +1,7 @@
 import { GPUBufferType } from './GPUBufferType';
 import { UniformNode } from '../uniforms/UniformNode';
 import { GPUBufferBase } from './GPUBufferBase';
+import { Context3D } from '../../Context3D';
 /**
  * Real time Uniform GPUBuffer used by shaders
  * @group GFX
@@ -48,9 +49,9 @@ export class MaterialDataUniformGPUBuffer extends GPUBufferBase {
 
     /**
      * Reapply and write to buffer
-     * @returns 
+     * @returns
      */
-    public apply() {
+    public apply(ctx?: Context3D) {
         if (this.uniformNodes.length == 0) return;
         if (!this._onChange) return;
 
@@ -59,7 +60,7 @@ export class MaterialDataUniformGPUBuffer extends GPUBufferBase {
             node.update();
         }
 
-        super.apply();
+        super.apply(ctx);
         this._onChange = false;
     }
 

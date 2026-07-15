@@ -5,7 +5,7 @@ import { Object3D } from "../core/entities/Object3D";
 import { CEvent } from "../event/CEvent";
 import { ComponentCollect } from "../gfx/renderJob/collect/ComponentCollect";
 import { MathUtil } from "../math/MathUtil";
-import { Matrix4, makeMatrix44, append } from "../math/Matrix4";
+import { Matrix4, append } from "../math/Matrix4";
 import { Orientation3D } from "../math/Orientation3D";
 import { Quaternion } from "../math/Quaternion";
 import { Vector3 } from "../math/Vector3";
@@ -124,6 +124,7 @@ export class Transform extends ComponentBase {
     public static: boolean = false;
     public depthOrder: number = 0;
 
+    /** Whether the local transform is dirty and the world matrix needs recomputing. */
     public get localChange(): boolean {
         return WasmMatrix.matrixStateBuffer[this.index2] != 0;
     }
@@ -133,6 +134,7 @@ export class Transform extends ComponentBase {
         WasmMatrix.matrixStateBuffer[this.index2] = value ? 1 : 0;
     }
 
+    /** Optional look-at target position used by orientation helpers. */
     public get targetPos(): Vector3 {
         return this._targetPos;
     }
@@ -140,6 +142,7 @@ export class Transform extends ComponentBase {
         this._targetPos = value;
     }
 
+    /** Parent transform in the hierarchy, or null for a root. */
     public get parent(): Transform {
         return this._parent;
     }
@@ -176,6 +179,7 @@ export class Transform extends ComponentBase {
         this.notifyLocalChange();
     }
 
+    /** Enable state; propagates to all child transforms. */
     public set enable(value: boolean) {
         if (this.transform._scene3d && value) {
             super.enable = true;
@@ -190,6 +194,7 @@ export class Transform extends ComponentBase {
         return this._enable;
     }
 
+    /** The scene this transform belongs to. */
     public get scene3D(): Scene3D {
         return this._scene3d;
     }
@@ -198,6 +203,7 @@ export class Transform extends ComponentBase {
         this._scene3d = value;
     }
 
+    /** The view associated with this transform's scene, or null. */
     public get view3D(): View3D {
         if (this._scene3d && this._scene3d.view) {
             return this._scene3d.view;
@@ -216,14 +222,17 @@ export class Transform extends ComponentBase {
         this._localScale = new Vector3(1, 1, 1);
 
         WasmMatrix.setScale(this.index, this._localScale.x, this._localScale.y, this._localScale.z);
-        WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
+        WasmMatrix.setRotation(this.index, this._localRotQuat.x, this._localRotQuat.y, this._localRotQuat.z, this._localRotQuat.w);
         WasmMatrix.setTranslate(this.index, this._localPos.x, this._localPos.y, this._localPos.z);
     }
 
+    /** Lifecycle hook called once when the transform is created. */
     awake() { }
 
+    /** Lifecycle hook called when the transform starts. */
     start() { }
 
+    /** Lifecycle hook called when the transform stops. */
     stop() { }
 
 
@@ -243,25 +252,42 @@ export class Transform extends ComponentBase {
         this.eventDispatcher.dispatchEvent(this.eventLocalChange);
     }
 
+    /**
+     * @internal
+     * Push a rotation (given as both its Euler and quaternion form) into the
+     * transform's local state and to the WASM matrix solver, which stores
+     * rotation as a quaternion to avoid Euler gimbal lock. Does not invoke
+     * `onRotationChange` or dispatch `eventRotationChange` — callers differ
+     * in when/how they do that.
+     */
+    private _applyLocalRotation(euler: Vector3, quat: Quaternion) {
+        this._localRot.copy(euler);
+        this._localRotQuat.copy(quat);
+        WasmMatrix.setRotation(this.index, quat.x, quat.y, quat.z, quat.w);
+        this.notifyLocalChange();
+    }
+
+    /** World-space up direction; setting it rotates the object to face that up. */
     public get up(): Vector3 {
-        this.worldMatrix.transformVector(Vector3.UP, this._up);
+        Matrix4.transformVector(this.worldMatrix, Vector3.UP, this._up);
         return this._up;
     }
 
     public set up(value: Vector3) {
-        this._up.copyFrom(value);
+        this._up.copy(value);
 
         MathUtil.fromToRotation(Vector3.UP, this._up, Quaternion.HELP_0);
         this.transform.localRotQuat = Quaternion.HELP_0;
     }
 
+    /** World-space down direction; setting it reorients the object. */
     public get down(): Vector3 {
-        this.worldMatrix.transformVector(Vector3.DOWN, this._down);
+        Matrix4.transformVector(this.worldMatrix, Vector3.DOWN, this._down);
         return this._down;
     }
 
     public set down(value: Vector3) {
-        this._down.copyFrom(value);
+        this._down.copy(value);
 
         MathUtil.fromToRotation(Vector3.DOWN, this._down, Quaternion.HELP_0);
         this.transform.localRotQuat = Quaternion.HELP_0;
@@ -274,13 +300,14 @@ export class Transform extends ComponentBase {
         }
     }
 
+    /** World-space forward direction; setting it reorients the object. */
     public get forward(): Vector3 {
-        this.worldMatrix.transformVector(Vector3.FORWARD, this._forward);
+        Matrix4.transformVector(this.worldMatrix, Vector3.FORWARD, this._forward);
         return this._forward;
     }
 
     public set forward(value: Vector3) {
-        this._forward.copyFrom(value);
+        this._forward.copy(value);
 
         MathUtil.fromToRotation(Vector3.FORWARD, this._forward, Quaternion.HELP_0);
         this.transform.localRotQuat = Quaternion.HELP_0;
@@ -293,37 +320,40 @@ export class Transform extends ComponentBase {
         }
     }
 
+    /** World-space back direction; setting it reorients the object. */
     public get back(): Vector3 {
-        this.worldMatrix.transformVector(Vector3.BACK, this._back);
+        Matrix4.transformVector(this.worldMatrix, Vector3.BACK, this._back);
         return this._back;
     }
 
     public set back(value: Vector3) {
-        this._back.copyFrom(value);
+        this._back.copy(value);
 
         MathUtil.fromToRotation(Vector3.BACK, this._back, Quaternion.HELP_0);
         this.transform.localRotQuat = Quaternion.HELP_0;
     }
 
+    /** World-space left direction; setting it reorients the object. */
     public get left(): Vector3 {
-        this.worldMatrix.transformVector(Vector3.neg_X_AXIS, this._left);
+        Matrix4.transformVector(this.worldMatrix, Vector3.neg_X_AXIS, this._left);
         return this._left;
     }
 
     public set left(value: Vector3) {
-        this._left.copyFrom(value);
+        this._left.copy(value);
 
         MathUtil.fromToRotation(Vector3.LEFT, this._left, Quaternion.HELP_0);
         this.transform.localRotQuat = Quaternion.HELP_0;
     }
 
+    /** World-space right direction; setting it reorients the object. */
     public get right(): Vector3 {
-        this.worldMatrix.transformVector(Vector3.X_AXIS, this._right);
+        Matrix4.transformVector(this.worldMatrix, Vector3.X_AXIS, this._right);
         return this._right;
     }
 
     public set right(value: Vector3) {
-        this._right.copyFrom(value);
+        this._right.copy(value);
 
         MathUtil.fromToRotation(Vector3.RIGHT, this._right, Quaternion.HELP_0);
         this.transform.localRotQuat = Quaternion.HELP_0;
@@ -352,11 +382,8 @@ export class Transform extends ComponentBase {
             || value.y != this._localRotQuat.y
             || value.z != this._localRotQuat.z
             || value.w != this._localRotQuat.w) {
-            this._localRotQuat.copyFrom(value);
-            this._localRotQuat.getEulerAngles(this._localRot);
-
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            value.getEulerAngles(Vector3.HELP_0);
+            this._applyLocalRotation(Vector3.HELP_0, value);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -399,16 +426,19 @@ export class Transform extends ComponentBase {
      */
     public updateWorldMatrix(force: boolean = false) {
         if (this.localChange || force) {
+            // Compose from the quaternion, not _localRot — getEulerAngles() has a
+            // singularity (gimbal lock) whenever the decomposed pitch approaches
+            // ±90°, which a pure yaw rotation of ±90°/270° hits exactly. Composing
+            // from the quaternion sidesteps that entirely.
+            this._worldMatrix.compose(this._localPos, this._localRotQuat, this._localScale);
             if (this.parent) {
-                makeMatrix44(this._localRot, this._localPos, this._localScale, this._worldMatrix);
                 append(this._worldMatrix, this.parent.worldMatrix, this._worldMatrix);
-            } else {
-                makeMatrix44(this._localRot, this._localPos, this._localScale, this._worldMatrix);
             }
             this.localChange = false;
         }
     }
 
+    /** Recursively update this transform and all descendants' world matrices. */
     public updateChildTransform() {
         let self = this;
         if (self.localChange) {
@@ -425,6 +455,11 @@ export class Transform extends ComponentBase {
         }
     }
 
+    /**
+     * Rotate the object to look at a world-space target from its current position.
+     * @param target world-space point to look at
+     * @param up up direction
+     */
     public lookTarget(target: Vector3, up: Vector3 = Vector3.UP) {
         this.lookAt(this.transform.worldPosition, target, up);
     }
@@ -438,7 +473,7 @@ export class Transform extends ComponentBase {
     public lookAt(pos: Vector3, target: Vector3, up: Vector3 = Vector3.UP) {
         this._targetPos ||= new Vector3();
 
-        this._targetPos.copyFrom(target);
+        this._targetPos.copy(target);
 
         this.localPosition = pos;
 
@@ -448,17 +483,22 @@ export class Transform extends ComponentBase {
 
         var prs: Vector3[] = Matrix4.helpMatrix.decompose(Orientation3D.QUATERNION);
 
-        this.localRotQuat = Quaternion.CALCULATION_QUATERNION.copyFrom(prs[1]);
+        this.localRotQuat = Quaternion.CALCULATION_QUATERNION.copy(prs[1]);
     }
 
+    /**
+     * Set this transform's local position/rotation/scale by decomposing a matrix.
+     * @param matrix the matrix to decompose
+     * @param orientationStyle decomposition style (defaults to euler angles)
+     */
     public decomposeFromMatrix(matrix: Matrix4, orientationStyle: string = 'eulerAngles'): this {
         let prs = matrix.decompose(orientationStyle);
         let transform = this.transform;
-        transform.localRotQuat.copyFrom(prs[1]);
+        transform.localRotQuat.copy(prs[1]);
         transform.localRotQuat = transform.localRotQuat;
-        transform.localPosition.copyFrom(prs[0]);
+        transform.localPosition.copy(prs[0]);
         transform.localPosition = transform.localPosition;
-        transform.localScale.copyFrom(prs[2]);
+        transform.localScale.copy(prs[2]);
         transform.localScale = transform.localScale;
         return this;
     }
@@ -598,8 +638,8 @@ export class Transform extends ComponentBase {
     public set rotationX(value: number) {
         if (this._localRot.x != value) {
             this._localRot.x = value;
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            Quaternion.HELP_1.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
+            this._applyLocalRotation(this._localRot, Quaternion.HELP_1);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -618,8 +658,8 @@ export class Transform extends ComponentBase {
     public set rotationY(value: number) {
         if (this._localRot.y != value) {
             this._localRot.y = value;
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            Quaternion.HELP_1.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
+            this._applyLocalRotation(this._localRot, Quaternion.HELP_1);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -638,8 +678,8 @@ export class Transform extends ComponentBase {
     public set rotationZ(value: number) {
         if (this._localRot.z != value) {
             this._localRot.z = value;
-            WasmMatrix.setRotation(this.index, this._localRot.x, this._localRot.y, this._localRot.z);
-            this.notifyLocalChange();
+            Quaternion.HELP_1.setFromEuler(this._localRot.x, this._localRot.y, this._localRot.z);
+            this._applyLocalRotation(this._localRot, Quaternion.HELP_1);
             this.onRotationChange?.();
 
             if (this.eventRotationChange) {
@@ -671,7 +711,7 @@ export class Transform extends ComponentBase {
                 this.onPositionChange(this._localPos, v);
             }
         }
-        this._localPos.copyFrom(v);
+        this._localPos.copy(v);
         WasmMatrix.setTranslate(this.index, v.x, v.y, v.z);
         this.notifyLocalChange();
 
@@ -697,9 +737,14 @@ export class Transform extends ComponentBase {
             }
         }
 
-        WasmMatrix.setRotation(this.index, v.x, v.y, v.z);
-        this._localRot.copyFrom(v);
-        this.notifyLocalChange();
+        // Keep _localRotQuat in sync — multiple downstream consumers
+        // (CCDIK.composeWorldQuat, retargeter, look-at) read
+        // localQuaternion to compose world rotations. Without this sync,
+        // the quat field stays at its default (0,0,0,1) after Euler-only
+        // setup like buildSkeletonPose, and quat-based world rotation
+        // composition silently produces wrong results.
+        Quaternion.HELP_1.setFromEuler(v.x, v.y, v.z);
+        this._applyLocalRotation(v, Quaternion.HELP_1);
 
         if (this.eventRotationChange) {
             this.eventDispatcher.dispatchEvent(this.eventRotationChange);
@@ -718,7 +763,7 @@ export class Transform extends ComponentBase {
     public set localScale(v: Vector3) {
         // if (this._localScale.x != v.x || this._localScale.y != v.y || this._localScale.z != v.z) {
         WasmMatrix.setScale(this.index, v.x, v.y, v.z);
-        this._localScale.copyFrom(v);
+        this._localScale.copy(v);
         this.notifyLocalChange();
         this.onScaleChange?.();
 
@@ -737,6 +782,7 @@ export class Transform extends ComponentBase {
     }
 
 
+    /** Per-frame continuous scale delta auto-applied by the matrix solver. */
     public get localDetailScale(): Vector3 {
         return this._localDetailScale;
     }
@@ -746,6 +792,7 @@ export class Transform extends ComponentBase {
         WasmMatrix.setContinueScale(this.index, value.x, value.y, value.z);
     }
 
+    /** Per-frame continuous rotation delta auto-applied by the matrix solver. */
     public get localDetailRot(): Vector3 {
         return this._localDetailRot;
     }
@@ -755,6 +802,7 @@ export class Transform extends ComponentBase {
         WasmMatrix.setContinueRotation(this.index, value.x, value.y, value.z);
     }
 
+    /** Per-frame continuous translation delta auto-applied by the matrix solver. */
     public get localDetailPos(): Vector3 {
         return this._localDetailPos;
     }
@@ -764,6 +812,7 @@ export class Transform extends ComponentBase {
     }
 
 
+    /** Detach from the parent before the component is destroyed. */
     public beforeDestroy(force?: boolean) {
         if (this.parent && this.parent.object3D) {
             this.parent.object3D.removeChild(this.object3D);
@@ -771,8 +820,13 @@ export class Transform extends ComponentBase {
         super.beforeDestroy(force);
     }
 
+    /** Destroy the transform and free its matrix-table slot. */
     destroy(): void {
         super.destroy();
+
+        // Return this transform's slot to the static Matrix4 table so the next
+        // Transform() can reuse it. Without this, `Matrix4.useCount` grows forever.
+        if (this._worldMatrix) Matrix4.freeIndex(this._worldMatrix);
 
         this.scene3D = null;
         this.eventPositionChange = null;

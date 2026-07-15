@@ -13,6 +13,46 @@ import { LightType } from './LightData';
 @RegisterComponent(PointLight, 'PointLight')
 export class PointLight extends LightBase {
 
+    // RFC-003 Layer C: 'auto' lets ShadowBiasCalculator derive the bias from
+    // light range + cube map size. Setting a number overrides it (world units).
+    private _shadowBias: 'auto' | number = 'auto';
+    private _normalBias: 'auto' | number = 'auto';
+
+    // Debug visualization: when true, GUIUtil draws a wireframe sphere at
+    // `range` showing the point light's shadow-affected volume (analog of
+    // DirectLight.debugShadowBound).
+    public debugShadowRange: boolean = false;
+
+    // Cube shadow camera near/far (world units). Far also normalizes the stored
+    // depth: stored = length(worldPos - lightPos) / shadowCameraFar. A value of
+    // 0 means "auto": PointLightShadowRenderer derives shadowCameraFar from
+    // light.range. Exposing these lets the user shrink the depth range to the
+    // light's actual reach and gain precision without touching the main camera.
+    public shadowCameraNear: number = 0.01;
+    public shadowCameraFar: number = 0;  // 0 = auto (use range)
+
+    public get shadowBias(): 'auto' | number {
+        return this._shadowBias;
+    }
+
+    public set shadowBias(value: 'auto' | number) {
+        if (this._shadowBias != value) {
+            this._shadowBias = value;
+            this.onChange();
+        }
+    }
+
+    public get normalBias(): 'auto' | number {
+        return this._normalBias;
+    }
+
+    public set normalBias(value: 'auto' | number) {
+        if (this._normalBias != value) {
+            this._normalBias = value;
+            this.onChange();
+        }
+    }
+
     constructor() {
         super();
     }

@@ -1,4 +1,3 @@
-import { GTAOPost } from '../../src/index.js';
 import { GUI } from './dat.gui.module.js'
 
 /**
@@ -17,8 +16,15 @@ class _GUIHelp {
     constructor() {
         this.data = {};
         this.bind = {};
+        // When debug is off, add() returns this stub. Every dat.gui Controller
+        // chain method must round-trip back to the stub so callers can freely
+        // chain `.add(...).step(...).listen()` without guarding each step.
         this._nullBind = {};
-        this._nullBind.onChange = () => { };
+        const chain = () => this._nullBind;
+        for (const m of ['onChange', 'onFinishChange', 'step', 'min', 'max',
+                         'listen', 'name', 'options', 'updateDisplay', 'remove']) {
+            this._nullBind[m] = chain;
+        }
     }
 
     init(zIndex: number = 10) {
@@ -68,14 +74,37 @@ class _GUIHelp {
         if (!this.debug)
             return this._nullBind;
         let dgui = this._current ? this._current : this.gui;
-        // dgui.addFolder(key);
         let controller = dgui.addColor(target[key], 'rgba').name(key);
-        controller.onChange((val) => {
-            console.log(val);
-            let node = target[key];
+
+        // dat.gui's ColorController fires onChange with a raw rgba array
+        // ([r,g,b,a] in 0-255) — the same format it was initialized with via
+        // the `rgba` getter. We maintain two invariants for callers:
+        //   1. `target[key]` (the Color instance) stays in sync with the picker
+        //   2. user callbacks receive the Color instance, not the raw array
+        // dat.gui's `onChange(fn)` is a setter (`__onChange = fn`) — naive
+        // chaining would overwrite our writeback. We shadow it per-instance so
+        // user's `.onChange(c => ...)` wraps both steps.
+        const writeBack = (val: any) => {
+            const node = target[key];
             node['rgba'] = val;
             target[key] = node;
-        });
+            return node;
+        };
+        controller.onChange(writeBack);
+        controller.onChange = (userFn: (c: any) => void) => {
+            Object.getPrototypeOf(controller).onChange.call(controller, (val: any) => {
+                const node = writeBack(val);
+                userFn(node);
+            });
+            return controller;
+        };
+        controller.onFinishChange = (userFn: (c: any) => void) => {
+            Object.getPrototypeOf(controller).onFinishChange.call(controller, (val: any) => {
+                const node = writeBack(val);
+                userFn(node);
+            });
+            return controller;
+        };
         return controller;
     }
     addButton(label: string, fun: Function) {

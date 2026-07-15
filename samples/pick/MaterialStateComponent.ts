@@ -1,16 +1,17 @@
-import { ComponentBase, MaterialBase, MeshRenderer, LitMaterial, Color, Interpolator, Engine3D } from "@orillusion/core";
+import { ComponentBase, Material, MeshRenderer, LitMaterial, Color, Interpolator } from "@orillusion/core";
 
 export class MaterialStateComponent extends ComponentBase {
-    private _materials: MaterialBase[];
+    private _materials: Material[];
 
     start() {
         let renderer = this.object3D.getComponent(MeshRenderer);
         if (renderer) {
+            const engine = (this.transform as any)?.view3D?.engine3D;
             this._materials = renderer.materials;
             for (let i = 0; i < this._materials.length; i++) {
                 if (this._materials[i] instanceof LitMaterial) {
                     const element = this._materials[i] as LitMaterial;
-                    element.emissiveMap = Engine3D.res.whiteTexture;
+                    element.emissiveMap = engine.res.whiteTexture;
                     element.emissiveColor = new Color(0, 0, 0, 0);
                 }
             }

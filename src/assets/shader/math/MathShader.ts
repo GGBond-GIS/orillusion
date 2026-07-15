@@ -104,6 +104,47 @@ fn inverse( m:mat3x3<f32>) -> mat3x3<f32>{
   );
 }
 
+
+fn inverseMat4x4(m: mat4x4f) -> mat4x4f {
+    let a00 = m[0][0]; let a01 = m[0][1]; let a02 = m[0][2]; let a03 = m[0][3];
+    let a10 = m[1][0]; let a11 = m[1][1]; let a12 = m[1][2]; let a13 = m[1][3];
+    let a20 = m[2][0]; let a21 = m[2][1]; let a22 = m[2][2]; let a23 = m[2][3];
+    let a30 = m[3][0]; let a31 = m[3][1]; let a32 = m[3][2]; let a33 = m[3][3];
+
+    let b00 = a00 * a11 - a01 * a10;
+    let b01 = a00 * a12 - a02 * a10;
+    let b02 = a00 * a13 - a03 * a10;
+    let b03 = a01 * a12 - a02 * a11;
+    let b04 = a01 * a13 - a03 * a11;
+    let b05 = a02 * a13 - a03 * a12;
+    let b06 = a20 * a31 - a21 * a30;
+    let b07 = a20 * a32 - a22 * a30;
+    let b08 = a20 * a33 - a23 * a30;
+    let b09 = a21 * a32 - a22 * a31;
+    let b10 = a21 * a33 - a23 * a31;
+    let b11 = a22 * a33 - a23 * a32;
+
+    let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+    return mat4x4f(
+        a11 * b11 - a12 * b10 + a13 * b09,
+        a02 * b10 - a01 * b11 - a03 * b09,
+        a31 * b05 - a32 * b04 + a33 * b03,
+        a22 * b04 - a21 * b05 - a23 * b03,
+        a12 * b08 - a10 * b11 - a13 * b07,
+        a00 * b11 - a02 * b08 + a03 * b07,
+        a32 * b02 - a30 * b05 - a33 * b01,
+        a20 * b05 - a22 * b02 + a23 * b01,
+        a10 * b10 - a11 * b08 + a13 * b06,
+        a01 * b08 - a00 * b10 - a03 * b06,
+        a30 * b04 - a31 * b02 + a33 * b00,
+        a21 * b02 - a20 * b04 - a23 * b00,
+        a11 * b07 - a10 * b09 - a12 * b06,
+        a00 * b09 - a01 * b07 + a02 * b06,
+        a31 * b01 - a30 * b03 - a32 * b00,
+        a20 * b03 - a21 * b01 + a22 * b00) * (1 / det);
+}
+
 fn dir_to_faceId(pt:vec3<f32>) -> i32 {
     //**** nx px ny py nz pz
     var abs_x = abs(pt.x);
@@ -278,19 +319,33 @@ fn dir_to_faceId(pt:vec3<f32>) -> i32 {
       return log2(depth + 1.0) * 2.0 / (log(far + 1.0) / 0.6931471805599453) * 0.5;
     }
 
+    // Logarithmic depth in WebGPU NDC [0, 1].
+    //   L(w) = log2(1 + w) / log2(far + 1),   w = view-space distance.
+    //
+    // VS and FS target the SAME ndc.z function — only the input w
+    // differs. log2Depth runs in VS on per-vertex clip.w and
+    // pre-multiplies by w to survive the perspective divide;
+    // log2DepthFixPersp runs in FS on the perspective-correctly
+    // interpolated clip.w to recover the true per-pixel log curve that
+    // rasterizer-interpolated clip.z drifts away from on long triangles.
+    //
+    // Earlier ports of the Outerra OpenGL snippet kept a (1 + x) / 2
+    // remap that converted OpenGL's [-1, 1] ndc.z to its [0, 1] depth
+    // buffer. WGSL ndc.z is already [0, 1], so the remap was pure waste
+    // and squeezed the usable depth range to [0.5, 1]. The inverse
+    // (inverseLog2Depth in GBufferStand) and decal-pass decode were
+    // both written against the un-remapped L; this collapses VS/FS to
+    // match them.
+    fn log2Depth01(w:f32, far:f32) -> f32 {
+      return log2(max(1e-6, 1.0 + w)) / log2(far + 1.0);
+    }
+
     fn log2Depth(depth:f32, near:f32, far:f32) -> f32 {
-      let Fcoef:f32 = 2.0 / log2(far + 1.0);
-      var result:f32 = (log2(max(1e-6, 1.0 + depth)) * Fcoef - 1.0);
-      result = (1.0 + result) / 2.0;
-      return result * depth;
+      return log2Depth01(depth, far) * depth;
     }
 
     fn log2DepthFixPersp(depth:f32, near:f32, far:f32) -> f32 {
-      let flogz:f32 = 1.0 + depth;
-      let Fcoef_half:f32 = (2.0 / log2(far + 1.0)) * 0.5;
-      var result:f32 = log2(flogz) * Fcoef_half;
-      result = (1.0 + result) / 2.0;
-      return result;
+      return log2Depth01(depth, far);
     }
 
 

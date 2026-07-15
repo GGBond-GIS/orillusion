@@ -313,9 +313,11 @@ export let Hair_frag: string = /*wgsl*/ `
         ORI_FragmentOutput.worldPos = vec4<f32>(ORI_VertexVarying.vWorldPos.xyzw);
     #endif
   
-    let finalColor =  LinearToGammaSpace(vec3f(specColor + indirectResult) ) ;
-    ORI_FragmentOutput.color = vec4<f32>( finalColor ,fragData.Albedo.a) ;
-    // ORI_FragmentOutput.color = vec4<f32>( vec3f(specColor) ,fragData.Albedo.a) ;
+    // Linear HDR out; swapchain does the linear-to-sRGB encode.
+    // Engine convention: COLOR pass writes premultiplied (rgb*alpha, alpha).
+    // OIT_DEPTH_PEEL is the only exception (Common_frag premultiplies later).
+    let finalColor = vec3f(specColor + indirectResult);
+    ORI_FragmentOutput.color = vec4<f32>(finalColor * fragData.Albedo.a, fragData.Albedo.a) ;
 }
 
   `

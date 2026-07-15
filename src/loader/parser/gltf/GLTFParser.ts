@@ -25,7 +25,7 @@ export class GLTFParser extends ParserBase {
         //await this.load_gltf_bin();
         //step 2: load texture
         //await this.load_gltf_textures();
-        let subParser = new GLTFSubParser();
+        let subParser = new GLTFSubParser(this.ctx);
         let nodes = await subParser.parse(this.initUrl, this._gltf, this._gltf.scene);
         subParser.destroy();
         subParser = null
@@ -162,7 +162,7 @@ export class GLTFParser extends ParserBase {
                     let url = StringUtil.parseUrl(this.baseUrl, element.uri)
                     if (this.loaderFunctions?.onUrl)
                         url = await this.loaderFunctions.onUrl(url)
-                    let promise = new FileLoader().loadBinData(url, this.loaderFunctions).then(loader => {
+                    let promise = new FileLoader(this.ctx).loadBinData(url, this.loaderFunctions).then(loader => {
                         this._gltf.resources[element.uri] = loader;
                     })
                     binArray.push(promise);
@@ -182,7 +182,7 @@ export class GLTFParser extends ParserBase {
                     let url = StringUtil.parseUrl(this.baseUrl, element.uri)
                     if (this.loaderFunctions?.onUrl)
                         url = await this.loaderFunctions.onUrl(url)
-                    let promise = new FileLoader().loadAsyncBitmapTexture(url, this.loaderFunctions).then(texture => {
+                    let promise = new FileLoader(this.ctx).loadAsyncBitmapTexture(url, this.loaderFunctions).then(texture => {
                         texture.name = StringUtil.getURLName(element.uri);
                         this._gltf.resources[texture.name] = texture;
                     })

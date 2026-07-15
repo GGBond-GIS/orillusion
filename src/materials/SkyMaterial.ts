@@ -1,4 +1,3 @@
-import { Engine3D } from "../Engine3D";
 import { Texture } from "../gfx/graphics/webGpu/core/texture/Texture";
 import { SkyShader } from "../loader/parser/prefab/mats/shader/SkyShader";
 import { Vector3 } from "../math/Vector3";
@@ -11,6 +10,7 @@ import { Material } from "./Material";
 export class SkyMaterial extends Material {
 
     private _skyShader: SkyShader;
+    private _exposure: number = 1.0;
     constructor() {
         super();
 
@@ -53,10 +53,11 @@ export class SkyMaterial extends Material {
     }
 
     public get exposure() {
-        return Engine3D.setting.sky.skyExposure;
+        return this._exposure;
     }
     public set exposure(value: number) {
-        Engine3D.setting.sky.skyExposure = value;
+        this._exposure = value;
+        this.shader.setUniformFloat('exposure', value);
     }
 
     public get roughness() {

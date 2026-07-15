@@ -1,6 +1,6 @@
 import { MemoryDO } from '../../../../core/pool/memory/MemoryDO';
 import { MemoryInfo } from '../../../../core/pool/memory/MemoryInfo';
-import { webGPUContext } from '../../../../gfx/graphics/webGpu/Context3D';
+import { bindCtx, Context3D } from '../../../../gfx/graphics/webGpu/Context3D';
 /**
  * @internal
  * @group Animation
@@ -14,8 +14,9 @@ export class SkeletonBlendComputeArgs extends MemoryDO {
     protected _isDirty: boolean = false;
     protected _argumentsBuffer: GPUBuffer;
     protected _argumentsBufferEntries: GPUBindGroupEntry;
+    public _boundCtx: Context3D | null = null;
 
-    constructor() {
+    constructor(ctx: Context3D) {
         super();
         this.allocationMemorySet([
             { name: `numJoint`, data: [0] },
@@ -25,7 +26,7 @@ export class SkeletonBlendComputeArgs extends MemoryDO {
             { name: `time`, data: [0, 0] },
             { name: `weight`, data: [0, 0] },
         ]);
-        this.generateGPUBuffer();
+        this.generateGPUBuffer(ctx);
     }
 
     public getGPUBuffer(): GPUBuffer {
@@ -36,38 +37,13 @@ export class SkeletonBlendComputeArgs extends MemoryDO {
         return this._argumentsBufferEntries;
     }
 
-    // public setNumJoint(value: number) {
-    //     if (this.numJoint.bytes[0] != value) {
-    //         this.numJoint.bytes[0] = value;
-    //         this.isDirty = true;
-    //     }
-    // }
-
-    // public setNumState(value: number) {
-    //     if (this.numState.bytes[0] != value) {
-    //         this.numState.bytes[0] = value;
-    //         this.isDirty = true;
-    //     }
-    // }
-
-    // public setTime(index: number, value: number) {
-    //     if (this.time.bytes[index] != value) {
-    //         this.time.bytes[index] = value;
-    //         this.isDirty = true;
-    //     }
-    // }
-
-    // public setWeight(index: number, value: number) {
-    //     if (this.weight.bytes[index] != value) {
-    //         this.weight.bytes[index] = value;
-    //         this.isDirty = true;
-    //     }
-    // }
-
     public updateGPUBuffer(): this {
         if (this._isDirty) {
             this._isDirty = false;
-            webGPUContext.device.queue.writeBuffer(this._argumentsBuffer, 0, this.shareDataBuffer);
+            if (!this._boundCtx) {
+                throw new Error(`SkeletonBlendComputeArgs used before bindCtx — construct with a Context3D from the owning Engine3D.`);
+            }
+            this._boundCtx.device.queue.writeBuffer(this._argumentsBuffer, 0, this.shareDataBuffer);
         }
         return this;
     }
@@ -88,14 +64,13 @@ export class SkeletonBlendComputeArgs extends MemoryDO {
             const element = dataDic[i];
             const key = element.name;
             this.argumentsData[key] = this.allocation_node(element.data.length * 4);
-            // if (key in self) {
             self[key] = this.argumentsData[key];
-            // }
         }
     }
 
-    protected generateGPUBuffer() {
-        let device = webGPUContext.device;
+    protected generateGPUBuffer(ctx: Context3D) {
+        bindCtx(this, ctx);
+        let device = ctx.device;
 
         this._argumentsBuffer = device.createBuffer({
             size: this.shareDataBuffer.byteLength,

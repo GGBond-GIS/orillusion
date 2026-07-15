@@ -2,13 +2,9 @@
 
 //TODO dynamic lights need fixed
 
-import { GPUContext } from "../../../../../..";
-import { Engine3D } from "../../../../../../Engine3D";
 import { View3D } from "../../../../../../core/View3D";
 import { RenderTexture } from "../../../../../../textures/RenderTexture";
 import { EntityCollect } from "../../../../../renderJob/collect/EntityCollect";
-import { GBufferFrame } from "../../../../../renderJob/frame/GBufferFrame";
-import { GPUTextureFormat } from "../../../WebGPUConst";
 import { StorageGPUBuffer } from "../../buffer/StorageGPUBuffer";
 import { Texture } from "../../texture/Texture";
 
@@ -24,11 +20,6 @@ export class ReflectionEntries {
     count: number;
     constructor() {
         this.storageGPUBuffer = new StorageGPUBuffer((3 + 3) * 128);
-
-        // let reflectionSetting = Engine3D.setting.reflectionSetting;
-        // let reflectionsGBufferFrame = GBufferFrame.getGBufferFrame(GBufferFrame.reflections_GBuffer, reflectionSetting.reflectionMapWidth, reflectionSetting.reflectionMapHeight);
-        // this.sourceReflectionMap = reflectionsGBufferFrame.getCompressGBufferTexture();
-        // this.reflectionMap = new RenderTexture(this.sourceReflectionMap.width, this.sourceReflectionMap.height, this.sourceReflectionMap.format, false, undefined, 1, 0, true, false);
     }
 
     public update(view: View3D) {

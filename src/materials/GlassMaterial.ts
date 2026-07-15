@@ -5,6 +5,7 @@ import { Material } from './Material';
 import { Shader } from '../gfx/graphics/webGpu/shader/Shader';
 import { RenderShaderPass } from '../gfx/graphics/webGpu/shader/RenderShaderPass';
 import { PassType } from '../gfx/renderJob/passRenderer/state/PassType';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 
 /**
  * GlassMaterial
@@ -16,7 +17,7 @@ export class GlassMaterial extends Material {
     /**
      * @constructor
      */
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
         ShaderLib.register("GlassShader", GlassShader);
 
@@ -34,9 +35,10 @@ export class GlassMaterial extends Material {
         shaderState.acceptGI = true;
         shaderState.useLight = true;
 
-        this.shader.setTexture("baseMap", Engine3D.res.whiteTexture);
-        this.shader.setTexture("normalMap", Engine3D.res.normalTexture);
-        this.shader.setTexture("emissiveMap", Engine3D.res.blackTexture);
+        const res = Engine3D.resFor(ctx);
+        this.shader.setTexture("baseMap", res.whiteTexture);
+        this.shader.setTexture("normalMap", res.normalTexture);
+        this.shader.setTexture("emissiveMap", res.blackTexture);
     }
 
     // clone(): this {
@@ -48,11 +50,11 @@ export class GlassMaterial extends Material {
     //     ret.aoMap = this.aoMap;
     //     if (this.maskMap) ret.maskMap = this.maskMap;
     //     ret.emissiveMap = this.emissiveMap;
-    //     this.transformUV1 && (ret.transformUV1 = new Vector4().copyFrom(this.transformUV1));
-    //     this.uvTransform_2 && (ret.uvTransform_2 = new Vector4().copyFrom(this.uvTransform_2));
+    //     this.transformUV1 && (ret.transformUV1 = new Vector4().copy(this.transformUV1));
+    //     this.uvTransform_2 && (ret.uvTransform_2 = new Vector4().copy(this.uvTransform_2));
     //     ret.baseColor = this.baseColor.clone();
     //     ret.emissiveColor = this.emissiveColor.clone();
-    //     this.materialF0 && (ret.materialF0 = new Vector4().copyFrom(this.materialF0));
+    //     this.materialF0 && (ret.materialF0 = new Vector4().copy(this.materialF0));
     //     ret.envIntensity = this.envIntensity;
     //     ret.normalScale = this.normalScale;
     //     ret.roughness = this.roughness;

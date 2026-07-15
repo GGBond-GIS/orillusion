@@ -16,19 +16,23 @@ export class Sample_OctTreeRay {
     white = new Color(1, 1, 1, 1)
 
     async run() {
-        Engine3D.setting.shadow.enable = false;
-        Engine3D.setting.occlusionQuery.octree = { width: 400, height: 400, depth: 400, x: 0, y: 0, z: 0 }
         // init engine
-        await Engine3D.init({ renderLoop: () => { this.loop() } });
+        const engine = await Engine3D.init({
+            renderLoop: () => { this.loop() },
+            setting: {
+                shadow: { enable: false },
+                occlusionQuery: { octree: { width: 400, height: 400, depth: 400, x: 0, y: 0, z: 0 } },
+            },
+        });
         GUIHelp.init();
         let param = createSceneParam();
         param.camera.distance = 400;
         param.camera.near = 0.1;
         param.camera.far = 10000;
-        let exampleScene = createExampleScene(param);
+        let exampleScene = createExampleScene(engine, param);
         exampleScene.light.castShadow = false;
-        Engine3D.startRenderViews([exampleScene.view]);
-        Engine3D.getRenderJob(exampleScene.view);
+        engine.startRenderViews([exampleScene.view]);
+        engine.renderJobs.get(exampleScene.view);
 
         this.view = exampleScene.view;
         this.graphic3D = new Graphic3D();
@@ -75,7 +79,8 @@ export class Sample_OctTreeRay {
 
     private queryResult: OctreeEntity[] = [];
     private octreeTest() {
-        let ray = this.view.camera.screenPointToRay(Engine3D.inputSystem.mouseX, Engine3D.inputSystem.mouseY);
+        const input = this.view.engine3D?.inputSystem;
+        let ray = this.view.camera.screenPointToRay(input.mouseX, input.mouseY);
         this.queryResult.length = 0;
         let now: number = Date.now();
         this.tree.rayCasts(ray, this.queryResult);

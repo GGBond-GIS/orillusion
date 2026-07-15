@@ -6,29 +6,7 @@ export let GlobalFog_shader = /* wgsl */ `
     #include "GlobalUniform"
     #include "GBufferStand" 
     
-    struct LightData {
-        index:f32,
-        lightType:i32,
-        radius:f32,
-        linear:f32,
-        
-        position:vec3<f32>,
-        lightMatrixIndex:f32,
-
-        direction:vec3<f32>,
-        quadratic:f32,
-
-        lightColor:vec3<f32>,
-        intensity:f32,
-
-        innerCutOff :f32,
-        outerCutOff:f32,
-        range :f32,
-        castShadow:i32,
-
-        lightTangent:vec3<f32>,
-        ies:f32,
-    };
+    #include "LightData"
 
     struct FogUniformData {
         fogColor : vec4<f32>,
@@ -75,10 +53,9 @@ export let GlobalFog_shader = /* wgsl */ `
         let rayDirection = normalize(vec3<f32>(worldPosition.xyz - globalUniform.CameraPos.xyz));
         let calcRoughness = clamp(skyRoughness, 0.0, 1.0);
         let MAX_REFLECTION_LOD  = f32(textureNumLevels(prefilterMap)) ;
-        var prefilterColor = textureSampleLevel(prefilterMap, prefilterMapSampler, rayDirection, calcRoughness * MAX_REFLECTION_LOD);
-        if(isHDRTexture){
-            prefilterColor = vec4<f32>(LinearToGammaSpace(vec3<f32>(prefilterColor.xyz)), prefilterColor.w);
-        }
+        let prefilterColor = textureSampleLevel(prefilterMap, prefilterMapSampler, rayDirection, calcRoughness * MAX_REFLECTION_LOD);
+        // prefilterMap stores linear HDR; keep linear so the fog
+        // composite stays in linear space for the swapchain encode.
         return prefilterColor.xyz * globalUniform.skyExposure;
     }
 
@@ -88,10 +65,7 @@ export let GlobalFog_shader = /* wgsl */ `
         let rayDirection = normalize(vec3<f32>(worldPosition.xyz - globalUniform.CameraPos.xyz));
         let calcRoughness = clamp(skyRoughness, 0.0, 1.0);
         let MAX_REFLECTION_LOD  = f32(textureNumLevels(prefilterMap)) ;
-        var prefilterColor = textureSampleLevel(prefilterMap, prefilterMapSampler, rayDirection, calcRoughness * MAX_REFLECTION_LOD);
-        if(isHDRTexture){
-            prefilterColor = vec4<f32>(LinearToGammaSpace(vec3<f32>(prefilterColor.xyz)), prefilterColor.w);
-        }
+        let prefilterColor = textureSampleLevel(prefilterMap, prefilterMapSampler, rayDirection, calcRoughness * MAX_REFLECTION_LOD);
         return prefilterColor.xyz * globalUniform.skyExposure;
     }
 

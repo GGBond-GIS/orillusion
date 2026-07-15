@@ -1,30 +1,42 @@
-import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, webGPUContext, HoverCameraController, Object3D, DirectLight, LitMaterial, MeshRenderer, PlaneGeometry, Vector3, Object3DUtil } from "@orillusion/core";
+import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, HoverCameraController, Object3D, DirectLight, LitMaterial, MeshRenderer, PlaneGeometry, Vector3, Object3DUtil } from "@orillusion/core";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { Graphic3D } from "@orillusion/graphic";
 import { Physics, Rigidbody, ClothSoftbody } from "@orillusion/physics";
+import { GUIUtil } from "@samples/utils/GUIUtil";
 import dat from "dat.gui";
 
 class Sample_Cloth {
+    engine: Engine3D;
     async run() {
-        await Physics.init({ useSoftBody: true, useDrag: true });
-        await Engine3D.init({ renderLoop: () => Physics.update() });
+        await Physics.init({ useSoftBody: true });
+        const engine = this.engine = await Engine3D.init({ renderLoop: () => Physics.update() });
+        await GUIHelp.init();
         let view = new View3D();
         view.scene = new Scene3D();
         let sky = view.scene.addComponent(AtmosphericComponent);
 
         view.camera = CameraUtil.createCamera3DObject(view.scene);
-        view.camera.perspective(60, webGPUContext.aspect, 1, 1000.0);
+        view.camera.perspective(60, engine.context3D.aspect, 1, 1000.0);
         view.camera.object3D.addComponent(HoverCameraController).setCamera(0, -30, 20, new Vector3(0, 3, 0));
 
         let lightObj3D = new Object3D();
+        lightObj3D.x = 5;
+        lightObj3D.y = 10;
+        lightObj3D.z = 10;
         let sunLight = lightObj3D.addComponent(DirectLight);
         sunLight.intensity = 2;
         sunLight.castShadow = true;
+        sunLight.shadowBoundWidth = 32;
+        sunLight.shadowBoundHeight = 32;
+        sunLight.shadowBoundFar = 32;
         lightObj3D.rotationX = 24;
         lightObj3D.rotationY = -151;
+        GUIUtil.renderDirLight(sunLight);
         view.scene.addChild(lightObj3D);
         sky.relativeTransform = lightObj3D.transform;
 
-        Engine3D.startRenderView(view);
+        Physics.enableDragger(view);
+        engine.startRenderView(view);
 
         this.createScene(view.scene);
     }
@@ -67,7 +79,7 @@ class Sample_Cloth {
         let meshRenderer = cloth.addComponent(MeshRenderer);
         meshRenderer.geometry = new PlaneGeometry(8, 8, 20, 20, Vector3.UP);
         let material = new LitMaterial();
-        material.baseMap = Engine3D.res.redTexture;
+        material.baseMap = this.engine.res.redTexture;
         material.cullMode = 'none';
         meshRenderer.material = material;
 

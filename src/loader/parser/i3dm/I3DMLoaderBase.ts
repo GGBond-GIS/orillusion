@@ -1,6 +1,10 @@
 ﻿import { readMagicBytes } from "../b3dm/readMagicBytes";
 import { BatchTable, FeatureTable } from "../b3dm/FeatureTable";
 
+/**
+ * Parses the i3dm binary header and splits out the feature table, batch table, and glb payload.
+ * @internal
+ */
 export class I3DMLoaderBase {
 
     public async parse(buffer: ArrayBuffer) {

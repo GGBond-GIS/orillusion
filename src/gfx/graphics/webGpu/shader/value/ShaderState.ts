@@ -1,10 +1,9 @@
 import { BlendMode } from '../../../../../materials/BlendMode';
-import { GPUCompareFunction, GPUCullMode, GPUPrimitiveTopology } from '../../WebGPUConst';
+import { defaultStencilFaceState, GPUCompareFunction, GPUCullMode, GPUPrimitiveTopology, GPUStencilOperation } from '../../WebGPUConst';
 
 /**
  * @internal
  * ShaderState
- * @group GFX
  */
 export class ShaderState {
     public blendMode?: BlendMode = BlendMode.NONE;
@@ -13,7 +12,25 @@ export class ShaderState {
     public frontFace?: GPUFrontFace = `ccw`;
     public cullMode?: GPUCullMode = GPUCullMode.back;
     public topology?: GPUPrimitiveTopology = GPUPrimitiveTopology.triangle_list;
-    public depthBias?: number = 10;
+    public depthBias?: number = 0;
+    public depthBiasSlopeScale?: number = 0;
+    public depthBiasClamp?: number = 0;
+
+    public stencilFront?: GPUStencilFaceState = {
+        compare: GPUCompareFunction.always,
+        failOp: GPUStencilOperation.keep,
+        depthFailOp: GPUStencilOperation.keep,
+        passOp: GPUStencilOperation.keep,
+    };
+    public stencilBack?: GPUStencilFaceState = {
+        compare: GPUCompareFunction.always,
+        failOp: GPUStencilOperation.keep,
+        depthFailOp: GPUStencilOperation.keep,
+        passOp: GPUStencilOperation.keep,
+    };
+    public stencilReadMask?: number = 0xFF;
+    public stencilWriteMask?: number = 0xFF;
+    public stencilRef?: number = 0;
 
     public useLight: boolean = false;
     public useProbe: boolean = false;
@@ -22,11 +39,11 @@ export class ShaderState {
     public castShadow: boolean = false;
     public castReflection: boolean = true;
     public receiveEnv: boolean = false;
-    public renderLayer: number = 1000;
     public renderOrder: number = 2000;
     public unclippedDepth: boolean = false;
     public transparent: boolean = false;
     public multisample: number = 0;
+    public alphaToCoverageEnabled: boolean = false;
     public label: string;
     public useZ: boolean = true;
     public splitTexture: boolean = false;
@@ -56,6 +73,12 @@ export class ShaderState {
         if (values.has('depthBias')) {
             this.depthBias = values.get('depthBias');
         }
+        if (values.has('depthBiasSlopeScale')) {
+            this.depthBiasSlopeScale = values.get('depthBiasSlopeScale');
+        }
+        if (values.has('depthBiasClamp')) {
+            this.depthBiasClamp = values.get('depthBiasClamp');
+        }
 
         if (values.has('useLight')) {
             this.useLight = values.get('useLight');
@@ -75,9 +98,6 @@ export class ShaderState {
         if (values.has('receiveEnv')) {
             this.receiveEnv = values.get('receiveEnv');
         }
-        if (values.has('renderLayer')) {
-            this.renderLayer = values.get('renderLayer');
-        }
         if (values.has('renderOrder')) {
             this.renderOrder = values.get('renderOrder');
         }
@@ -87,6 +107,10 @@ export class ShaderState {
 
         if (values.has('multisample')) {
             this.multisample = values.get('multisample');
+        }
+
+        if (values.has('alphaToCoverageEnabled')) {
+            this.alphaToCoverageEnabled = values.get('alphaToCoverageEnabled');
         }
 
         if (values.has('label')) {

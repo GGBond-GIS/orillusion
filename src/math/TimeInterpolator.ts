@@ -448,6 +448,11 @@ export class Interpolator {
         if (dispose) interpolator.dispose();
     }
 
+    /**
+     * Remove a list of interpolators from the active pool.
+     * @param interpolators interpolators to remove
+     * @param dispose whether to dispose each removed interpolator
+     */
     public static removeList(interpolators: Interpolator[], dispose?: boolean) {
         interpolators.forEach((v) => {
             this.remove(v, dispose);

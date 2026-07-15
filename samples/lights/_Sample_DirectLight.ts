@@ -3,11 +3,12 @@ import { Scene3D, HoverCameraController, Engine3D, AtmosphericComponent, Object3
 
 //sample of direction light
 class Sample_DirectLight {
+    engine: Engine3D;
     scene: Scene3D;
     lightObj3D: any;
 
     async run() {
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({});
 
         GUIHelp.init();
 
@@ -16,7 +17,7 @@ class Sample_DirectLight {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
         //set camera data
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(0, -25, 1000);
 
@@ -27,7 +28,7 @@ class Sample_DirectLight {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
     }
 
@@ -66,7 +67,7 @@ class Sample_DirectLight {
 
     initScene() {
         let mat = new LitMaterial();
-        mat.baseMap = Engine3D.res.grayTexture;
+        mat.baseMap = this.engine.res.grayTexture;
         mat.roughness = 0.4;
         mat.metallic = 0.6;
         let floor = new Object3D();

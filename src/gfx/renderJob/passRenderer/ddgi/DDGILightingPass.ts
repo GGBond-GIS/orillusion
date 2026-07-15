@@ -2,15 +2,14 @@ import { DDGILighting_shader } from '../../../../assets/shader/compute/DDGILight
 import { View3D } from '../../../../core/View3D';
 import { Engine3D } from '../../../../Engine3D';
 import { RenderTexture } from '../../../../textures/RenderTexture';
+import { Context3D } from '../../../graphics/webGpu/Context3D';
 import { GlobalBindGroup } from '../../../graphics/webGpu/core/bindGroups/GlobalBindGroup';
 import { Texture } from '../../../graphics/webGpu/core/texture/Texture';
 import { ComputeShader } from '../../../graphics/webGpu/shader/ComputeShader';
 import { GPUTextureFormat } from '../../../graphics/webGpu/WebGPUConst';
-import { GPUContext } from '../../GPUContext';
 import { RendererPassState } from '../state/RendererPassState';
 /**
  * @internal
- * @group Post
  */
 export class DDGILightingPass {
     private computeShader: ComputeShader;
@@ -21,9 +20,9 @@ export class DDGILightingPass {
     private pointShadowMap: Texture;
 
     public lightingTexture: RenderTexture;
-    constructor() {
-        let giSetting = Engine3D.setting.gi;
-        this.lightingTexture = new RenderTexture(giSetting.probeSourceTextureSize, giSetting.probeSourceTextureSize, GPUTextureFormat.rgba16float, false, GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING);
+    constructor(ctx?: Context3D) {
+        let giSetting = ctx!.engine!.setting.gi;
+        this.lightingTexture = new RenderTexture(giSetting.probeSourceTextureSize, giSetting.probeSourceTextureSize, GPUTextureFormat.rgba16float, false, GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING, 1, 0, true, true, ctx);
     }
 
     private create(view: View3D) {
@@ -35,14 +34,14 @@ export class DDGILightingPass {
 
         this.computeShader.setStorageTexture("outputBuffer", this.lightingTexture);
         this.computeShader.setStorageBuffer("lightBuffer", lightUniformEntries.storageGPUBuffer);
-        this.computeShader.setStorageBuffer("models", GlobalBindGroup.modelMatrixBindGroup.matrixBufferDst);
+        this.computeShader.setStorageBuffer("models", GlobalBindGroup.getModelMatrixBindGroup(view.engine3D.context3D).matrixBufferDst);
 
         this.computeShader.setSamplerTexture("positionMap", this.worldPosMap);
         this.computeShader.setSamplerTexture("normalMap", this.worldNormalMap);
         this.computeShader.setSamplerTexture("colorMap", this.colorMap);
         this.computeShader.setSamplerTexture("shadowMap", this.shadowMap);
         this.computeShader.setSamplerTexture("pointShadowMap", this.pointShadowMap);
-        this.computeShader.setSamplerTexture("prefilterMap", Engine3D.res.defaultSky);
+        this.computeShader.setSamplerTexture("prefilterMap", Engine3D.resFor(view.engine3D.context3D).defaultSky);
     }
 
     public setInputs(inputs: Texture[]) {
@@ -58,14 +57,15 @@ export class DDGILightingPass {
             this.create(view);
         }
         // EntityCollect.instance.sky ? EntityCollect.instance.sky.materials : defaultRes.defaultSky
-        let command = GPUContext.beginCommandEncoder();
-        let giSetting = Engine3D.setting.gi;
+        const gpu = view.engine3D.context3D.gpuContext;
+        let command = gpu.beginCommandEncoder();
+        let giSetting = view.engine3D.setting.gi;
 
         this.computeShader.workerSizeX = giSetting.probeSourceTextureSize / 8;
         this.computeShader.workerSizeY = giSetting.probeSourceTextureSize / 8;
         this.computeShader.workerSizeZ = 1;
-        GPUContext.computeCommand(command, [this.computeShader]);
-        GPUContext.endCommandEncoder(command);
+        gpu.computeCommand(command, [this.computeShader]);
+        gpu.endCommandEncoder(command);
 
     }
 }

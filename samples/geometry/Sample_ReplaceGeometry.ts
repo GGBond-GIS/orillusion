@@ -4,6 +4,7 @@ import { GUIHelp } from "@orillusion/debug/GUIHelp";
 
 // An sample to replace geometry of meshRenderer
 class Sample_ReplaceGeometry {
+    engine: Engine3D;
     scene: Scene3D;
     geometries: GeometryBase[];
     renderer: MeshRenderer;
@@ -12,22 +13,18 @@ class Sample_ReplaceGeometry {
         let param = createSceneParam();
         param.light.intensity = 1;
         param.camera.distance = 40;
-        await Engine3D.init();
-        let exampleScene = createExampleScene(param);
-
-        Engine3D.setting.shadow.shadowBound = 100;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBias = 0.04;
+        const engine = this.engine = await Engine3D.init();
+        let exampleScene = createExampleScene(engine, param);
 
         this.scene = exampleScene.scene;
 
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
 
 
         GUIHelp.init();
         this.initGeometries();
 
-        let duck = await (await Engine3D.res.loadGltf('PBR/Duck/Duck.gltf')) as Object3D;
+        let duck = await (await this.engine.res.loadGltf('PBR/Duck/Duck.gltf')) as Object3D;
         let duckGeometry = duck.getComponents(MeshRenderer)[0].geometry;
         this.geometries.push(duckGeometry);
 

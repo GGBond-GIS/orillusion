@@ -1,22 +1,22 @@
-import { Engine3D, Object3D, Scene3D, View3D, Object3DUtil, Vector3, AtmosphericComponent, DirectLight, CameraUtil, HoverCameraController, Quaternion } from "@orillusion/core";
+import { Engine3D, Object3D, Scene3D, View3D, Object3DUtil, Vector3, AtmosphericComponent, DirectLight, CameraUtil, HoverCameraController, Quaternion, MeshRenderer, BoxGeometry, LitMaterial, Color } from "@orillusion/core";
 import { Stats } from "@orillusion/stats";
 import { ActivationState, CollisionShapeUtil, DebugDrawMode, Generic6DofSpringConstraint, Physics, Rigidbody } from "@orillusion/physics";
 import dat from "dat.gui";
 import { Graphic3D } from "@orillusion/graphic";
 
 class Sample_dofSpringConstraint {
+    engine: Engine3D;
     scene: Scene3D;
     gui: dat.GUI;
 
     async run() {
-        // Initialize physics and engine
-        await Physics.init({ useDrag: true });
-        await Engine3D.init({ renderLoop: () => Physics.update() });
+        await Physics.init();
+        const engine = this.engine = await Engine3D.init({ renderLoop: () => Physics.update() });
 
         let scene = this.scene = new Scene3D();
         scene.addComponent(Stats);
 
-        // 在引擎启动后初始化物理调试功能，需要为绘制器传入 graphic3D 对象
+        // Initialize the physics debug drawer after the engine starts; a graphic3D object must be passed to the drawer
         const graphic3D = new Graphic3D();
         scene.addChild(graphic3D);
         Physics.initDebugDrawer(graphic3D, {
@@ -31,13 +31,15 @@ class Sample_dofSpringConstraint {
         f.open();
 
         let camera = CameraUtil.createCamera3DObject(scene);
-        camera.perspective(60, Engine3D.aspect, 0.1, 800.0);
+        camera.perspective(60, engine.aspect, 0.1, 800.0);
         camera.object3D.addComponent(HoverCameraController).setCamera(140, -25, 20, new Vector3(8, 4, 0));
 
         // Create directional light
         let lightObj3D = new Object3D();
         lightObj3D.localRotation = new Vector3(36, -130, 60);
-        lightObj3D.addComponent(DirectLight).castShadow = true;
+        let dl = lightObj3D.addComponent(DirectLight)
+        dl.castShadow = true;
+        dl.enableCSM = true;
         scene.addChild(lightObj3D);
 
         // Initialize sky
@@ -47,7 +49,9 @@ class Sample_dofSpringConstraint {
         view.camera = camera;
         view.scene = scene;
 
-        Engine3D.startRenderView(view);
+        Physics.enableDragger(view);
+
+        engine.startRenderView(view);
 
         // Create ground, bridge, and ball
         this.createGround();
@@ -57,7 +61,7 @@ class Sample_dofSpringConstraint {
 
     //Create the ground plane.
     private async createGround() {
-        let ground = Object3DUtil.GetPlane(Engine3D.res.whiteTexture);
+        let ground = Object3DUtil.GetPlane(this.engine.context3D, this.engine.res.whiteTexture);
         ground.scaleX = 50;
         ground.scaleZ = 50;
         this.scene.addChild(ground);
@@ -92,17 +96,67 @@ class Sample_dofSpringConstraint {
     private createBridge() {
         const numSegments = 15;
         const segmentWidth = 1;
-        const segmentHeight = 0.2;
+        const segmentHeight = 0.4;
         const segmentDepth = 5;
-        const distance = 0.1; // Distance between bridge segments
+        // Physical gap between bridge segments. Was 0.1; with that
+        // gap the segment-cast shadows fell into the visible space
+        // BETWEEN planks, producing dark stripes that visually read
+        // as "shadow seen through transparent segments" — segments
+        // are fully opaque, the dark bands were just the floor in
+        // shadow showing through the gaps. 0.02 is small enough
+        // visually to look like contact while keeping the spring
+        // constraint solver from going degenerate.
+        const distance = 0.02;
         const pierHeight = 5; // Height of the piers
+
+        // Hardcoded vivid linear-HDR friendly palette. Random
+        // per-channel colors collapse to indistinguishable pastels
+        // under bright atmospheric IBL because each channel's
+        // contribution is tinted by the same whitish environmental
+        // light. A curated rainbow with one strong channel per
+        // segment gives a set that visibly walks through hues even
+        // after lighting + tonemap.
+        const palette: [number, number, number][] = [
+            [0.5, 0.0, 0.0],   // deep red
+            [0.5, 0.2, 0.0],   // orange
+            [0.5, 0.4, 0.0],   // amber
+            [0.5, 0.5, 0.0],   // yellow
+            [0.2, 0.5, 0.0],   // chartreuse
+            [0.0, 0.5, 0.0],   // green
+            [0.0, 0.5, 0.3],   // teal
+            [0.0, 0.4, 0.5],   // cyan
+            [0.0, 0.2, 0.5],   // sky blue
+            [0.0, 0.0, 0.5],   // deep blue
+            [0.2, 0.0, 0.5],   // indigo
+            [0.4, 0.0, 0.5],   // violet
+            [0.5, 0.0, 0.4],   // magenta
+            [0.5, 0.0, 0.2],   // rose
+            [0.4, 0.1, 0.1],   // brick
+        ];
 
         let bridgeSegments: Rigidbody[] = [];
         for (let i = 0; i < numSegments; i++) {
             const isStatic = i === 0 || i === numSegments - 1;
             const mass = isStatic ? 0 : 2;
             const staticHeight = isStatic ? pierHeight : 0;
-            let bridgeObj = Object3DUtil.GetSingleCube(segmentWidth, segmentHeight + staticHeight, segmentDepth, Math.random(), Math.random(), Math.random());
+            const [cr, cg, cb] = palette[i % palette.length];
+
+            // Build the bridge segment directly with a fresh
+            // LitMaterial so we can pin metallic=0 / roughness=1
+            // BEFORE the material initializes its GPU resources.
+            // Object3DUtil.GetSingleCube ships defaults (metallic=0.1,
+            // roughness=0.5) which under linear-HDR + ACES + bright
+            // atmospheric IBL washes the random color into a uniform
+            // pastel — flat dielectric matte preserves hue.
+            let bridgeObj = new Object3D();
+            const mat = new LitMaterial();
+            mat.alphaMode = 'OPAQUE';   // force opaque blend / depthWrite on
+            mat.baseColor = new Color(cr, cg, cb, 1);
+            mat.metallic = 0.0;
+            mat.roughness = 1.0;
+            const mr = bridgeObj.addComponent(MeshRenderer);
+            mr.geometry = new BoxGeometry(segmentWidth, segmentHeight + staticHeight, segmentDepth);
+            mr.material = mat;
 
             const posX = i * segmentWidth + i * distance || distance;
             const posY = isStatic ? pierHeight / 2 + segmentHeight / 2 : pierHeight;

@@ -24,7 +24,7 @@ export class CurveShape3D extends LineShape3D {
         return this._start;
     }
     public set start(value: Vector2) {
-        this._start.copyFrom(value);
+        this._start.copy(value);
         this.setCurveChanged();
     }
 
@@ -32,7 +32,7 @@ export class CurveShape3D extends LineShape3D {
         return this._end;
     }
     public set end(value: Vector2) {
-        this._end.copyFrom(value);
+        this._end.copy(value);
         this.setCurveChanged();
     }
 
@@ -40,14 +40,14 @@ export class CurveShape3D extends LineShape3D {
         return this._cp1;
     }
     public set cp1(value: Vector2) {
-        this._cp1.copyFrom(value);
+        this._cp1.copy(value);
         this.setCurveChanged();
     }
     public get cp2(): Vector2 {
         return this._cp2;
     }
     public set cp2(value: Vector2) {
-        this._cp2.copyFrom(value);
+        this._cp2.copy(value);
         this.setCurveChanged();
     }
 

@@ -1,6 +1,11 @@
 import { Shader } from "../../../..";
+import { View3D } from "../../../../core/View3D";
 import { ComputeShader } from "../shader/ComputeShader";
 
+/**
+ * Drives a compute shader derived from a source render shader, running once and/or per frame.
+ * @group GFX
+ */
 export class RenderShaderCompute {
 
     protected sourceShader: Shader;
@@ -18,18 +23,18 @@ export class RenderShaderCompute {
 
     }
 
-    protected onOnce?()
+    protected onOnce?(view: View3D): void
 
-    protected onFrame?()
+    protected onFrame?(view: View3D): void
 
-    public onUpdate() {
+    public onUpdate(view: View3D) {
         if (this.onFrame) {
-            this.onFrame();
+            this.onFrame(view);
         }
 
         if (this.onOnce && this.needUpdate) {
             this.needUpdate = false;
-            this.onFrame();
+            this.onFrame(view);
         }
     }
 }

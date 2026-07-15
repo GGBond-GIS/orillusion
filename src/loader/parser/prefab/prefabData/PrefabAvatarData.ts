@@ -1,6 +1,11 @@
 import { BytesArray } from "../../../../util/BytesArray";
 import { PrefabBoneData } from "./PrefabBoneData";
 
+/**
+ * Internal data carrier for a decoded avatar (skeleton): its name, bone list
+ * and a name-to-bone lookup map.
+ * @internal
+ */
 export class PrefabAvatarData {
     public name: string;
     public count: number;

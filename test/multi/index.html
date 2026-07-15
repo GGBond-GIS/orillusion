@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orillusion | Multi-Instance Test</title>
+    <style>
+        html, body {
+            font-family: monospace;
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            color: #ddd;
+            width: 100%;
+            height: 100%;
+        }
+        #log {
+            position: fixed;
+            top: 260px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            overflow: auto;
+            font-size: 11px;
+            white-space: pre-wrap;
+            background: #0b0b0b;
+            padding: 8px;
+            border: 1px solid #333;
+        }
+        .label {
+            position: absolute;
+            top: 250px;
+            font-size: 11px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+<div class="label" style="left:10px">canvasA: engine A (red box, direct light)</div>
+<div class="label" style="left:350px">canvasB: engine B (blue sphere, point light)</div>
+<div id="log"></div>
+<script>
+// Tap console to render it on screen (so electron / playwright screenshots can see it).
+(function () {
+    const el = () => document.getElementById('log');
+    const push = (...args) => {
+        const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        const d = el();
+        if (d) { d.textContent += line + '\n'; d.scrollTop = d.scrollHeight; }
+    };
+    const o = { log: console.log, warn: console.warn, error: console.error };
+    console.log = (...a) => { o.log(...a); push('[LOG]', ...a); };
+    console.warn = (...a) => { o.warn(...a); push('[WARN]', ...a); };
+    console.error = (...a) => { o.error(...a); push('[ERR]', ...a); };
+    window.addEventListener('error', e => push('[window.error]', e.message, e.filename + ':' + e.lineno));
+    window.addEventListener('unhandledrejection', e => push('[unhandledrejection]', e.reason?.stack || e.reason));
+})();
+// Emulate session target so util.ts works.
+sessionStorage.target = 'multi/MultiInstance.test.ts';
+</script>
+<script type="module" src="./MultiInstance.test.ts"></script>
+</body>
+</html>

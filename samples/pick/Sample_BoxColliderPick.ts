@@ -6,19 +6,23 @@ import { Scene3D, Engine3D, BoxGeometry, SphereGeometry, SphereColliderShape, Bo
 class Sample_BoxColliderPick {
     scene: Scene3D;
     async run() {
-        Engine3D.setting.pick.enable = true;
-        Engine3D.setting.pick.mode = `bound`;
-
         // init Engine3D
-        await Engine3D.init({});
+        const engine = await Engine3D.init({
+            setting: {
+                pick: {
+                    enable: true,
+                    mode: `bound`,
+                },
+            },
+        });
 
-        let exampleScene = createExampleScene();
+        let exampleScene = createExampleScene(engine);
         this.scene = exampleScene.scene;
 
         GUIHelp.init();
 
         GUIUtil.renderDirLight(exampleScene.light, false);
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
 
         this.initPickObject(this.scene);
     }
@@ -48,7 +52,7 @@ class Sample_BoxColliderPick {
             let collider = obj.addComponent(ColliderComponent);
             collider.shape = i % 2 ? boxShape : sphereShape;
         }
-        let pickFire = Engine3D.views[0].pickFire;
+        let pickFire = scene.view.pickFire;
         // register event
         pickFire.addEventListener(PointerEvent3D.PICK_CLICK, this.onMousePick, this);
     }

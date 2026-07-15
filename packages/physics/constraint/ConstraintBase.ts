@@ -3,7 +3,7 @@ import { Ammo, Physics } from '../Physics';
 import { Rigidbody } from '../rigidbody/Rigidbody';
 
 /**
- * 约束基类
+ * Constraint base class
  */
 export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentBase {
     protected _targetRigidbody: Rigidbody;
@@ -36,7 +36,7 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
     public disableCollisionsBetweenLinkedBodies: boolean = true;
 
     /**
-     * 断裂脉冲阈值，值越大，约束越不易断裂。
+     * Breaking impulse threshold. The larger the value, the harder the constraint is to break.
      */
     public get breakingThreshold() {
         return this._breakingThreshold;
@@ -53,7 +53,7 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
             throw new Error(`${this.constructor.name} requires a rigidbody on the object.`);
         }
 
-        // 确保刚体初始化完成
+        // Ensure the rigid body has finished initializing
         if (!selfRb.btBodyInited) {
             await selfRb.wait()
         }
@@ -62,7 +62,7 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
             await this._targetRigidbody.wait()
         }
 
-        // 创建约束
+        // Create the constraint
         this.createConstraint(selfRb.btRigidbody, this._targetRigidbody?.btRigidbody);
 
         if (this._constraint) {
@@ -75,14 +75,14 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
     }
 
     /**
-     * 子类实现具体的约束创建逻辑
+     * Subclasses implement the specific constraint creation logic
      * @param selfBody
      * @param targetBody
      */
     protected createConstraint(selfBody: Ammo.btRigidBody, targetBody: Ammo.btRigidBody | null) { }
 
     /**
-     * 获取约束实例
+     * Get the constraint instance
      */
     public get constraint(): T {
         if (!this._constraint) {
@@ -92,7 +92,7 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
     }
 
     /**
-     * 异步获取完成初始化的约束实例
+     * Asynchronously retrieve the fully initialized constraint instance
      */
     public async wait(): Promise<T> {
         await this._initializationPromise;
@@ -100,7 +100,7 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
     }
 
     /**
-     * 重置约束，销毁当前约束实例后重新创建并返回新的约束实例
+     * Reset the constraint: destroy the current constraint instance, recreate it, and return the new constraint instance
      */
     public async resetConstraint(): Promise<T> {
         if (this._constraint) {
@@ -114,7 +114,7 @@ export class ConstraintBase<T extends Ammo.btTypedConstraint> extends ComponentB
     }
 
     /**
-     * 目标刚体组件
+     * Target rigid body component
      */
     public get targetRigidbody(): Rigidbody {
         return this._targetRigidbody;

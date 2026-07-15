@@ -1,4 +1,4 @@
-import { webGPUContext } from "@orillusion/core";
+import { Context3D } from "@orillusion/core";
 
 /**
  * @internal
@@ -8,8 +8,8 @@ export class ParticleCompute {
     private _computePipeline: GPUComputePipeline;
     private _computeBindGroup: GPUBindGroup;
 
-    constructor(computeShader: string, entries: GPUBindGroupEntry[]) {
-        let device = webGPUContext.device;
+    constructor(ctx: Context3D, computeShader: string, entries: GPUBindGroupEntry[]) {
+        let device = ctx.device;
         this._computePipeline = device.createComputePipeline({
             layout: `auto`,
             compute: {

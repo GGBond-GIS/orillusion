@@ -5,7 +5,6 @@ import { Vector3 } from '../math/Vector3';
 /**
  * Pick up result information, including target Object3D, position, UV
  * @internal
- * @group IO
  */
 export class PickResult {
     /**

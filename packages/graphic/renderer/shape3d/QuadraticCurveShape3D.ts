@@ -21,7 +21,7 @@ export class QuadraticCurveShape3D extends LineShape3D {
         return this._start;
     }
     public set start(value: Vector2) {
-        this._start.copyFrom(value);
+        this._start.copy(value);
         this.setCurveChanged();
     }
 
@@ -29,7 +29,7 @@ export class QuadraticCurveShape3D extends LineShape3D {
         return this._end;
     }
     public set end(value: Vector2) {
-        this._end.copyFrom(value);
+        this._end.copy(value);
         this.setCurveChanged();
     }
 
@@ -37,7 +37,7 @@ export class QuadraticCurveShape3D extends LineShape3D {
         return this._cp;
     }
     public set cp(value: Vector2) {
-        this._cp.copyFrom(value);
+        this._cp.copy(value);
         this.setCurveChanged();
     }
 

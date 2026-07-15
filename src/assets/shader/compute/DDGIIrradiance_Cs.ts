@@ -175,7 +175,7 @@ fn storePixelAtCoord(texture:texture_storage_2d<rgba16float, write>, coord:vec2<
    textureStore(texture, newCoord + 1, color);
 
    var borderCoord = vec2<i32>(-1);
-   //左右
+   // left / right borders
    if(modeXY.x % (sideCnt - 1) == 0){
      borderCoord = modeXY;
      borderCoord.y = sideCnt - borderCoord.y;
@@ -185,7 +185,7 @@ fn storePixelAtCoord(texture:texture_storage_2d<rgba16float, write>, coord:vec2<
      borderCoord = indexXY * sideBorderCnt + borderCoord;
      textureStore(texture, borderCoord, color);
    }
-   //上下
+   // top / bottom borders
    if(modeXY.y % (sideCnt - 1) == 0){
      borderCoord = modeXY;
      borderCoord.x = sideCnt - borderCoord.x;
@@ -195,7 +195,7 @@ fn storePixelAtCoord(texture:texture_storage_2d<rgba16float, write>, coord:vec2<
      borderCoord = indexXY * sideBorderCnt + borderCoord;
      textureStore(texture, borderCoord, color);
    }
-   //补角
+   // corner pixels
    if(modeXY.x % (sideCnt - 1) == 0 && modeXY.y % (sideCnt - 1) == 0){
       var cornerCoord = modeXY;
       if(modeXY.x == 0){

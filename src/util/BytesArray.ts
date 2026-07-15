@@ -4,7 +4,7 @@ import { Color, Matrix4, Quaternion, StringUtil, Vector2, Vector3, Vector4 } fro
  * @internal
  * @group Util
  */
-export class BytesArray extends DataView {
+export class BytesArray extends DataView<ArrayBufferLike> {
 
     public position: number = 0;
     public littleEndian?: boolean = true;

@@ -5,7 +5,6 @@ import { GeometryBase } from "../../core/geometry/GeometryBase";
 import { PassGenerate } from "../../gfx/generate/PassGenerate";
 import { GlobalBindGroup } from "../../gfx/graphics/webGpu/core/bindGroups/GlobalBindGroup";
 import { ShaderReflection } from "../../gfx/graphics/webGpu/shader/value/ShaderReflectionInfo";
-import { GPUContext } from "../../gfx/renderJob/GPUContext";
 import { EntityCollect } from "../../gfx/renderJob/collect/EntityCollect";
 import { RTResourceMap } from "../../gfx/renderJob/frame/RTResourceMap";
 import { RenderContext } from "../../gfx/renderJob/passRenderer/RenderContext";
@@ -15,15 +14,16 @@ import { RendererPassState } from "../../gfx/renderJob/passRenderer/state/Render
 import { GetCountInstanceID, UUID } from "../../util/Global";
 import { Reference } from "../../util/Reference";
 import { ComponentBase } from "../ComponentBase";
-import { IESProfiles } from "../lights/IESProfiles";
+import { IESProfilesPool } from "../lights/IESProfiles";
 import { Octree } from "../../core/tree/octree/Octree";
 import { OctreeEntity } from "../../core/tree/octree/OctreeEntity";
 import { Transform } from "../Transform";
 import { Material } from "../../materials/Material";
-import { RenderLayer } from "../../gfx/renderJob/config/RenderLayer";
+import { BatchMode } from "../../gfx/renderJob/config/BatchMode";
 import { RenderShaderCompute } from "../../gfx/graphics/webGpu/compute/RenderShaderCompute";
 import { PassType } from "../../gfx/renderJob/passRenderer/state/PassType";
 import { ProfilerUtil } from "../../util/ProfilerUtil";
+import { bindCtx } from "../../gfx/graphics/webGpu/Context3D";
 
 
 /**
@@ -54,22 +54,31 @@ export class RenderNode extends ComponentBase {
     protected _passInit: Map<PassType, boolean> = new Map<PassType, boolean>();
     public isRenderOrderChange?: boolean;
     public needSortOnCameraZ?: boolean;
-    public isRecievePostEffectUI?: boolean;
     protected _octreeBinder: { octree: Octree, entity: OctreeEntity };
 
     /**
+     * Batching mode for this renderer. Drives whether the node is
+     * collected into the default per-node opaque/transparent lists or
+     * into a batched render-group (see {@link EntityBatchCollect}).
      *
-     * The layer membership of the object.
-     *  The object is only visible when it has at least one common layer with the camera in use.
-     * When using a ray projector, this attribute can also be used to filter out unwanted objects in ray intersection testing.
+     * Historically this field was named `_renderLayer`; that name was
+     * vacated for the bitmask-based layer system, which now lives at
+     * {@link ComponentBase.visibleLayer}.
      */
-    protected _renderLayer: RenderLayer = RenderLayer.None;
+    protected _batchMode: BatchMode = BatchMode.None;
+
     protected _computes: RenderShaderCompute[];
 
 
     public init(param?: any) {
         this.renderOrder = 0;
-        this.rendererMask = RendererMask.Default;
+        // Don't reset rendererMask here — the default initializer
+        // (`_rendererMask = RendererMask.Default`) already covers fresh
+        // instances, and subclass constructors (e.g. SkinnedMeshRenderer2
+        // adding RendererMask.SkinnedMesh) run BEFORE this init via
+        // ComponentBase.__init. Overwriting here erases those subclass-
+        // added flags and silently breaks pass generation (USE_SKELETON
+        // gating in PassGenerate.createShadowPass/createDepthPass).
         this.instanceID = GetCountInstanceID().toString();
 
         this._computes = [];
@@ -103,20 +112,15 @@ export class RenderNode extends ComponentBase {
         this.castShadow = from.castShadow;
         this.castGI = from.castGI;
         this.rendererMask = from.rendererMask;
-        this.isRecievePostEffectUI = from.isRecievePostEffectUI;
         return this;
     }
 
-    public get renderLayer(): RenderLayer {
-        return this._renderLayer;
+    public get batchMode(): BatchMode {
+        return this._batchMode;
     }
 
-    public set renderLayer(value: RenderLayer) {
-        // for (let i = 0; i < this.object3D.entityChildren.length; i++) {
-        //     const element = this.object3D.entityChildren[i];
-        //     element.renderLayer = value;
-        // }
-        this._renderLayer = value;
+    public set batchMode(value: BatchMode) {
+        this._batchMode = value;
     }
 
     public get geometry(): GeometryBase {
@@ -249,6 +253,45 @@ export class RenderNode extends ComponentBase {
         super.onDisable?.();
     }
 
+    /**
+     * Recompute renderOrder from current pass states and re-bucket
+     * this renderer in EntityCollect (opaque vs transparent map).
+     *
+     * Called when a material's alphaMode flips at runtime — the
+     * pass.renderOrder changes (3000 ↔ 0), but EntityCollect classifies
+     * once at addRenderNode time. Without this nudge the renderer
+     * stays in its old list and gets drawn through the wrong pipeline
+     * (e.g. WBOIT continues drawing a HASH-toggled material).
+     *
+     * Materials hop into this via Reference.getReference(material)
+     * to find every renderer holding them; sample code can also call
+     * it directly after manual state changes.
+     */
+    public refreshRenderClassification(): void {
+        if (!this._enable) return;
+        const scene = this.transform?.scene3D;
+        if (!scene) return;
+
+        let sort = 0;
+        for (let i = 0; i < this._materials.length; i++) {
+            const passArray = this._materials[i].getPass(PassType.COLOR);
+            if (!passArray || passArray.length === 0) continue;
+            const pass = passArray[0];
+            if (pass.renderOrder >= 3000) {
+                sort = sort > pass.renderOrder ? sort : pass.renderOrder;
+            }
+        }
+        this.renderOrder = sort;
+        // Re-cast derived passes so an alphaMode/oitMode flip that
+        // newly demands a pass (e.g. oitMode going 'sorted' → 'weighted'
+        // needs an OIT_ACCUM pass that didn't exist while the material
+        // was OPAQUE) lazily creates it. createOITPass is idempotent
+        // (it skips when the pass is already there) so this is cheap
+        // even when nothing actually changed.
+        this.castNeedPass();
+        EntityCollect.instance.addRenderNode(scene, this);
+    }
+
     public selfCloneMaterials(key: string): this {
         let newMaterials = [];
         for (let i = 0, c = this.materials.length; i < c; i++) {
@@ -263,6 +306,12 @@ export class RenderNode extends ComponentBase {
     }
 
     protected initPipeline() {
+        // Per-instance setting access needs a Context3D; defer until this node
+        // is attached to a scene whose view is bound to an engine. onEnable()
+        // will retry when the component reaches a scene.
+        const ctx = this.transform?.view3D?.engine3D?.context3D;
+        if (!ctx) return;
+
         if (this._geometry && this._materials.length > 0) {
             for (let j = 0; j < this._materials.length; j++) {
                 const material = this._materials[j];
@@ -271,6 +320,7 @@ export class RenderNode extends ComponentBase {
                     const pass = passList[i];
                     // let shader = RenderShader.getShader(pass.instanceID);
                     if (!pass.shaderReflection) {
+                        bindCtx(pass, ctx);
                         pass.preCompile(this._geometry);
                     }
                     this._geometry.generate(pass.shaderReflection);
@@ -308,14 +358,12 @@ export class RenderNode extends ComponentBase {
             }
         }
 
-        // if (this.castShadow) {
         for (let i = 0; i < this.materials.length; i++) {
             const mat = this.materials[i];
             if (mat.castShadow) {
                 PassGenerate.createShadowPass(this, mat.shader);
             }
         }
-        // }
 
         if (this.castReflection) {
             for (let i = 0; i < this.materials.length; i++) {
@@ -326,9 +374,9 @@ export class RenderNode extends ComponentBase {
             }
         }
 
-        // add if alpha == 1
         let ignoreDepthPass = RendererMaskUtil.hasMask(this.rendererMask, RendererMask.IgnoreDepthPass);
-        if (!ignoreDepthPass && Engine3D.setting.render.zPrePass) {
+        const zPrePass = this.transform.view3D?.engine3D?.setting.render.zPrePass ?? false;
+        if (!ignoreDepthPass && zPrePass) {
             for (let i = 0; i < this.materials.length; i++) {
                 const mat = this.materials[i];
                 PassGenerate.createDepthPass(this, mat.shader);
@@ -337,6 +385,26 @@ export class RenderNode extends ComponentBase {
             for (let i = 0; i < this.materials.length; i++) {
                 const mat = this.materials[i];
                 mat.shader.removeShaderByIndex(PassType.DEPTH, 0);
+            }
+        }
+
+        // P2: WBOIT pass generation for materials marked
+        // `oitMode === 'weighted'`. Only meaningful when the engine
+        // has `setting.render.useOIT === true` — otherwise the
+        // TransparentOITFeature isn't in the graph and the generated
+        // pass would never run. Generation still happens unconditionally
+        // (cheap, idempotent) so flipping useOIT at runtime in dev
+        // tooling doesn't require re-creating materials.
+        for (let i = 0; i < this.materials.length; i++) {
+            const mat = this.materials[i];
+            if (mat.oitMode === 'weighted') {
+                PassGenerate.createOITPass(this, mat.shader);
+            } else if (mat.oitMode === 'depth-peel') {
+                // Dual Depth Peeling derived passes (3 sub-pass types
+                // per material: depth peel / front color / back color).
+                // Same lazy/idempotent contract as createOITPass — call
+                // costs nothing once the passes exist.
+                PassGenerate.createDepthPeelPasses(this, mat.shader);
             }
         }
     }
@@ -349,6 +417,24 @@ export class RenderNode extends ComponentBase {
     public set castShadow(value: boolean) {
         this._castShadow = value;
     }
+
+    /**
+     * Shadow cache classification.
+     *
+     * - `'auto'` (default): renderer is drawn to the shadow map every frame
+     *   as part of the single-pass render — matches historical behaviour.
+     * - `'static'`: renderer is drawn only to the cached static depth layer,
+     *   rebuilt lazily when the light moves or the scene explicitly marks
+     *   the static cache dirty. Use for buildings, terrain, prop meshes that
+     *   don't move.
+     * - `'dynamic'`: renderer is drawn every frame on top of the copied-in
+     *   static layer. Use for characters, physics objects, anything that
+     *   moves.
+     *
+     * Only consulted when `engine.setting.shadow.enableStaticCache === true`;
+     * otherwise all renderers behave as `'auto'`.
+     */
+    public shadowCacheMode: 'auto' | 'static' | 'dynamic' = 'auto';
 
     @EditorInspector
     public get castGI(): boolean {
@@ -372,9 +458,10 @@ export class RenderNode extends ComponentBase {
             return;
         let renderNode = this;
         let worldMatrix = renderNode.transform._worldMatrix;
+        const gpu = view.engine3D.context3D.gpuContext;
 
         const nCount = Math.max(renderNode.materials.length, renderNode._geometry.subGeometries.length);
-        
+
         for (let i = 0; i < nCount; i++) {
             const material = i >= renderNode.materials.length ? renderNode.materials[0] : renderNode.materials[i];
             if (!material || !material.enable)
@@ -385,7 +472,7 @@ export class RenderNode extends ComponentBase {
             if (!passes || passes.length == 0)
                 continue;
 
-            GPUContext.bindGeometryBuffer(renderContext.encoder, renderNode._geometry);
+            gpu.bindGeometryBuffer(renderContext.encoder, renderNode._geometry);
             ProfilerUtil.viewCount_vertex(view, PassType[passType], renderNode._geometry.vertexCount);
 
             for (let j = 0; j < passes.length; j++) {
@@ -401,14 +488,14 @@ export class RenderNode extends ComponentBase {
                 if (renderShader.pipeline) {
                     if (renderShader.shaderState.splitTexture) {
                         renderContext.endRenderPass();
-                        RTResourceMap.WriteSplitColorTexture(renderNode.instanceID);
+                        RTResourceMap.WriteSplitColorTexture(view.engine3D.context3D, renderNode.instanceID);
                         renderContext.beginOpaqueRenderPass();
 
-                        GPUContext.bindCamera(renderContext.encoder, view.camera);
-                        GPUContext.bindGeometryBuffer(renderContext.encoder, renderNode._geometry);
+                        gpu.bindCamera(renderContext.encoder, view.camera);
+                        gpu.bindGeometryBuffer(renderContext.encoder, renderNode._geometry);
                     }
 
-                    let noneShare = GPUContext.bindPipeline(renderContext.encoder, renderShader);
+                    let noneShare = gpu.bindPipeline(renderContext.encoder, renderShader);
                     if (noneShare) {
                         ProfilerUtil.viewCount_pipeline(view, PassType[passType]);
                     }
@@ -420,11 +507,11 @@ export class RenderNode extends ComponentBase {
                         ProfilerUtil.viewCount_instance(view, PassType[passType], renderNode.instanceCount);
                         ProfilerUtil.viewCount_indices(view, PassType[passType], lodInfo.indexCount);
                         ProfilerUtil.viewCount_tri(view, PassType[passType], lodInfo.indexCount / 3 * renderNode.instanceCount);
-                        GPUContext.drawIndexed(renderContext.encoder, lodInfo.indexCount, renderNode.instanceCount, lodInfo.indexStart, 0, 0);
+                        gpu.drawIndexed(renderContext.encoder, lodInfo.indexCount, renderNode.instanceCount, lodInfo.indexStart, 0, 0);
                     } else {
                         ProfilerUtil.viewCount_indices(view, PassType[passType], lodInfo.indexCount);
                         ProfilerUtil.viewCount_tri(view, PassType[passType], lodInfo.indexCount / 3);
-                        GPUContext.drawIndexed(renderContext.encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);
+                        gpu.drawIndexed(renderContext.encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);
                     }
                     ProfilerUtil.viewCount_draw(view, PassType[passType],);
                 }
@@ -447,36 +534,46 @@ export class RenderNode extends ComponentBase {
 
         let node = this;
         let worldMatrix = node.object3D.transform._worldMatrix;
-        for (let i = 0; i < this.materials.length; i++) {
-            const material = this.materials[i];
+        const gpu = view.engine3D.context3D.gpuContext;
+        // Iterate by the larger of materials/subGeometries so that
+        // single-material geometries with multiple subGeometries (e.g.
+        // CylinderGeometry's torso + two caps) draw every sub-mesh.
+        // Reusing materials[0] mirrors the legacy `renderPass` path.
+        const subGeometries = node._geometry.subGeometries;
+        const nCount = Math.max(this.materials.length, subGeometries.length);
+        for (let i = 0; i < nCount; i++) {
+            const material = i >= this.materials.length ? this.materials[0] : this.materials[i];
             if (!material.castShadow && passType == PassType.SHADOW)
                 continue;
             // material.applyUniform();
             let passes = material.getPass(passType);
             if (!passes || passes.length == 0)
-                return;
+                continue;
 
             if (this.drawType == 2) {
                 for (let matPass of passes) {
                     // if (!matPass.enable)
                     //     continue;
                     if (matPass.pipeline) {
-                        GPUContext.bindPipeline(encoder, matPass);
-                        GPUContext.draw(encoder, 6, 1, 0, worldMatrix.index);
+                        gpu.bindPipeline(encoder, matPass);
+                        gpu.draw(encoder, 6, 1, 0, worldMatrix.index);
                     }
                 }
             } else {
-                GPUContext.bindGeometryBuffer(encoder, node._geometry);
+                gpu.bindGeometryBuffer(encoder, node._geometry);
                 for (let matPass of passes) {
                     // if (!matPass.enable)
                     //     continue;
                     if (matPass.pipeline) {
-                        GPUContext.bindPipeline(encoder, matPass);
-                        let subGeometries = node._geometry.subGeometries;
-                        const subGeometry = subGeometries[i];
+                        gpu.bindPipeline(encoder, matPass);
+                        const subGeometry = i >= subGeometries.length ? subGeometries[0] : subGeometries[i];
                         let lodInfos = subGeometry.lodLevels;
                         let lodInfo = lodInfos[node.lodLevel];
-                        GPUContext.drawIndexed(encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);
+                        if (this.instanceCount > 0) {
+                            gpu.drawIndexed(encoder, lodInfo.indexCount, this.instanceCount, lodInfo.indexStart, 0, 0);
+                        } else {
+                            gpu.drawIndexed(encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);
+                        }
                     }
                 }
             }
@@ -491,21 +588,26 @@ export class RenderNode extends ComponentBase {
         // this.nodeUpdate(view, passType, rendererPassState, clusterLightingBuffer);
 
         let node = this;
-        for (let i = 0; i < this.materials.length; i++) {
-            let material = this.materials[i];
+        const gpu = view.engine3D.context3D.gpuContext;
+        // See renderPass2 above — iterate by max(materials, subGeometries)
+        // so cap subGeometries on single-material meshes still get recorded
+        // into the bundle (otherwise the shadow bundle path misses them).
+        const subGeometries = node._geometry.subGeometries;
+        const nCount = Math.max(this.materials.length, subGeometries.length);
+        for (let i = 0; i < nCount; i++) {
+            const material = i >= this.materials.length ? this.materials[0] : this.materials[i];
 
             let passes = material.getPass(passType);
-            if (!passes || passes.length == 0) return;
+            if (!passes || passes.length == 0) continue;
 
             let worldMatrix = node.object3D.transform._worldMatrix;
             for (let j = 0; j < passes.length; j++) {
                 const renderShader = passes[j];
-                GPUContext.bindPipeline(encoder, renderShader);
-                let subGeometries = node._geometry.subGeometries;
-                const subGeometry = subGeometries[i];
+                gpu.bindPipeline(encoder, renderShader);
+                const subGeometry = i >= subGeometries.length ? subGeometries[0] : subGeometries[i];
                 let lodInfos = subGeometry.lodLevels;
                 let lodInfo = lodInfos[node.lodLevel];
-                GPUContext.drawIndexed(encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);
+                gpu.drawIndexed(encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);
             }
         }
     }
@@ -536,7 +638,7 @@ export class RenderNode extends ComponentBase {
                     const renderShader = pass;
 
                     if (renderShader.shaderState.splitTexture) {
-                        let splitTexture = RTResourceMap.CreateSplitTexture(node.instanceID);
+                        let splitTexture = RTResourceMap.CreateSplitTexture(view.engine3D.context3D, node.instanceID);
                         renderShader.setTexture("splitTexture_Map", splitTexture);
                     }
 
@@ -551,32 +653,59 @@ export class RenderNode extends ComponentBase {
                     // }
 
                     let reflectionEntries = GlobalBindGroup.getReflectionEntries(view.scene);
-                    if (!renderShader.reflectionMap && reflectionEntries && reflectionEntries.reflectionMap) {
-                        renderShader.setTexture(`reflectionMap`, reflectionEntries.reflectionMap);
-                        renderShader.setStorageBuffer(`reflectionBuffer`, reflectionEntries.storageGPUBuffer);
+                    if (reflectionEntries && reflectionEntries.reflectionMap) {
+                        // Set the texture and the storage-buffer
+                        // independently. The previous gating
+                        // `if (!renderShader.reflectionMap)` skipped
+                        // BOTH whenever the texture was already set.
+                        // For derived passes (e.g. an OIT pass whose
+                        // texture clone in createOITPass copied the
+                        // reflectionMap reference), the gate flipped
+                        // false and the storage buffer never got bound
+                        // → reBuild's getGroupLayout crashed reading
+                        // `reflectionBuffer`. Each binding is now
+                        // gated only on its own state.
+                        if (!renderShader.reflectionMap) {
+                            renderShader.setTexture(`reflectionMap`, reflectionEntries.reflectionMap);
+                        }
+                        if (!renderShader.getStorageBuffer(`reflectionBuffer`)) {
+                            renderShader.setStorageBuffer(`reflectionBuffer`, reflectionEntries.storageGPUBuffer);
+                        }
                     }
 
                     if (renderShader.pipeline) {
-                        renderShader.apply(node._geometry, renderPassState, () => node.noticeShaderChange());
+                        renderShader.apply(view.engine3D.context3D, node._geometry, renderPassState, () => node.noticeShaderChange());
                         continue;
                     }
 
-                    let bdrflutTex = Engine3D.res.getTexture(`BRDFLUT`);
+                    let bdrflutTex = Engine3D.resFor(view.engine3D?.context3D).getTexture(`BRDFLUT`);
                     renderShader.setTexture(`brdflutMap`, bdrflutTex);
 
-                    let shadowRenderer = Engine3D.getRenderJob(view).shadowMapPassRenderer;
-                    if (shadowRenderer && shadowRenderer.depth2DArrayTexture) {
-                        renderShader.setTexture(`shadowMap`, Engine3D.getRenderJob(view).shadowMapPassRenderer.depth2DArrayTexture);
+                    // v2 shadow map binding: read the depth-array textures
+                    // through the graph pool. The legacy paths
+                    // `renderJob.shadowMapPassRenderer / pointLightShadowRenderer`
+                    // were v1 ForwardRenderJob fields that no longer exist
+                    // after the v2 rewrite — leaving them in place silently
+                    // skipped the setTexture calls so the lit pipeline's
+                    // bind group came up 2 entries short of its layout
+                    // ("BindGroupLayout 26 vs 24" errors at first frame).
+                    const graph = view.renderGraph;
+                    if (graph) {
+                        if (graph.pool.has('_MainShadowMap')) {
+                            const depth2DArrayTexture = graph.pool.get('_MainShadowMap');
+                            if (depth2DArrayTexture) {
+                                renderShader.setTexture(`shadowMap`, depth2DArrayTexture as any);
+                            }
+                        }
+                        if (graph.pool.has('_PointShadowCubeArray')) {
+                            const cubeArrayTexture = graph.pool.get('_PointShadowCubeArray');
+                            if (cubeArrayTexture) {
+                                renderShader.setTexture(`pointShadowMap`, cubeArrayTexture as any);
+                            }
+                        }
                     }
-                    // let shadowLight = ShadowLights.list;
-                    // if (shadowLight.length) {
-                    let pointShadowRenderer = Engine3D.getRenderJob(view).pointLightShadowRenderer;
-                    if (pointShadowRenderer && pointShadowRenderer.cubeArrayTexture) {
-                        renderShader.setTexture(`pointShadowMap`, pointShadowRenderer.cubeArrayTexture);
-                    }
-                    // }
 
-                    let iesTexture = IESProfiles.iesTexture;
+                    let iesTexture = IESProfilesPool.for(view.engine3D.context3D).iesTexture;
                     if (iesTexture) {
                         renderShader.setTexture(`iesTextureArrayMap`, iesTexture);
                     }
@@ -601,7 +730,7 @@ export class RenderNode extends ComponentBase {
                         renderShader.setStorageBuffer(`clusterBuffer`, clusterLightingBuffer.clusterBuffer);
                     }
 
-                    renderShader.apply(node._geometry, renderPassState);
+                    renderShader.apply(view.engine3D.context3D, node._geometry, renderPassState);
 
                     this._passInit.set(passType, true);
                 }
@@ -610,9 +739,14 @@ export class RenderNode extends ComponentBase {
     }
 
     public beforeDestroy(force?: boolean) {
-        Reference.getInstance().detached(this._geometry, this);
-        if (!Reference.getInstance().hasReference(this._geometry)) {
-            this._geometry.destroy(force);
+        // SkyRenderer (and subclasses like AtmosphericComponent) build their
+        // geometry lazily in onEnable(), so removing the component before the
+        // render loop starts leaves `_geometry` undefined here.
+        if (this._geometry) {
+            Reference.getInstance().detached(this._geometry, this);
+            if (!Reference.getInstance().hasReference(this._geometry)) {
+                this._geometry.destroy(force);
+            }
         }
 
         for (let i = 0; i < this._materials.length; i++) {

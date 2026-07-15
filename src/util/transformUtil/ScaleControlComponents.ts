@@ -5,13 +5,20 @@ import { Object3D } from "../../core/entities/Object3D";
 import { GPUCompareFunction } from "../../gfx/graphics/webGpu/WebGPUConst";
 import { UnLitMaterial } from "../../materials/UnLitMaterial";
 import { Color } from "../../math/Color";
+import { Matrix4 } from "../../math/Matrix4";
 import { Vector3 } from "../../math/Vector3";
 import { BoxGeometry } from "../../shape/BoxGeometry";
 import { TransformAxisEnum } from "./TransformAxisEnum";
 import { TransformControllerBaseComponent } from "./TransformControllerBaseComponent";
 
+/**
+ * Scale gizmo controller. Builds the axis and uniform (XYZ) scale handles
+ * and applies scaling to the target in local or global space.
+ * @group Util
+ */
 export class ScaleControlComponents extends TransformControllerBaseComponent {
 
+    /** Build the scale handles, including the central uniform-scale box. */
     public init(param?: any): void {
         super.init(param);
 
@@ -37,6 +44,7 @@ export class ScaleControlComponents extends TransformControllerBaseComponent {
         this.mAxisCollider[TransformAxisEnum.XYZ] = boxXYZ.getComponent(ColliderComponent);
     }
 
+    /** Apply scaling in the target's local space for the active axis. */
     protected applyLocalTransform(currentAxis: TransformAxisEnum, offset: Vector3, distance: number) {
         switch (this.currentAxis) {
             case TransformAxisEnum.XYZ:
@@ -58,7 +66,7 @@ export class ScaleControlComponents extends TransformControllerBaseComponent {
                 break;
             default:
                 {
-                    this.mX.transform.worldMatrix.transformVector(offset, offset);
+                    Matrix4.transformVector(this.mX.transform.worldMatrix, offset, offset);
 
                     if (this.currentAxis == TransformAxisEnum.X || this.currentAxis == TransformAxisEnum.XY || this.currentAxis == TransformAxisEnum.XZ) {
                         this.mX.scaleX = Math.abs(this.mX.scaleX + offset.x);
@@ -74,6 +82,7 @@ export class ScaleControlComponents extends TransformControllerBaseComponent {
         }
     }
 
+    /** Apply scaling in world space for the active axis. */
     protected applyGlobalTransform(currentAxis: TransformAxisEnum, offset: Vector3, distance: number) {
         let value = Vector3.HELP_0;
         value.set(0, 0, 0);
@@ -88,12 +97,13 @@ export class ScaleControlComponents extends TransformControllerBaseComponent {
             value.z = offset.z;
         }
 
-        this.mX.transform.worldMatrix.transformVector(value, Vector3.HELP_1);
+        Matrix4.transformVector(this.mX.transform.worldMatrix, value, Vector3.HELP_1);
         this.mX.scaleX += Vector3.HELP_1.x;
         this.mX.scaleY += Vector3.HELP_1.y;
         this.mX.scaleZ += Vector3.HELP_1.z;
     }
 
+    /** Build the visual handle for one scale axis (shaft plus end box). */
     protected createCustomAxis(axis: TransformAxisEnum): Object3D {
         let axisObj = super.createAxis(axis);
 
@@ -103,6 +113,7 @@ export class ScaleControlComponents extends TransformControllerBaseComponent {
         return axisObj;
     }
 
+    /** Create the box cap mesh at the end of one scale axis. */
     protected createBox(axis: TransformAxisEnum): Object3D {
         let r = 0, g = 0, b = 0;
 

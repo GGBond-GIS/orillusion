@@ -1,19 +1,26 @@
-import { test, expect, end, delay } from '../util'
-import { Camera3D, CameraUtil, Engine3D, GTAOPost, Object3D, PostProcessingComponent, Scene3D, View3D } from '@orillusion/core';
+import { test, expect, end, waitUntil } from '../util'
+import { CameraUtil, Engine3D, GTAOPost, PostProcessingComponent, Scene3D, View3D } from '@orillusion/core';
 
 await test('Post GTAOPost test', async () => {
-    await Engine3D.init();
-    Engine3D.frameRate = 2;
+    const engine = await Engine3D.init();
 
     let view = new View3D();
     view.scene = new Scene3D();
     view.camera = CameraUtil.createCamera3DObject(view.scene, "camera");
-    Engine3D.startRenderViews([view]);
+    engine.startRenderViews([view]);
 
     let postProcessing = view.scene.addComponent(PostProcessingComponent);
     let gtao = postProcessing.addPost(GTAOPost);
-    await delay(500)
-    let dest = Math.floor(window.innerWidth * window.devicePixelRatio);
+    // gtaoTexture is created lazily inside GTAOPost.render() on the
+    // first PostRenderer iteration, which only runs after the RAF
+    // loop has completed one frame AND the compute-shader pipeline
+    // has compiled. Under full-suite CI load (adapter busy from the
+    // previous 5 engines + shader cache cold) 5 s wasn't always
+    // enough on Mac Metal — the test passed in isolation but failed
+    // when queued after Light_*/Component tests. Bump to 15 s to
+    // cover worst-case driver compile latency.
+    await waitUntil(() => gtao.gtaoTexture, 15000)
+    let dest = engine.context3D.presentationSize[0];
     let src = gtao.gtaoTexture?.width;
     expect(src).tobe(dest)
     Engine3D.pause()

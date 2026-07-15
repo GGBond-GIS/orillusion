@@ -80,7 +80,13 @@ export class InputSystem extends CEventDispatcher {
     protected _keyEvent3d: KeyEvent;
     protected _pointerEvent3D: PointerEvent3D;
     protected _windowsEvent3d: CEvent;
+    /** Whether pointer lock is currently active. */
     mouseLock: boolean = false;
+
+    private _wheelHandler: ((e: WheelEvent) => void) | null = null;
+    private _keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+    private _keyUpHandler: ((e: KeyboardEvent) => void) | null = null;
+    private _mouseLockHandler: ((e: MouseEvent) => void) | null = null;
 
     /**
      * init the input system
@@ -123,11 +129,12 @@ export class InputSystem extends CEventDispatcher {
         //     this.mouseEnd(ev);
         // }
 
-        canvas.addEventListener(`wheel`, (e: WheelEvent) => this.mouseWheel(e), { passive: false });
-
-        window.addEventListener('keydown', (e: KeyboardEvent) => this.keyDown(e), true);
-
-        window.addEventListener('keyup', (e: KeyboardEvent) => this.keyUp(e), true);
+        this._wheelHandler = (e: WheelEvent) => this.mouseWheel(e);
+        this._keyDownHandler = (e: KeyboardEvent) => this.keyDown(e);
+        this._keyUpHandler = (e: KeyboardEvent) => this.keyUp(e);
+        canvas.addEventListener(`wheel`, this._wheelHandler, { passive: false });
+        window.addEventListener('keydown', this._keyDownHandler, true);
+        window.addEventListener('keyup', this._keyUpHandler, true);
 
         canvas.oncontextmenu = function () {
             return false;
@@ -147,17 +154,60 @@ export class InputSystem extends CEventDispatcher {
         this._windowsEvent3d = new CEvent();
     }
 
+    /**
+     * Detach every listener this InputSystem installed (window keyboard
+     * listeners + canvas pointer/wheel handlers). Idempotent. Called by
+     * `Engine3D.dispose()` — without it, every disposed engine leaks a
+     * pair of window-level keydown/keyup listeners that still reference
+     * the engine's scene graph.
+     */
+    public dispose() {
+        if (this._keyDownHandler) {
+            window.removeEventListener('keydown', this._keyDownHandler, true);
+            this._keyDownHandler = null;
+        }
+        if (this._keyUpHandler) {
+            window.removeEventListener('keyup', this._keyUpHandler, true);
+            this._keyUpHandler = null;
+        }
+        if (this._mouseLockHandler) {
+            document.removeEventListener('mousemove', this._mouseLockHandler, false);
+            this._mouseLockHandler = null;
+        }
+        if (this.canvas) {
+            if (this._wheelHandler) this.canvas.removeEventListener('wheel', this._wheelHandler);
+            this.canvas.onpointerdown = null;
+            this.canvas.onpointerup = null;
+            this.canvas.onpointerenter = null;
+            this.canvas.onpointermove = null;
+            this.canvas.onpointercancel = null;
+            this.canvas.oncontextmenu = null;
+        }
+        this._wheelHandler = null;
+        this.canvas = null;
+    }
+
+    /** Request pointer lock on the canvas and start tracking locked mouse movement. */
     public useMouseLock() {
         if (this.mouseLock) return;
         this.canvas.requestPointerLock();
         this.mouseLock = true;
-        document.addEventListener("mousemove", (e) => this.onMouseLockMove(e), false);
+        // Save the bound handler so releaseMouseLock can actually remove it.
+        // A fresh arrow in addEventListener/removeEventListener produces two
+        // distinct function identities, so removeEventListener would no-op
+        // and the InputSystem would leak via document's listener list.
+        this._mouseLockHandler = (e) => this.onMouseLockMove(e);
+        document.addEventListener("mousemove", this._mouseLockHandler, false);
     }
 
+    /** Exit pointer lock and stop tracking locked mouse movement. */
     public releaseMouseLock() {
         this.mouseLock = false;
         document.exitPointerLock();
-        document.removeEventListener("mousemove", (e) => this.onMouseLockMove(e), false);
+        if (this._mouseLockHandler) {
+            document.removeEventListener("mousemove", this._mouseLockHandler, false);
+            this._mouseLockHandler = null;
+        }
     }
 
     public onMouseLockMove(e: MouseEvent) {

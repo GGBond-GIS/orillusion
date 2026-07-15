@@ -36,8 +36,15 @@ export let ParticleRenderShader = /* wgsl */ `
                 vec4<f32>(0.0, 0.0, 1.0, 0.0),
                 vec4<f32>(0.0, 0.0, 0.0, 1.0)
             );
+            if (globalUniform.useRTE != 0) {
+                let rtePos = SubtractSplitDoubles(vec3f(0, 0, 0), vec3f(0, 0, 0), globalUniform.cameraPositionH, globalUniform.cameraPositionL);
+                ORI_MATRIX_M[3] = vec4<f32>(rtePos, 1.0);
+            }
         } else {
             ORI_MATRIX_M = models.matrix[particleGlobalData.instance_index];
+            if (globalUniform.useRTE != 0) {
+                UpdateWorldMatrixToRTE_PrivatePtr(u32(particleGlobalData.instance_index), &ORI_MATRIX_M);
+        }
         }
 
         var vertexPosition = vertex.position;
@@ -65,6 +72,10 @@ export let ParticleRenderShader = /* wgsl */ `
         var worldPos = (ORI_MATRIX_M * vec4<f32>(vertexPosition.xyz, 1.0));
         var viewPosition = ORI_MATRIX_V * worldPos;
         var clipPosition = ORI_MATRIX_P * viewPosition;
+
+        #if USE_LOGDEPTH
+            clipPosition.z = log2Depth(clipPosition.w, globalUniform.near, globalUniform.far);
+        #endif
 
         let size = vec2<u32>(particleGlobalData.textureSheet_TextureWidth, particleGlobalData.textureSheet_TextureHeight);
         let frame: u32 = particle.textureSheet_Frame;
@@ -111,10 +122,10 @@ export let ParticleRenderShader = /* wgsl */ `
             worldMatrix[1].xyz,
             worldMatrix[2].xyz
          );
-         let v3Look: vec3<f32> = normalize(dir * mat3);
-         let v3Right: vec3<f32> = normalize(cross(vec3<f32>( 0.0 , 1.0 , 0.0 ) * mat3, v3Look));
-         let v3Up: vec3<f32> = cross(v3Look, v3Right);
-         return mat3x3<f32>(v3Right, v3Up, v3Look);
+        let v3Look: vec3<f32> = normalize(dir * mat3);
+        let v3Right: vec3<f32> = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), v3Look));
+        let v3Up: vec3<f32> = cross(v3Look, v3Right);
+        return mat3x3<f32>(v3Right, v3Up, v3Look);
     }
 
     fn makeAxleRotationMatrix(axis: vec3<f32>, angle: f32) -> mat4x4<f32> {

@@ -13,6 +13,7 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
  * @class Sample_Shape3D
  */
 export class Sample_Shape3D {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     view: View3D;
@@ -23,10 +24,13 @@ export class Sample_Shape3D {
         Matrix4.maxCount = 10000;
         Matrix4.allocCount = 10000;
 
-        await Engine3D.init({ beforeRender: () => this.update() });
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            beforeRender: () => this.update(),
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         GUIHelp.init();
 
@@ -34,7 +38,7 @@ export class Sample_Shape3D {
         this.scene.addComponent(Stats);
         let sky = this.scene.addComponent(AtmosphericComponent);
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(0, -40, 40);
 
@@ -45,7 +49,7 @@ export class Sample_Shape3D {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
         await this.initScene();
 
@@ -86,18 +90,18 @@ export class Sample_Shape3D {
     private sphere: Object3D;
     private async addNode() {
         let texts = [];
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_0.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_1.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_2.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_3.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_4.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_5.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_6.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_7.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_8.png") as BitmapTexture2D);
-        texts.push(await Engine3D.res.loadTexture("textures/digit/digit_9.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_0.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_1.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_2.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_3.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_4.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_5.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_6.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_7.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_8.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/digit/digit_9.png") as BitmapTexture2D);
 
-        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length);
+        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length, this.engine.context3D);
         bitmapTexture2DArray.setTextures(texts);
 
         this.maker = Shape3DMaker.makeRenderer(`path`, bitmapTexture2DArray, this.scene);

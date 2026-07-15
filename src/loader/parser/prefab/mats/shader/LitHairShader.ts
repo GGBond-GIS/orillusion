@@ -9,6 +9,12 @@ import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 import { Hair_shader_op, Hair_shader_tr, RenderShaderPass, PassType } from "../../../../..";
 
 
+/**
+ * Internal hair shader used by the prefab material pipeline. Exposes
+ * Unity-style `_`-prefixed setters that the prefab parser writes decoded
+ * material properties into.
+ * @internal
+ */
 @RegisterShader
 export class LitHairShader extends Shader {
 

@@ -1,8 +1,16 @@
 import { Camera3D } from '../core/Camera3D';
 import { Object3D } from '../core/entities/Object3D';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { Matrix4 } from '../math/Matrix4';
 import { Vector3 } from '../math/Vector3';
+
+const ctxOf = (camera?: Camera3D): Context3D => {
+    const ctx = camera?._boundCtx ?? camera?.transform?.view3D?.engine3D?.context3D;
+    if (!ctx) {
+        throw new Error(`CameraUtil: camera has no bound Context3D. Attach the camera to a scene/view before projecting.`);
+    }
+    return ctx;
+};
 
 /**
  * Camera3D tool class
@@ -46,17 +54,18 @@ export class CameraUtil {
         let sc = 1;
         let ina: Vector3 = Vector3.HELP_0;
 
-        let ox = webGPUContext.canvas.offsetLeft;
-        let oy = webGPUContext.canvas.offsetTop;
-        let w = webGPUContext.canvas.clientWidth;
-        let h = webGPUContext.canvas.clientHeight;
+        let ctx = ctxOf(camera);
+        let ox = ctx.canvas.offsetLeft;
+        let oy = ctx.canvas.offsetTop;
+        let w = ctx.canvas.clientWidth;
+        let h = ctx.canvas.clientHeight;
         ina.x = (((mouse.x - ox) * sc) / w - 0.5) * 2;
         ina.y = -(((mouse.y - oy) * sc) / h - 0.5) * 2;
         ina.z = sZ;
 
         let outP = new Vector3(0, 0, 0);
         let projectWorld = Matrix4.helpMatrix2;
-        projectWorld.copyFrom(camera.projectionMatrix);
+        projectWorld.copy(camera.projectionMatrix);
         projectWorld.invert();
         let cameraToWorld = Matrix4.helpMatrix;
         cameraToWorld.identity();
@@ -76,14 +85,13 @@ export class CameraUtil {
     public static Projection(point: Vector3, camera: Camera3D, target?: Vector3) {
         let outP = target ? target : new Vector3(0, 0, 0);
         let cameraToWorld = Matrix4.helpMatrix;
-        cameraToWorld.copyFrom(camera.viewMatrix);
+        cameraToWorld.copy(camera.viewMatrix);
         cameraToWorld.multiply(camera.projectionMatrix);
         cameraToWorld.perspectiveMultiplyPoint3(point, outP);
 
-        // let ox = webGPUContext.canvas.offsetLeft;
-        // let oy = webGPUContext.canvas.offsetTop;
-        let w = webGPUContext.canvas.clientWidth / 2;
-        let h = webGPUContext.canvas.clientHeight / 2;
+        let ctx = ctxOf(camera);
+        let w = ctx.canvas.clientWidth / 2;
+        let h = ctx.canvas.clientHeight / 2;
 
         // let w = camera.viewPort.width / 2;
         // let h = camera.viewPort.height / 2;
@@ -104,13 +112,14 @@ export class CameraUtil {
     public static UnProjection2(sceneX: number, sceneY: number, z: number, camera: Camera3D, target: Vector3) {
         let outP = target ? target : new Vector3(0, 0, 0);
         let cameraToWorld = Matrix4.helpMatrix;
-        cameraToWorld.copyFrom(camera.pvMatrixInv);
+        cameraToWorld.copy(camera.pvMatrixInv);
 
         // let w = camera.viewPort.width / 2;
         // let h = camera.viewPort.height / 2;
 
-        let w = webGPUContext.canvas.clientWidth / 2;
-        let h = webGPUContext.canvas.clientHeight / 2;
+        let ctx = ctxOf(camera);
+        let w = ctx.canvas.clientWidth / 2;
+        let h = ctx.canvas.clientHeight / 2;
 
         outP.x = (sceneX - w) / w;
         outP.y = (h - sceneY) / h;

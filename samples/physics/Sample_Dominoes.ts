@@ -3,35 +3,41 @@ import { CollisionShapeUtil, Physics, Rigidbody } from "@orillusion/physics";
 import { Stats } from "@orillusion/stats";
 import dat from "dat.gui";
 import { Graphic3D } from '@orillusion/graphic'
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
+import { GUIUtil } from "@samples/utils/GUIUtil";
 
 /**
  * Sample class demonstrating the creation of a domino effect with physics interactions.
  */
 class Sample_Dominoes {
+    engine: Engine3D;
     async run() {
         // init physics and engine
-        await Physics.init({ useDrag: true });
-        await Engine3D.init({ renderLoop: () => Physics.update() });
+        await Physics.init();
+        this.engine = await Engine3D.init({ renderLoop: () => Physics.update() });
+        const engine = this.engine;
+        await GUIHelp.init();
 
         let scene = new Scene3D();
         scene.addComponent(Stats);
 
-        // 启用物理调试功能时，需要为绘制器传入graphic3D对象
+        // When enabling the physics debug drawer, a graphic3D object must be passed to it
         const graphic3D = new Graphic3D();
         scene.addChild(graphic3D);
         Physics.initDebugDrawer(graphic3D, { enable: false });
 
         let camera = CameraUtil.createCamera3DObject(scene);
-        camera.perspective(60, Engine3D.aspect, 0.1, 800.0);
+        camera.perspective(60, engine.aspect, 0.1, 800.0);
         camera.object3D.addComponent(HoverCameraController).setCamera(0, -32, 80);
 
         // Create directional light
         let lightObj3D = new Object3D();
-        lightObj3D.localPosition = new Vector3(0, 30, -40);
+        lightObj3D.localPosition = new Vector3(0, 56, 33);
         lightObj3D.localRotation = new Vector3(20, 160, 0);
         let directLight = lightObj3D.addComponent(DirectLight);
         directLight.castShadow = true;
         directLight.intensity = 2;
+        GUIUtil.renderDirLight(directLight);
         scene.addChild(lightObj3D);
 
         // init sky
@@ -41,7 +47,8 @@ class Sample_Dominoes {
         view.camera = camera;
         view.scene = scene;
 
-        Engine3D.startRenderView(view);
+        Physics.enableDragger(view);
+        engine.startRenderView(view);
 
         await this.initScene(scene);
 
@@ -107,7 +114,7 @@ class Sample_Dominoes {
         material.baseColor = new Color(0, 1, 0.5, 1.0);
         material.transparent = true;
 
-        let texture = new BitmapTexture2D();
+        let texture = new BitmapTexture2D(true, this.engine.context3D);
         texture.addressModeU = 'repeat';
         texture.addressModeV = 'repeat';
         await texture.load('https://cdn.orillusion.com/textures/grid.webp');

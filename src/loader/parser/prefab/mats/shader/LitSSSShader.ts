@@ -11,6 +11,12 @@ import { BlendMode } from "../../../../../materials/BlendMode";
 import { RenderShaderPass } from "../../../../../gfx/graphics/webGpu/shader/RenderShaderPass";
 
 
+/**
+ * Internal subsurface-scattering (SSS) lit shader used by the prefab material
+ * pipeline. Exposes Unity-style `_`-prefixed setters that the prefab parser
+ * writes decoded material properties into.
+ * @internal
+ */
 @RegisterShader
 export class LitSSSShader extends Shader {
 

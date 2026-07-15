@@ -1,5 +1,6 @@
 import { Camera3D } from "../../core/Camera3D";
 import { Transform } from "../Transform";
+import { IESProfiles } from "./IESProfiles";
 import { LightData } from "./LightData";
 
 export interface ILight {
@@ -12,4 +13,6 @@ export interface ILight {
     shadowIndex: number;
 
     shadowCamera?: Camera3D;
+
+    readonly iesProfile?: IESProfiles;
 }

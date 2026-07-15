@@ -1,6 +1,5 @@
 /**
  * @internal
- * @group Math
  */
 export class FrameCache {
     public index: number; //= lhsIndex;

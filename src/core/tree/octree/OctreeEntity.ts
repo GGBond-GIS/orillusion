@@ -1,6 +1,10 @@
 import { RenderNode } from "../../../components/renderer/RenderNode";
 import { Octree } from "./Octree";
 
+/**
+ * Wraps a renderer node as an entry stored inside an {@link Octree} cell.
+ * @internal
+ */
 export class OctreeEntity {
   public readonly renderer: RenderNode;
   public owner: Octree;

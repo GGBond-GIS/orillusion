@@ -1,7 +1,6 @@
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { GPUAddressMode, GPUTextureFormat } from '../gfx/graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
-import { GPUContext } from '../gfx/renderJob/GPUContext';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { UUID } from '../util/Global';
 import { CResizeEvent } from '..';
 /**
@@ -11,10 +10,14 @@ import { CResizeEvent } from '..';
  * @group Texture
  */
 export class RenderTexture extends Texture {
+    /** Resolve target view used when this render texture is multisampled. */
     public resolveTarget: GPUTextureView;
 
+    /** Number of MSAA samples; 0 means no multisampling. */
     sampleCount: number;
+    /** Whether the texture resizes automatically with the context. */
     autoResize?: boolean;
+    /** Whether the texture is cleared at the start of a render pass. */
     clear?: boolean;
     /**
      * create virtual texture
@@ -28,7 +31,8 @@ export class RenderTexture extends Texture {
         format: GPUTextureFormat = GPUTextureFormat.rgba8unorm,
         useMipMap: boolean = false, usage?: GPUFlagsConstant,
         numberLayer: number = 1, sampleCount: number = 0,
-        clear: boolean = true, autoResize: boolean = true) {
+        clear: boolean = true, autoResize: boolean = true,
+        ctx?: Context3D) {
 
         super(width, height, numberLayer);
         this.name = UUID();
@@ -46,10 +50,10 @@ export class RenderTexture extends Texture {
             this.usage = usage | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST;
         }
 
-        this.resize(width, height);
+        this.resize(width, height, ctx);
 
         if (this.autoResize) {
-            webGPUContext.addEventListener(CResizeEvent.RESIZE, (e) => {
+            this._boundCtx!.addEventListener(CResizeEvent.RESIZE, (e) => {
                 let { width, height } = e.data;
                 this.resize(width, height);
                 this._textureChange = true;
@@ -57,10 +61,17 @@ export class RenderTexture extends Texture {
         }
     }
 
-    public resize(width, height) {
-        let device = webGPUContext.device;
+    /**
+     * Recreate the GPU texture and sampler for the new size and current format.
+     * @param width new texture width
+     * @param height new texture height
+     * @param ctx optional graphics context to bind to
+     */
+    public resize(width, height, ctx?: Context3D) {
+        this._ensureBound(ctx);
+        let device = this._boundCtx!.device;
         if (this.gpuTexture) {
-            Texture.delayDestroyTexture(this.gpuTexture);
+            Texture.delayDestroyTexture(this._boundCtx!, this.gpuTexture);
             this.gpuTexture = null;
             this.view = null;
         }
@@ -84,12 +95,15 @@ export class RenderTexture extends Texture {
             this.samplerBindingLayout.type = `filtering`;
             this.sampler_comparisonBindingLayout.type = `comparison`;
             this.textureBindingLayout.sampleType = `depth`;
-            this.gpuSampler = webGPUContext.device.createSampler({});
-            this.gpuSampler_comparison = webGPUContext.device.createSampler({
+            this.gpuSampler = device.createSampler({});
+            this.gpuSampler_comparison = device.createSampler({
                 compare: 'less',
                 label: "sampler_comparison"
             });
-        } else if (this.format == GPUTextureFormat.depth24plus) {
+        } else if (this.format == GPUTextureFormat.depth24plus || this.format == GPUTextureFormat.depth24plus_stencil8 || this.format == GPUTextureFormat.depth32float_stencil8) {
+            // Combined depth+stencil formats sample as `depth` via a
+            // `aspect: 'depth-only'` view — callers that read the depth
+            // aspect get the same binding layout as depth-only formats.
             this.samplerBindingLayout = {
                 type: `filtering`,
             }
@@ -97,8 +111,8 @@ export class RenderTexture extends Texture {
                 type: 'comparison',
             }
             this.textureBindingLayout.sampleType = `depth`;
-            this.gpuSampler = webGPUContext.device.createSampler({});
-            this.gpuSampler_comparison = webGPUContext.device.createSampler({
+            this.gpuSampler = device.createSampler({});
+            this.gpuSampler_comparison = device.createSampler({
                 compare: 'less',
                 label: "sampler_comparison"
             });
@@ -120,6 +134,17 @@ export class RenderTexture extends Texture {
         }
 
         this._textureChange = true;
+        // resize() delay-destroys the old GPU texture and nulls the cached
+        // view, so every consumer that cached a bind group built from the
+        // previous view must rebind. Fire the state-change callbacks (the
+        // same path setTexture()/useMipmap use) so RenderShaderPass marks
+        // itself dirty and rebuilds its bind group from the new view next
+        // frame. Without this a material that bound this texture keeps
+        // submitting the destroyed old-size view — the "Destroyed texture
+        // [...] used in a submit" validation error seen after a window
+        // resize. During construction _stateChangeRef is empty, so the
+        // call is a no-op on the first resize from the ctor.
+        this.noticeChange();
     }
 
     /**
@@ -131,7 +156,7 @@ export class RenderTexture extends Texture {
     * @returns
     */
     public create(width: number, height: number, useMiamp: boolean = true) {
-        let device = webGPUContext.device;
+        let device = this._boundCtx!.device;
         const bytesPerRow = width * 4;
         let td = new Float32Array(width * height * 4);
 
@@ -141,7 +166,7 @@ export class RenderTexture extends Texture {
         });
 
         device.queue.writeBuffer(textureDataBuffer, 0, td);
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = this._boundCtx!.gpuContext.beginCommandEncoder();
         commandEncoder.copyBufferToTexture(
             {
                 buffer: textureDataBuffer,
@@ -157,19 +182,28 @@ export class RenderTexture extends Texture {
             },
         );
 
-        GPUContext.endCommandEncoder(commandEncoder);
+        this._boundCtx!.gpuContext.endCommandEncoder(commandEncoder);
     }
 
+    /**
+     * Create a copy of this render texture with the same configuration.
+     * @returns the cloned render texture
+     */
     public clone() {
         let texture = new RenderTexture(this.width, this.height, this.format, this.useMipmap, this.usage, this.numberLayer, this.sampleCount, this.clear, this.autoResize);
         texture.name = "clone_" + texture.name;
         return texture;
     }
 
+    /**
+     * Copy this texture's contents back into a CPU buffer.
+     * @returns the mapped array buffer of the texture data
+     */
     public readTextureToImage() {
-        let device = webGPUContext.device;
-        let w = webGPUContext.windowWidth;
-        let h = webGPUContext.windowHeight;
+        const ctx = this._boundCtx!;
+        let device = ctx.device;
+        let w = ctx.windowWidth;
+        let h = ctx.windowHeight;
         const bytesPerRow = w * 4;
         let td = new Float32Array(w * h * 4);
 
@@ -177,7 +211,7 @@ export class RenderTexture extends Texture {
             size: td.byteLength,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = ctx.gpuContext.beginCommandEncoder();
         commandEncoder.copyTextureToBuffer(
             {
                 texture: this.getGPUTexture()

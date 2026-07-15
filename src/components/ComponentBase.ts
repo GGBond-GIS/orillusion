@@ -2,12 +2,24 @@ import { View3D } from "../core/View3D";
 import { Object3D } from "../core/entities/Object3D";
 import { CEventDispatcher } from "../event/CEventDispatcher";
 import { ComponentCollect } from "../gfx/renderJob/collect/ComponentCollect";
+import { VisibleLayer } from "../gfx/renderJob/config/VisibleLayer";
+import { EditorInspector } from "../util/SerializeDecoration";
 import { IComponent } from "./IComponent";
 import { Transform } from "./Transform";
 
 /**
  * Components are used to attach functionality to object3D, it has an owner object3D.
  * The component can receive update events at each frame.
+ *
+ * Every component is automatically discoverable by type from any
+ * RenderGraphPass — or any other system that calls
+ * {@link ComponentCollect.collectByTypeLayered} — without having to
+ * route through {@link RenderNode}. Registration into the per-View
+ * type-keyed registry is driven directly from the enable/disable
+ * call sites (`set enable`, `__start`, `__stop`), so subclasses can
+ * freely override `onEnable` / `onDisable` without needing a `super`
+ * call to keep the registry in sync.
+ *
  * @group Components
  */
 export class ComponentBase implements IComponent {
@@ -15,6 +27,34 @@ export class ComponentBase implements IComponent {
      * owner object3D
      */
     public object3D: Object3D = null;
+
+    protected _visibleLayer: number = VisibleLayer.Default;
+
+    /**
+     * Composition-layer membership bitmask. The pass / camera /
+     * collector filters via
+     *
+     *     (component.visibleLayer & pass.layerMask & camera.cullingMask) !== 0
+     *
+     * Defaults to {@link VisibleLayer.Default} (bit 0) so a fresh
+     * subclass is visible to passes whose `layerMask` is
+     * {@link VisibleLayer.All} (which includes bit 0). Application code
+     * can assign project-specific bits (1..31) to organise the scene
+     * into composition layers.
+     */
+    @EditorInspector
+    public get visibleLayer(): number {
+        return this._visibleLayer;
+    }
+
+    public set visibleLayer(value: number) {
+        // Normalise to uint32 so bitwise ops behave predictably even
+        // when callers pass values produced by JS bit ops (which yield
+        // signed int32) or negative bit-AND tricks. EntityCollect's
+        // `getLayerLists` reads this field directly at pass-execute
+        // time, so a simple store is sufficient — no index to refresh.
+        this._visibleLayer = value >>> 0;
+    }
 
     /**
      * @internal
@@ -42,9 +82,12 @@ export class ComponentBase implements IComponent {
 
     /**
      * Return the Transform component attached to the Object3D.
+     * Null before the component is attached — `addComponent` assigns
+     * `object3D` only after construction — so constructor-time callers
+     * can probe safely via `this.transform?.`.
      */
     public get transform(): Transform {
-        return this.object3D.transform;
+        return this.object3D ? this.object3D.transform : null;
     }
 
     /**
@@ -53,10 +96,13 @@ export class ComponentBase implements IComponent {
     public set enable(value: boolean) {
         if (this._enable != value) {
             this._enable = value;
+            const view = this.transform.view3D;
             if (this._enable) {
-                this.onEnable?.(this.transform.view3D);
+                if (view) ComponentCollect.register(view, this.constructor, this);
+                this.onEnable?.(view);
             } else {
-                this.onDisable?.(this.transform.view3D);
+                if (view) ComponentCollect.unregister(view, this.constructor, this);
+                this.onDisable?.(view);
             }
         }
     }
@@ -74,7 +120,9 @@ export class ComponentBase implements IComponent {
 
     private __start() {
         if (this.transform && this.transform.scene3D && this._enable) {
-            this.onEnable?.(this.transform.view3D);
+            const view = this.transform.view3D;
+            if (view) ComponentCollect.register(view, this.constructor, this);
+            this.onEnable?.(view);
         }
         if (this.transform && this.transform.scene3D && this.__isStart == false) {
             this.start?.();
@@ -99,7 +147,9 @@ export class ComponentBase implements IComponent {
 
     private __stop() {
         if (this.transform && this.transform.scene3D) {
-            this.onDisable?.(this.transform.view3D);
+            const view = this.transform.view3D;
+            if (view) ComponentCollect.unregister(view, this.constructor, this);
+            this.onDisable?.(view);
         }
         this._onUpdate(null);
         this._onLateUpdate(null);

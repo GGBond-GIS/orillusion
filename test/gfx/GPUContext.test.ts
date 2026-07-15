@@ -1,9 +1,9 @@
 import { test, expect, end, delay } from '../util'
-import { webGPUContext } from '@orillusion/core';
+import { Engine3D } from '@orillusion/core';
 
 await test('GPUContext createIndexBuffer', async () => {
-    let suc = await webGPUContext.init();
-    expect(suc).toEqual(true);
+    const engine = await Engine3D.init();
+    expect(engine.context3D != null).toEqual(true);
 })
 
 setTimeout(end, 500)

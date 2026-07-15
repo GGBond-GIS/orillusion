@@ -13,6 +13,8 @@ import { GLTFSubParserSkeleton } from './GLTFSubParserSkeleton';
 import { GLTFSubParserConverter } from './GLTFSubParserConverter';
 import { PrefabAvatarData } from '../prefab/prefabData/PrefabAvatarData';
 import { PropertyAnimationClip } from '../../../math/AnimationCurveClip';
+import { Context3D } from '../../../gfx/graphics/webGpu/Context3D';
+import { Engine3D } from '../../../Engine3D';
 
 /**
  * @internal
@@ -21,6 +23,7 @@ export class GLTFSubParser {
     public currentSceneName: any;
     public gltf: GLTF_Info;
     public initUrl: string;
+    public ctx?: Context3D;
     private _generator: string;
     private _version: string;
     private _BASE64_MARKER = ';base64,';
@@ -31,7 +34,8 @@ export class GLTFSubParser {
     private _skeletonParser: GLTFSubParserSkeleton = null;
     private _converter: GLTFSubParserConverter = null;
 
-    constructor() {
+    constructor(ctx?: Context3D) {
+        this.ctx = ctx;
     }
 
     public get version() {
@@ -159,7 +163,7 @@ export class GLTFSubParser {
         return this._meshParser.parse(meshId);
     }
 
-    public async parseTexture(index: number) {
+    public async parseTexture(index: number, colorSpace: 'srgb' | 'linear' = 'linear') {
         let textureInfo = this.gltf.textures[index];
         if (textureInfo && !textureInfo.dtexture) {
             if (textureInfo && textureInfo.source != null) {
@@ -167,13 +171,32 @@ export class GLTFSubParser {
                 if (image.uri) {
                     let name = image.uri;
                     name = StringUtil.getURLName(name);
-                    textureInfo.dtexture = this.gltf.resources[name];
+                    let preloaded: BitmapTexture2D = this.gltf.resources[name];
+                    // External .gltf path: GLTFParser.load_gltf_textures
+                    // preloads images via FileLoader.loadAsyncBitmapTexture
+                    // which always materializes `rgba8unorm`. When this
+                    // role asks for `'srgb'`, the preloaded texture has
+                    // the wrong format — re-load via Res.loadTexture
+                    // (which keys the cache by url+colorSpace) so
+                    // baseColor / emissive get hardware sRGB decode.
+                    if (colorSpace === 'srgb' && preloaded && (preloaded as any).format !== 'rgba8unorm-srgb') {
+                        // The preloaded BitmapTexture2D's `url` field
+                        // already holds the resolved absolute URL (set
+                        // by GLTFParser.load_gltf_textures via
+                        // FileLoader.loadAsyncBitmapTexture). Falling
+                        // back to image.uri keeps the path working for
+                        // any preload variants that didn't set `url`.
+                        const url = preloaded.url ?? image.uri;
+                        textureInfo.dtexture = await Engine3D.resFor(this.ctx).loadTexture(url, undefined, undefined, 'srgb') as BitmapTexture2D;
+                    } else {
+                        textureInfo.dtexture = preloaded;
+                    }
                 } else if (image.bufferView) {
                     const name = image?.name;
                     let bitmapTexture: BitmapTexture2D = this.gltf.resources[name];
                     if (!bitmapTexture) {
                         let buffer = this.parseBufferView(image.bufferView);
-                        bitmapTexture = new BitmapTexture2D();
+                        bitmapTexture = new BitmapTexture2D(true, this.ctx, colorSpace);
                         let img = new Blob([buffer], { type: image.mimeType });
                         await bitmapTexture.loadFromBlob(img);
                     }

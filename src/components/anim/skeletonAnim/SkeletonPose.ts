@@ -52,7 +52,7 @@ export class SkeletonPose {
             let joint = new JointPose(jointIndex);
             const nParentIndex = this._skeleton.getJointParentIndex(jointIndex);
             if (nParentIndex < 0) {
-                joint.worldMatrix.copyFrom(localMatrix);
+                joint.worldMatrix.copy(localMatrix);
             } else {
                 let parentJoint = this._jointsPose[nParentIndex];
                 multiplyMatrices4x4REF(parentJoint.worldMatrix, localMatrix, joint.worldMatrix);
@@ -100,7 +100,7 @@ export class SkeletonPose {
             for (let index = 0; index < this._jointsPose.length; index++) {
                 let jointA = a._jointsPose[index];
                 let jointDst = this._jointsPose[index];
-                jointDst.worldMatrix.copyFrom(jointA.worldMatrix);
+                jointDst.worldMatrix.copy(jointA.worldMatrix);
             }
         }
     }
@@ -109,9 +109,9 @@ export class SkeletonPose {
     * Copy skeleton pose from other skeleton pose
     * @param other source skeleton pose
     */
-    public copyFrom(other: SkeletonPose) {
+    public copy(other: SkeletonPose) {
         for (let index = 0; index < this._jointsPose.length; index++) {
-            this._jointsPose[index].worldMatrix.copyFrom(other._jointsPose[index].worldMatrix)
+            this._jointsPose[index].worldMatrix.copy(other._jointsPose[index].worldMatrix)
         }
     }
 

@@ -82,10 +82,10 @@ export class MeshRenderer extends RenderNode {
             this.initPipeline();
 
             if (this._computes) {
-                this.onCompute = mergeFunctions(this.onCompute, () => {
+                this.onCompute = mergeFunctions(this.onCompute, (view: View3D) => {
                     for (let i = 0; i < this._computes.length; i++) {
                         const compute = this._computes[i];
-                        compute.onUpdate();
+                        compute.onUpdate(view);
                     }
                 });
             }
@@ -127,7 +127,7 @@ export class MeshRenderer extends RenderNode {
 
     public onCompute(view: View3D, command: GPUCommandEncoder): void {
         if (this.morphData && this.morphData.enable) {
-            this.morphData.computeMorphTarget(command);
+            this.morphData.computeMorphTarget(view, command);
         }
     }
 

@@ -3,20 +3,24 @@ import { createExampleScene } from "@samples/utils/ExampleScene";
 
 // Sample to load glb file
 export class Sample_LoadGLB3 {
+    engine: Engine3D;
     scene: Scene3D;
 
     async run() {
-        await Engine3D.init();
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.shadowBound = 5;
-        Engine3D.setting.shadow.shadowBias = 0.002;
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                },
+            },
+        });
 
-        let exampleScene = createExampleScene();
+        let exampleScene = createExampleScene(engine);
         this.scene = exampleScene.scene;
 
         exampleScene.hoverCtrl.setCamera(-45, -20, 8);
         exampleScene.light.intensity = 5;
-        Engine3D.startRenderView(exampleScene.view);
+        engine.startRenderView(exampleScene.view);
         await this.initScene();
     }
 
@@ -24,7 +28,7 @@ export class Sample_LoadGLB3 {
         /******** floor *******/
         // {
         //     let mat = new LitMaterial();
-        //     mat.baseMap = Engine3D.res.whiteTexture;
+        //     mat.baseMap = this.engine.res.whiteTexture;
         //     mat.roughness = 0.85;
         //     mat.metallic = 0.1;
         //     let floor = new Object3D();
@@ -35,7 +39,7 @@ export class Sample_LoadGLB3 {
         // }
 
         /******** load glb file *******/
-        let model = (await Engine3D.res.loadGltf('gltfs/glb/modelNew.glb', { onProgress: (e) => this.onLoadProgress(e), onComplete: (e) => this.onComplete(e) })) as Object3D;
+        let model = (await this.engine.res.loadGltf('gltfs/glb/modelNew.glb', { onProgress: (e) => this.onLoadProgress(e), onComplete: (e) => this.onComplete(e) })) as Object3D;
         this.scene.addChild(model);
         model.scaleX = model.scaleY = model.scaleZ = 0.001;
     }

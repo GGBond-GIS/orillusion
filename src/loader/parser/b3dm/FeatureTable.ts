@@ -1,5 +1,9 @@
 ﻿import { arrayToString } from './arrayToString.js';
 
+/**
+ * Reads typed feature data from a 3D Tiles feature table binary body.
+ * @internal
+ */
 export class FeatureTable {
     private buffer: any;
     private binOffset: any;
@@ -147,6 +151,10 @@ export class FeatureTable {
 
 }
 
+/**
+ * A feature table variant whose data lookups are sized by the batch length.
+ * @internal
+ */
 export class BatchTable extends FeatureTable {
     private batchSize: any;
 

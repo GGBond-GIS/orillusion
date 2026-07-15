@@ -8,6 +8,12 @@ import { RegisterShader } from "../../../../../util/SerializeDecoration";
 import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 
 
+/**
+ * Internal unlit shader used by the prefab material pipeline. Exposes
+ * Unity-style `_`-prefixed setters that the prefab parser writes decoded
+ * material properties into.
+ * @internal
+ */
 @RegisterShader
 export class UnLitShader extends Shader {
 

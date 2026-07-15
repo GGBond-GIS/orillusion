@@ -5,7 +5,9 @@ import { MathShader } from './math/MathShader';
 import { PhysicMaterialUniform_frag } from './materials/uniforms/PhysicMaterialUniform_frag';
 import { UnLitMaterialUniform_frag } from './materials/uniforms/UnLitMaterialUniform_frag';
 import { UnLit_frag } from './lighting/UnLit_frag';
-import { VertexAttributes_vert } from './core/struct/VertexAttributes';
+import { VertexAttributes, VertexAttributes_vert } from './core/struct/VertexAttributes';
+import { VertexOutput } from './core/struct/VertexOutput';
+import { VertexFunction_vert } from './core/base/VertexFunction_vert';
 import { VideoUniform_frag } from './materials/uniforms/VideoUniform_frag';
 import { IrradianceVolumeData_frag } from "./lighting/IrradianceVolumeData_frag";
 import { Inline_vert } from './core/inline/Inline_vert';
@@ -23,6 +25,11 @@ import { FragmentOutput } from './core/struct/FragmentOutput';
 import { ShadingInput } from './core/struct/ShadingInput';
 import { IESProfiles_frag } from './lighting/IESProfiles_frag';
 import { ShadowMapping_frag } from './materials/program/ShadowMapping_frag';
+import { ShadowCommon } from './shadow/ShadowCommon';
+import { PCF_frag } from './shadow/PCF_frag';
+import { CSM_frag } from './shadow/CSM_frag';
+import { DirectShadow_frag } from './shadow/DirectShadow_frag';
+import { PointShadow_frag } from './shadow/PointShadow_frag';
 import { Irradiance_frag } from './lighting/Irradiance_frag';
 import { BRDF_frag } from './lighting/BRDF_frag';
 import { BxDF_frag } from './lighting/BxDF_frag';
@@ -37,26 +44,31 @@ import { MatrixShader } from './math/MatrixShader';
 import { ClusterLight } from './core/struct/ClusterLight';
 import { Hair_frag } from './lighting/Hair_frag';
 import { BsDF_frag } from './lighting/BsDF_frag';
+import { AlphaHash_frag } from './lighting/AlphaHash_frag';
 import { UnLit } from './materials/UnLit';
+import { Sprite_shader } from './materials/Sprite_shader';
 import { Lambert_shader } from './materials/Lambert_shader';
 import { QuadGlsl_fs, QuadGlsl_vs } from './glsl/Quad_glsl';
 import { SkyGBuffer_pass } from './core/pass/SkyGBuffer_pass';
 import { GBuffer_pass } from './core/pass/GBuffer_pass';
 import { castPointShadowMap_vert, directionShadowCastMap_frag, shadowCastMap_frag, shadowCastMap_vert } from './core/pass/CastShadow_pass';
 import { ZPassShader_vs } from './core/pass/ZPassShader_vs';
-import { ZPassShader_fs } from './core/pass/ZPassShader_fs';
 import { BitUtil } from './utils/BitUtil';
 import { GBufferStand } from './core/common/GBufferStand';
 import { ReflectionShader_shader } from './materials/ReflectionShader_shader';
 import { ReflectionCG } from './env/ReflectionCG';
 import { SHCommon_frag } from './core/common/SHCommon_frag';
+import { EngineSetting } from '../../setting/EngineSetting';
+import { getLightData } from './core/struct/LightData';
+import { EarthSky_Shader } from './sky/EarthSky_Shader';
+import { EarthAtm_Shader } from './sky/EarthAtm_Shader';
 
 /**
  * @internal
  */
 export class ShaderLib {
 
-    public static init() {
+    public static init(seedSetting: EngineSetting) {
         ShaderLib.register('MathShader', MathShader);
         ShaderLib.register('FastMathShader', FastMathShader);
         ShaderLib.register("BitUtil", BitUtil);
@@ -65,7 +77,7 @@ export class ShaderLib {
 
         ShaderLib.register('MatrixShader', MatrixShader);
 
-        ShaderLib.register('GlobalUniform', GlobalUniform);
+        ShaderLib.register('GlobalUniform', GlobalUniform(seedSetting.shadow.maxShadowMapNum));
         ShaderLib.register('WorldMatrixUniform', WorldMatrixUniform);
         ShaderLib.register('NormalMap_frag', NormalMap_frag);
         ShaderLib.register('LightingFunction_frag', LightingFunction_frag);
@@ -76,6 +88,9 @@ export class ShaderLib {
 
         ShaderLib.register('InstanceUniform', InstanceUniform);
         ShaderLib.register('Inline_vert', Inline_vert);
+        ShaderLib.register('VertexAttributes', VertexAttributes);
+        ShaderLib.register('VertexOutput', VertexOutput);
+        ShaderLib.register('VertexFunction_vert', VertexFunction_vert);
         ShaderLib.register('VertexAttributes_vert', VertexAttributes_vert);
         ShaderLib.register('Common_vert', Common_vert);
 
@@ -83,10 +98,16 @@ export class ShaderLib {
         ShaderLib.register('FragmentVarying', FragmentVarying);
         ShaderLib.register('FragmentOutput', FragmentOutput);
 
+        ShaderLib.register('LightData', getLightData(seedSetting.shadow.maxCascades));
         ShaderLib.register('ClusterLight', ClusterLight);
         ShaderLib.register('ShadingInput', ShadingInput);
         ShaderLib.register('IESProfiles_frag', IESProfiles_frag);
 
+        ShaderLib.register('ShadowCommon', ShadowCommon);
+        ShaderLib.register('PCF_frag', PCF_frag);
+        ShaderLib.register('CSM_frag', CSM_frag);
+        ShaderLib.register('DirectShadow_frag', DirectShadow_frag);
+        ShaderLib.register('PointShadow_frag', PointShadow_frag);
         ShaderLib.register('ShadowMapping_frag', ShadowMapping_frag);
 
         ShaderLib.register('Irradiance_frag', Irradiance_frag);
@@ -99,8 +120,10 @@ export class ShaderLib {
         ShaderLib.register('Hair_frag', Hair_frag);
         ShaderLib.register('BxDF_frag', BxDF_frag);
         ShaderLib.register('BsDF_frag', BsDF_frag);
+        ShaderLib.register('AlphaHash_frag', AlphaHash_frag);
         ShaderLib.register('UnLit_frag', UnLit_frag);
         ShaderLib.register('UnLit', UnLit);
+        ShaderLib.register('Sprite', Sprite_shader);
 
         ShaderLib.register('ReflectionCG', ReflectionCG);
         ShaderLib.register('ReflectionShader_shader', ReflectionShader_shader);
@@ -117,6 +140,10 @@ export class ShaderLib {
         ShaderLib.register('Quad_depthCube_frag_wgsl', Quad_depthCube_frag_wgsl);
         ShaderLib.register('sky_vs_frag_wgsl', CubeSky_Shader.sky_vs_frag_wgsl);
         ShaderLib.register('sky_fs_frag_wgsl', CubeSky_Shader.sky_fs_frag_wgsl);
+        ShaderLib.register('earthsky_vs_wgsl', EarthSky_Shader.earthsky_vs_wgsl);
+        ShaderLib.register('earthsky_fs_wgsl', EarthSky_Shader.earthsky_fs_wgsl);
+        ShaderLib.register('earthatm_vs_wgsl', EarthAtm_Shader.earthatm_vs_wgsl);
+        ShaderLib.register('earthatm_fs_wgsl', EarthAtm_Shader.earthatm_fs_wgsl);
 
         ShaderLib.register("LambertShader", Lambert_shader);
 
@@ -135,13 +162,18 @@ export class ShaderLib {
         ShaderLib.register("directionShadowCastMap_frag", directionShadowCastMap_frag);
 
         ShaderLib.register("ZPass_shader_vs", ZPassShader_vs);
-        ShaderLib.register("ZPass_shader_fs", ZPassShader_fs);
     }
 
     public static register(keyName: string, code: string) {
-        if (!ShaderLib[keyName.toLowerCase()]) {
-            ShaderLib[keyName.toLowerCase()] = code;
-        }
+        // Always overwrite. Skipping on duplicate keys means vite HMR
+        // can't propagate edits to *_frag.ts shader strings — the new
+        // source gets re-imported, register() is called again with the
+        // updated code, but the old code stays cached. Subsequent
+        // preCompile reads the stale source. This produced the
+        // confusing "works only after toggle / hard refresh" symptom
+        // when the shader edit changed compositing behaviour
+        // (e.g. UnLit_frag's USE_OIT_ACCUM pre-mul branch).
+        ShaderLib[keyName.toLowerCase()] = code;
     }
 
     public static getShader(keyName: string): string {

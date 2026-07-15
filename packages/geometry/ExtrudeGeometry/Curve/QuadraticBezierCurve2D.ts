@@ -27,9 +27,9 @@ export class QuadraticBezierCurve2D extends Curve2D {
     }
 
     public copyFrom(other: QuadraticBezierCurve2D) {
-        this.v0.copyFrom(other.v0);
-        this.v1.copyFrom(other.v1);
-        this.v2.copyFrom(other.v2);
+        this.v0.copy(other.v0);
+        this.v1.copy(other.v1);
+        this.v2.copy(other.v2);
     }
 
     protected quadraticBezierP0(t: number, p: number) {

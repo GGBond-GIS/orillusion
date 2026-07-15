@@ -41,7 +41,22 @@ export let BxDF_frag: string = /*wgsl*/ `
 
       fragData.NoV = saturate(dot(fragData.N, fragData.V)) ;
 
-      fragData.F0 = mix(vec3<f32>(0.04), fragData.Albedo.rgb , fragData.Metallic);
+      // F0 derived from IOR via the Schlick approximation:
+      //   F0 = ((ior - 1) / (ior + 1))^2
+      // The standard KHR_materials_ior derivation. At the canonical
+      // ior=1.5 this collapses to 0.04 (the legacy hard-coded value),
+      // so existing demos that don't touch ior get unchanged visuals.
+      // Pulling ior down (water = 1.33, F0 ≈ 0.02) softens the rim
+      // Fresnel; pushing it up (sapphire / diamond, ior 1.77 / 2.42,
+      // F0 ≈ 0.077 / 0.17) lights it up. This is also why IOR has
+      // visible effect on a transmissive surface even at thickness=0
+      // — F0 governs the lit-signal Fresnel split between
+      // specular reflection and transmitted refraction.
+      // specularColor (KHR_materials_specular) modulates the result
+      // for non-physical hue tints (default white = no tint).
+      let iorF0 = pow((materialUniform.ior - 1.0) / max(materialUniform.ior + 1.0, 1e-4), 2.0);
+      let dielectricF0 = vec3<f32>(iorF0) * materialUniform.specularColor.rgb;
+      fragData.F0 = mix(dielectricF0, fragData.Albedo.rgb, fragData.Metallic);
       // fragData.F0 = gammaToLiner(fragData.F0);
       
       fragData.F = computeFresnelSchlick(fragData.NoV, fragData.F0);
@@ -140,6 +155,12 @@ export let BxDF_frag: string = /*wgsl*/ `
         indirectionSpec *= globalUniform.hdrExposure ;
       #endif
 
+      // Export the IBL specular term so material-level shaders can
+      // pull a *clean* highlight signal — used by PBRLitShader's
+      // transmission cutout path to preserve real highlights on top
+      // of refraction without doubling diffuse contribution.
+      fragData.Specular = indirectionSpec;
+
       var color = vec3f(iblDiffuseResult + indirectionSpec + specColor)  ;
       // var color = vec3f(indirectionDiffuse )  ;
 
@@ -180,31 +201,41 @@ export let BxDF_frag: string = /*wgsl*/ `
         color = clearCoatColor ;
       #endif
       
-        var retColor = (LinearToGammaSpace(color.rgb));
+        // Output linear HDR — the swapchain runs sRGB-srgb format
+        // so the GPU does the linear-to-sRGB encode on present.
+        // Doing both would double-encode (washed out). TonemapPost
+        // is the LDR clamp/curve before this.
+        var retColor = color.rgb;
         retColor += fragData.Emissive.xyz ;
 
-        var viewColor = vec4<f32>( retColor.rgb * fragData.Albedo.w, fragData.Albedo.a) ;
-
-        let finalMatrix = globalUniform.projMat * globalUniform.viewMat ;
-        let nMat = mat3x3<f32>(finalMatrix[0].xyz,finalMatrix[1].xyz,finalMatrix[2].xyz) ;
-        let ORI_NORMALMATRIX = transpose(inverse( nMat ));
+        // Engine-wide premultiplied-alpha convention: COLOR pass output is
+        // (rgb*alpha, alpha). BlendMode.NORMAL/ALPHA pair with srcFactor=one
+        // so the final blend is rgb*alpha + dst*(1-alpha). ADD pairs with
+        // (one, one) and transparent pixels zero out at source. OIT_DEPTH_PEEL
+        // sub-passes premultiply downstream in Common_frag, so emit
+        // straight-alpha there to avoid alpha^2.
+        var viewColorPremul = vec4<f32>( retColor.rgb * fragData.Albedo.w, fragData.Albedo.a) ;
 
         var vNormal = ORI_VertexVarying.vWorldNormal.rgb ;
 
         let gBuffer = packNHMDGBuffer(
-          ORI_VertexVarying.fragCoord.z,
+          getGBufferDepth(),
           fragData.Albedo.rgb,
-          viewColor.rgb,
+          viewColorPremul.rgb,
           vec3f(fragData.Roughness,fragData.Metallic,fragData.Ao),
           vNormal,
           fragData.Albedo.a
         ) ;
 
-        #if USE_CASTREFLECTION
-          ORI_FragmentOutput.gBuffer = gBuffer ;
+        #if USE_OIT_DEPTH_PEEL
+          ORI_FragmentOutput.color = viewColorPremul;
         #else
-          ORI_FragmentOutput.gBuffer = gBuffer ;
-          ORI_FragmentOutput.color = viewColor ;
+          #if USE_CASTREFLECTION
+            ORI_FragmentOutput.gBuffer = gBuffer;
+          #else
+            ORI_FragmentOutput.gBuffer = gBuffer;
+            ORI_FragmentOutput.color = viewColorPremul;
+          #endif
         #endif
   }
 

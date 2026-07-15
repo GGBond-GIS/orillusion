@@ -1,6 +1,9 @@
 import { Vector3 } from "../Vector3";
 import { Navi3DConst } from "./Navi3DConst";
 
+/**
+ * @internal
+ */
 export class Navi3DPoint extends Vector3 {
 
     public static CALC_VECTOR3D1: Vector3 = new Vector3();

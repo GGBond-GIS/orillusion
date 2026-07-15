@@ -1,18 +1,18 @@
 import { Color } from '../../math/Color';
 import { BlendMode } from '../BlendMode';
 import { Engine3D } from '../../Engine3D';
+import { Context3D } from '../../gfx/graphics/webGpu/Context3D';
 import { RenderShaderPass } from '../../gfx/graphics/webGpu/shader/RenderShaderPass';
 import { PassType } from '../../gfx/renderJob/passRenderer/state/PassType';
 
 /**
  * @internal
  * GBufferPass
- * @group Material
  */
 export class GBufferPass extends RenderShaderPass {
     transparency: number;
 
-    constructor() {
+    constructor(ctx?: Context3D) {
         super(`gbuffer_vs`, `gbuffer_fs`);
         this.setShaderEntry(`VertMain`, `FragMain`)
         this.passType = PassType.GI;
@@ -23,6 +23,6 @@ export class GBufferPass extends RenderShaderPass {
         this.setUniformFloat(`normalScale`, 1);
         this.setUniformFloat(`alphaCutoff`, 1);
         this.blendMode = BlendMode.NONE;
-        this.setTexture(`normalMap`, Engine3D.res.normalTexture);
+        this.setTexture(`normalMap`, Engine3D.resFor(ctx).normalTexture);
     }
 }

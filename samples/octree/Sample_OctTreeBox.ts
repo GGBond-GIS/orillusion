@@ -19,15 +19,15 @@ export class Sample_OctTreeBox {
 
     async run() {
         // init engine
-        await Engine3D.init({ renderLoop: () => { this.loop() } });
+        const engine = await Engine3D.init({ renderLoop: () => { this.loop() } });
         GUIHelp.init();
         let param = createSceneParam();
         param.camera.distance = 400;
         param.camera.near = 0.1;
         param.camera.far = 10000;
-        let exampleScene = createExampleScene(param);
-        Engine3D.startRenderViews([exampleScene.view]);
-        Engine3D.getRenderJob(exampleScene.view);
+        let exampleScene = createExampleScene(engine, param);
+        engine.startRenderViews([exampleScene.view]);
+        engine.renderJobs.get(exampleScene.view);
 
         this.view = exampleScene.view;
 

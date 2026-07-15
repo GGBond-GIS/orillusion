@@ -1,4 +1,5 @@
 import { Engine3D } from '../Engine3D';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { RenderShaderPass } from '../gfx/graphics/webGpu/shader/RenderShaderPass';
 import { Color } from '../math/Color';
@@ -9,7 +10,7 @@ import { Shader, UnLitShader } from '..';
 import { ReflectionShader } from '../loader/parser/prefab/mats/shader/ReflectionShader';
 
 /**
- * Unlit Mateiral
+ * Reflection Material
  * A non glossy surface material without specular highlights.
  * @group Material
  */
@@ -17,19 +18,21 @@ export class ReflectionMaterial extends Material {
     /**
      * @constructor
      */
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
         this.shader = new ReflectionShader();
         // default value
-        this.baseMap = Engine3D.res.whiteTexture;
+        this.baseMap = Engine3D.resFor(ctx).whiteTexture;
         this.setDefine("USE_CUSTOMUNIFORM", true);
         this.reflectionIndex = 0;
     }
 
+    /** Sets the base color map texture. */
     public set baseMap(texture: Texture) {
         this.shader.setTexture(`baseMap`, texture);
     }
 
+    /** Gets the base color map texture. */
     public get baseMap() {
         return this.shader.getTexture(`baseMap`);
     }
@@ -41,6 +44,7 @@ export class ReflectionMaterial extends Material {
         this.shader.setUniformColor(`baseColor`, color);
     }
 
+    /** Sets the reflection strength index uniform. */
     public set reflectionIndex(i: number) {
         this.shader.setUniformFloat(`reflectionIndex`, i);
     }

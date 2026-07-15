@@ -2,7 +2,7 @@ import { ErpImage2CubeMap } from '../gfx/generate/convert/ErpImage2CubeMap';
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { TextureCube } from '../gfx/graphics/webGpu/core/texture/TextureCube';
 import { GPUTextureFormat } from '../gfx/graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { VirtualTexture } from './VirtualTexture';
 import { FileLoader } from '../loader/FileLoader';
 import { LoaderFunctions } from '../loader/LoaderFunctions';
@@ -34,12 +34,12 @@ export class HDRTextureCube extends TextureCube {
      * @param data raw data of cubeTexture; the format is { width: number; height: number; array: Uint8Array }
      * @returns
      */
-    public createFromHDRData(size: number, data: { width: number; height: number; array: Uint8Array }): this {
-        let texture = new VirtualTexture(data.width, data.height, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING);
+    public createFromHDRData(size: number, data: { width: number; height: number; array: Uint8Array }, ctx?: Context3D): this {
+        let texture = new VirtualTexture(data.width, data.height, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, ctx);
 
         let float32Array: Float32Array = new Float32Array(data.array);
         ErpImage2CubeMap.convertRGBE2RGBA(texture, float32Array);
-        this.createFromTexture(size, texture);
+        this.createFromTexture(size, texture, ctx);
         return this;
     }
 
@@ -49,7 +49,7 @@ export class HDRTextureCube extends TextureCube {
      * @param texture the image texture
      * @returns
      */
-    public createFromTexture(size: number, texture: Texture): this {
+    public createFromTexture(size: number, texture: Texture, ctx?: Context3D): this {
         this.width = this.height = size;
         this.textureBindingLayout.viewDimension = 'cube';
         let mipmapSize = this.width;
@@ -63,7 +63,8 @@ export class HDRTextureCube extends TextureCube {
 
         this.textureDescriptor.size = { width: size, height: size, depthOrArrayLayers: 6 };
         this.textureDescriptor.dimension = '2d';
-        this.gpuSampler = webGPUContext.device.createSampler(this);
+        this._ensureBound(ctx);
+        this.gpuSampler = this._boundCtx!.device.createSampler(this);
 
         this._faceData.uploadErpTexture(texture);
         return this;
@@ -75,9 +76,9 @@ export class HDRTextureCube extends TextureCube {
     * @param url web url
     * @param loaderFunctions callback function when load complete
     */
-    public async load(url: string, loaderFunctions?: LoaderFunctions): Promise<HDRTextureCube> {
+    public async load(url: string, loaderFunctions?: LoaderFunctions, ctx?: Context3D): Promise<HDRTextureCube> {
         this._url = url;
-        let loader = new FileLoader();
+        let loader = new FileLoader(ctx);
         let parser = await loader.load(url, RGBEParser, loaderFunctions);
         return parser.getCubeTexture();
     }

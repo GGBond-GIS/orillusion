@@ -69,12 +69,12 @@ export class Plane {
      */
     public intersectsRay(ray: Ray, targetPoint?: Vector3) {
         targetPoint ||= this._tmpVecA;
-        targetPoint.copy(this.point).subtract(ray.origin, targetPoint);
+        Vector3.sub(this.point, ray.origin, targetPoint);
         var t = this.normal.dotProduct(targetPoint) / this.normal.dotProduct(ray.direction);
         var intersects = t >= 0;
 
         if (intersects) {
-            targetPoint.copyFrom(ray.direction).multiplyScalar(t).add(ray.origin, targetPoint);
+            Vector3.addScaledVector(ray.origin, ray.direction, t, targetPoint);
         }
 
         return intersects;

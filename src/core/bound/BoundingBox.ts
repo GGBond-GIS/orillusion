@@ -50,18 +50,29 @@ export class BoundingBox implements IBound {
         this.setFromCenterAndSize(center, size);
     }
 
+    /**
+     * Reset the box to an inverted/empty state so the first expansion fits it tightly.
+     * @returns this box for chaining
+     */
     public makeEmpty(): this {
         this.setFromMinMax(BoundingBox.maxVector3, BoundingBox.minVector3);
         return this;
     }
 
+    /**
+     * Build the box from its minimum and maximum corner points.
+     * @param min the minimum corner
+     * @param max the maximum corner
+     * @returns this box for chaining
+     */
     public setFromMinMax(min: Vector3, max: Vector3): this {
         this.init();
-        max.subtract(min, this.size);
-        min.add(max, this.center).multiplyScalar(0.5);
-        this.extents.copyFrom(this.size).multiplyScalar(0.5);
-        this.min.copyFrom(min);
-        this.max.copyFrom(max);
+        Vector3.sub(max, min, this.size);
+        Vector3.add(min, max, this.center);
+        this.center.multiplyScalar(0.5);
+        this.extents.copy(this.size).multiplyScalar(0.5);
+        this.min.copy(min);
+        this.max.copy(max);
         return this;
     }
 
@@ -73,20 +84,35 @@ export class BoundingBox implements IBound {
         this.extents ||= new Vector3();
         return this;
     }
+    /**
+     * Build the box from its center and full size.
+     * @param center the center of the box
+     * @param size the full size of the box
+     * @returns this box for chaining
+     */
     public setFromCenterAndSize(center: Vector3, size: Vector3): this {
         this.size = size;
         this.center = center;
         this.init();
         this.extents.copy(size).multiplyScalar(0.5);
-        this.center.subtract(this.extents, this.min);
-        this.center.add(this.extents, this.max);
+        Vector3.sub(this.center, this.extents, this.min);
+        Vector3.add(this.center, this.extents, this.max);
         return this;
     }
 
+    /**
+     * Whether the object's bound is inside the given frustum.
+     * @param obj the object whose bound is tested
+     * @param frustum the frustum to test against
+     */
     public inFrustum(obj: Object3D, frustum: Frustum) {
         return frustum.containsBoundingBox(obj.bound);
     }
 
+    /**
+     * Expand this box to also contain the given box.
+     * @param bound the box to merge in
+     */
     public merge(bound: BoundingBox) {
         if (bound.min.x < this.min.x) this.min.x = bound.min.x;
         if (bound.min.y < this.min.y) this.min.y = bound.min.y;
@@ -109,10 +135,18 @@ export class BoundingBox implements IBound {
         this.center.z = this.extents.z + bound.min.z;
     }
 
+    /**
+     * Whether this box intersects another bound.
+     * @param bounds the bound to test against
+     */
     public intersects(bounds: IBound): boolean {
         return this.min.x <= bounds.max.x && this.max.x >= bounds.min.x && this.min.y <= bounds.max.y && this.max.y >= bounds.min.y && this.min.z <= bounds.max.z && this.max.z >= bounds.min.z;
     }
 
+    /**
+     * Whether this box intersects the given sphere's bound.
+     * @param sphere the sphere bound to test against
+     */
     public intersectsSphere(sphere: IBound): boolean {
         return this.min.x <= sphere.max.x && this.max.x >= sphere.min.x && this.min.y <= sphere.max.y && this.max.y >= sphere.min.y && this.min.z <= sphere.max.z && this.max.z >= sphere.min.z;
     }
@@ -127,10 +161,18 @@ export class BoundingBox implements IBound {
         return this.min.x <= box.max.x && this.max.x >= box.min.x && this.min.y <= box.max.y && this.max.y >= box.min.y && this.min.z <= box.max.z && this.max.z >= box.min.z;
     }
 
+    /**
+     * Whether this box equals another bound (same center and extents).
+     * @param bounds the bound to compare with
+     */
     public equals(bounds: IBound): boolean {
         return this.center.equals(bounds.center) && this.extents.equals(bounds.extents);
     }
 
+    /**
+     * Grow the box's min/max so it contains the given point.
+     * @param point the point to include
+     */
     public expandByPoint(point: Vector3): void {
         if (point.x < this.min.x) {
             this.min.x = point.x;
@@ -152,6 +194,11 @@ export class BoundingBox implements IBound {
         }
     }
 
+    /**
+     * Create a box that tightly contains all the given points.
+     * @param points the points to enclose
+     * @returns a new bounding box
+     */
     public static fromPoints(points: Vector3[]): BoundingBox {
         var bounds: BoundingBox = new BoundingBox(new Vector3(), new Vector3());
         for (var i: number = 0; i < points.length; i++) {
@@ -160,23 +207,44 @@ export class BoundingBox implements IBound {
         return bounds;
     }
 
+    /**
+     * Recalculate the bound from the given object's transform.
+     * @param obj the owning object
+     */
     public calculateTransform(obj: Object3D): void {
 
     }
 
+    /**
+     * Create a copy of this bounding box.
+     * @returns a new bound with the same center and size
+     */
     public clone(): IBound {
         var bound: BoundingBox = new BoundingBox(this.center.clone(), this.size.clone());
         return bound;
     }
 
+    /**
+     * Test whether the ray intersects this box, storing the hit point.
+     * @param ray the ray to test
+     * @param point output hit point
+     */
     public intersectsRay(ray: Ray, point: Vector3): boolean {
         throw new Error('Method not implemented.');
     }
 
+    /**
+     * Whether the given point lies inside this box.
+     * @param point the point to test
+     */
     public containsPoint(point: Vector3): boolean {
         return this.min.x <= point.x && this.max.x >= point.x && this.min.y <= point.y && this.max.y >= point.y && this.min.z <= point.z && this.max.z >= point.z;
     }
 
+    /**
+     * Whether the given box is fully contained within this box.
+     * @param box the box to test
+     */
     public containsBox(box: BoundingBox): boolean {
         let min = this.min;
         let max = this.max;
@@ -185,10 +253,17 @@ export class BoundingBox implements IBound {
         return isContain;
     }
 
+    /**
+     * Recompute the derived bound data after the source data changes.
+     */
     public updateBound() {
 
     }
 
+    /**
+     * Release the vectors held by this bound.
+     * @param force whether to force-destroy
+     */
     public destroy(force?: boolean) {
         this.center = null;
         this.extents = null;

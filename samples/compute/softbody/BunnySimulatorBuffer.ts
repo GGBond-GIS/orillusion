@@ -1,7 +1,8 @@
-import { ComputeGPUBuffer, Vector3, webGPUContext } from '@orillusion/core';
+import { ComputeGPUBuffer, Vector3 } from '@orillusion/core';
 import { BunnySimulatorConfig } from "./BunnySimulatorConfig";
 
 export class BunnySimulatorBuffer {
+    protected mDevice: GPUDevice;
     protected mPositionBuffer: ComputeGPUBuffer;
     protected mNormalBuffer: ComputeGPUBuffer;
     protected mVertexPositionData: Float32Array;
@@ -18,7 +19,8 @@ export class BunnySimulatorBuffer {
     protected mInputBuffer: ComputeGPUBuffer;
     protected mOutput0Buffer: ComputeGPUBuffer;
 
-    constructor(config: BunnySimulatorConfig) {
+    constructor(config: BunnySimulatorConfig, device: GPUDevice) {
+        this.mDevice = device;
         this.initGPUBuffer(config);
     }
 
@@ -65,9 +67,8 @@ export class BunnySimulatorBuffer {
             tetIds[4 * i + 3] = bunnyTetIds[4 * i + 3];
         }
         this.mTetIdsBuffer = new ComputeGPUBuffer(tetIds.length);
-        webGPUContext.device.queue.writeBuffer(this.mTetIdsBuffer.buffer, 0, tetIds);
-        // this.mTetIdsBuffer.setInt32Array("", tetIds);
-        // this.mTetIdsBuffer.apply();
+        this.mTetIdsBuffer.setInt32Array("", tetIds);
+        this.mTetIdsBuffer.apply();
 
         this.mRestVolBuffer = new ComputeGPUBuffer(restVol.length);
         this.mRestVolBuffer.setFloat32Array("", restVol);

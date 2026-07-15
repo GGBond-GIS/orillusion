@@ -8,6 +8,12 @@ import { RegisterShader } from "../../../../../util/SerializeDecoration";
 import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 
 
+/**
+ * Internal reflection shader used by the prefab material pipeline. Exposes
+ * Unity-style `_`-prefixed setters that the prefab parser writes decoded
+ * material properties into.
+ * @internal
+ */
 export class ReflectionShader extends Shader {
 
     constructor() {

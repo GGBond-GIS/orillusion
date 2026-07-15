@@ -2,7 +2,15 @@ import { ErpImage2CubeMap } from "../gfx/generate/convert/ErpImage2CubeMap";
 import { IBLEnvMapCreator } from "../gfx/generate/convert/IBLEnvMapCreator";
 import { Texture } from "../gfx/graphics/webGpu/core/texture/Texture";
 
+/**
+ * Manages the per-mip GPU texture and array-view references for the six
+ * faces of a cube texture, and builds the cube map from panorama sources.
+ * @group Texture
+ */
 export class TextureCubeFaceData {
+    /**
+     * Cache of per-mip-level GPU texture and array texture-view references.
+     */
     public faceTextureRef: { [key: string]: { t: GPUTexture; v: GPUTextureView } };
 
     private _texture: Texture;

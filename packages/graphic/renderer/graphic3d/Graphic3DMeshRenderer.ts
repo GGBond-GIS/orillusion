@@ -1,4 +1,4 @@
-import { MeshRenderer, StorageGPUBuffer, GeometryBase, BitmapTexture2DArray, Object3D, ComputeShader, UnLitTexArrayMaterial, Vector3, Color, Vector4, GeometryUtil, View3D, GPUContext } from "@orillusion/core";
+import { MeshRenderer, StorageGPUBuffer, GeometryBase, BitmapTexture2DArray, Object3D, ComputeShader, UnLitTexArrayMaterial, Vector3, Color, Vector4, GeometryUtil, View3D } from "@orillusion/core";
 
 export class Graphic3DMeshRenderer extends MeshRenderer {
     public transformBuffer: StorageGPUBuffer;
@@ -80,7 +80,7 @@ export class Graphic3DMeshRenderer extends MeshRenderer {
     }
 
     private computeTrail(view: View3D, command: GPUCommandEncoder) {
-        GPUContext.computeCommand(command, [this._computeShader]);
+        view.engine3D.context3D.gpuContext.computeCommand(command, [this._computeShader]);
     }
 
 }

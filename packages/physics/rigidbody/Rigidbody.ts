@@ -24,10 +24,10 @@ export class Rigidbody extends ComponentBase {
     private _angularVelocity: Vector3 = new Vector3();
     private _linearVelocity: Vector3 = new Vector3();
     private _gravity: Vector3 = Physics.gravity.clone();
-    private _restitution: number = 0.5; // 低恢复系数以减少弹跳
-    private _friction: number = 0.5; // 高摩擦系数以防止滑动
+    private _restitution: number = 0.5; // Low restitution coefficient to reduce bouncing
+    private _friction: number = 0.5; // High friction coefficient to prevent sliding
     private _rollingFriction: number;
-    private _contactProcessingThreshold: number; // 接触处理阈值 值越小，精度越高
+    private _contactProcessingThreshold: number; // Contact processing threshold; the smaller the value, the higher the precision
     private _damping: [number, number];
     private _ccdSettings: [number, number];
     private _activationState: ActivationState;
@@ -58,14 +58,14 @@ export class Rigidbody extends ComponentBase {
     }
 
     private initRigidbody(): void {
-        // 如果未传入形状则应用碰撞组件的形状与参数构建碰撞体
+        // If no shape is provided, build the collision body using the shape and parameters of the collider component
         if (!this._shape) this._shape = this.createColliderComponentShape();
 
         let position: Vector3 = this.object3D.localPosition;
 
-        // 处理特殊形状 高度场地形
+        // Handle special shape: heightfield terrain
         if (this._shape instanceof Ammo.btHeightfieldTerrainShape) {
-            // averageHeight 是碰撞体对象中自定义的属性，应用该值以调整刚体的位置
+            // averageHeight is a custom property on the collision shape object; apply this value to adjust the rigid body's position
             position = position.clone();
             position.y += (this._shape as any)?.averageHeight || 0;
         }
@@ -74,7 +74,7 @@ export class Rigidbody extends ComponentBase {
 
         this._btRigidbody = RigidBodyUtil.createRigidBody(this.object3D, this._shape, this._mass, position);
 
-        // 刚体配置信息
+        // Rigid body configuration
         this._btRigidbody.setRestitution(this._restitution);
         this._btRigidbody.setFriction(this._friction);
 
@@ -165,10 +165,10 @@ export class Rigidbody extends ComponentBase {
     }
 
     /**
-     * 更新刚体的位置和旋转，并同步三维对象
-     * @param position 可选，默认为三维对象的位置
-     * @param rotation 可选，默认为三维对象的欧拉角旋转
-     * @param clearFV  可选，清除刚体的力和速度，默认为 false
+     * Updates the position and rotation of the rigid body and synchronizes the 3D object
+     * @param position Optional, defaults to the position of the 3D object
+     * @param rotation Optional, defaults to the Euler-angle rotation of the 3D object
+     * @param clearFV  Optional, whether to clear the rigid body's forces and velocities; defaults to false
      */
     public updateTransform(position?: Vector3, rotation?: Vector3 | Quaternion, clearFV?: boolean): void {
         if (!this._btRigidbody) return;
@@ -219,8 +219,8 @@ export class Rigidbody extends ComponentBase {
         if (this._btRigidbody) {
             Ammo.destroy(this._btRigidbody.getCollisionShape());
             this._btRigidbody.setCollisionShape(value);
-            // Physics.world.updateSingleAabb(this._btRigidbody);  // 更新世界中的碰撞体状态
-            // 对于高度场形状，需要调整其刚体的位置以匹配三维对象
+            // Physics.world.updateSingleAabb(this._btRigidbody);  // Update the collision body's state in the world
+            // For heightfield shapes, the rigid body's position needs to be adjusted to match the 3D object
             if (value instanceof Ammo.btHeightfieldTerrainShape) {
                 this._btRigidbody.getWorldTransform().getOrigin().setY((value as any).averageHeight + this.object3D.y)
             }
@@ -399,7 +399,7 @@ export class Rigidbody extends ComponentBase {
      * Sets the gravity vector applied to the rigid body.
      */
     public set gravity(value: Vector3) {
-        this._gravity.copyFrom(value);
+        this._gravity.copy(value);
         this._btRigidbody?.setGravity(TempPhyMath.toBtVec(value));
     }
     /**
@@ -451,7 +451,7 @@ export class Rigidbody extends ComponentBase {
      * Set velocity value of current object
      */
     public set velocity(value: Vector3) {
-        this._velocity.copyFrom(value);
+        this._velocity.copy(value);
         this.wait().then(rb => rb.applyForce(TempPhyMath.toBtVec(this._velocity), TempPhyMath.zeroBtVec(TempPhyMath.tmpVecB)));
     }
 
@@ -468,7 +468,7 @@ export class Rigidbody extends ComponentBase {
      * Set the angular velocity value of current object
      */
     public set angularVelocity(value: Vector3) {
-        this._angularVelocity.copyFrom(value)
+        this._angularVelocity.copy(value)
         this.wait().then(rb => rb.setAngularVelocity(TempPhyMath.toBtVec(this._angularVelocity)));
     }
     /**
@@ -484,7 +484,7 @@ export class Rigidbody extends ComponentBase {
      * Set the linear velocity value of current object
      */
     public set linearVelocity(value: Vector3) {
-        this._linearVelocity.copyFrom(value)
+        this._linearVelocity.copy(value)
         this.wait().then(rb => rb.setLinearVelocity(TempPhyMath.toBtVec(this._linearVelocity)));
     }
     /**
@@ -501,14 +501,14 @@ export class Rigidbody extends ComponentBase {
         this._mass = value;
         if (this._btRigidbody && oldMass !== value) {
             if (oldMass === 0 || value === 0) {
-                ContactProcessedUtil.removeIgnoredPointer(this._btRigidbody.kB); // 指针将会无效，从静默状态表中移除
-                Physics.world.removeRigidBody(this._btRigidbody); // 删除刚体
-                this.initRigidbody(); // 重新创建刚体
+                ContactProcessedUtil.removeIgnoredPointer(this._btRigidbody.kB); // The pointer will become invalid; remove it from the silent-state table
+                Physics.world.removeRigidBody(this._btRigidbody); // Remove the rigid body
+                this.initRigidbody(); // Recreate the rigid body
                 this.collisionEventHandler.configure(this._btRigidbody.kB);
                 this._isSilent && ContactProcessedUtil.addIgnoredPointer(this._btRigidbody.kB);
 
             } else {
-                // 根据碰撞形状计算新的惯性进行更新
+                // Recalculate the new inertia from the collision shape and update it
                 const localInertia = TempPhyMath.zeroBtVec();
                 this._btRigidbody.getCollisionShape().calculateLocalInertia(value, localInertia);
                 this._btRigidbody.setMassProps(value, localInertia);
@@ -520,8 +520,8 @@ export class Rigidbody extends ComponentBase {
     }
 
     /**
-     * 刚体的静默状态。
-     * 如果为 true 则任何物理对象与静默状态的对象发生碰撞时都不会触发双方的碰撞回调。
+     * The silent state of the rigid body.
+     * If true, no collision callbacks on either side will be triggered when any physics object collides with this silent-state object.
      */
     public get isSilent(): boolean {
         return this._isSilent;

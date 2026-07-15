@@ -3,6 +3,20 @@ import { LoaderBase } from '../loader/LoaderBase';
 import { LoaderFunctions } from '../loader/LoaderFunctions';
 import { StringUtil } from '../util/StringUtil';
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
+import { Context3D, bindCtx } from '../gfx/graphics/webGpu/Context3D';
+
+/**
+ * Color-space hint for image-backed textures. `'srgb'` selects the
+ * `rgba8unorm-srgb` GPU format so the sampler hardware-decodes the
+ * stored sRGB-encoded bytes to linear at sample time (the standard
+ * choice for color/albedo maps). `'linear'` keeps the plain
+ * `rgba8unorm` format — appropriate for normal maps, masks,
+ * height/displacement, metallic/roughness packs, and other
+ * non-color data.
+ *
+ * @group Texture
+ */
+export type TextureColorSpace = 'srgb' | 'linear';
 
 /**
  * bitmap texture
@@ -13,17 +27,42 @@ export class BitmapTexture2D extends Texture {
     public premultiplyAlpha: PremultiplyAlpha = 'none';
 
     /**
+     * Color-space contract for the underlying bytes. `'srgb'` →
+     * `rgba8unorm-srgb` format (hardware decode on sample);
+     * `'linear'` → `rgba8unorm` (raw, no conversion). Default
+     * `'linear'` preserves legacy behavior — migrate sRGB-encoded
+     * color textures by passing `'srgb'` at the call site.
+     */
+    public colorSpace: TextureColorSpace;
+
+    /**
      * @constructor
      * @param useMipmap Set whether to use mipmap
+     * @param ctx Optional Context3D — binds the texture to this engine's device
+     *            so GPU materialization has a target. Required whenever the caller
+     *            already knows which engine owns the texture (loaders, Res, GLTF).
+     * @param colorSpace `'srgb'` to enable hardware sRGB decode (use for
+     *            baseColor / emissive textures), `'linear'` (default) for
+     *            normal / mask / metallic-roughness / AO / height data.
      */
-    constructor(useMipmap: boolean = true) {
+    constructor(useMipmap: boolean = true, ctx?: Context3D, colorSpace: TextureColorSpace = 'linear') {
         super();
         this.useMipmap = useMipmap;
+        this.colorSpace = colorSpace;
 
         this.lodMinClamp = 0;
         this.lodMaxClamp = 4;
+        if (ctx) bindCtx(this, ctx);
 
         // this.visibility = GPUShaderStage.COMPUTE | GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT;
+    }
+
+    /** GPU texture format derived from `colorSpace`. `'srgb'` →
+     *  `rgba8unorm-srgb`, `'linear'` → `rgba8unorm`. */
+    private get _ldrFormat(): GPUTextureFormat {
+        return this.colorSpace === 'srgb'
+            ? GPUTextureFormat.rgba8unorm_srgb
+            : GPUTextureFormat.rgba8unorm;
     }
 
     /**
@@ -38,6 +77,16 @@ export class BitmapTexture2D extends Texture {
      */
     public set source(value: HTMLCanvasElement | ImageBitmap | OffscreenCanvas | HTMLImageElement) {
         this._source = value;
+
+        // `generate()` ultimately reaches `createTexture` via `gpuTexture`,
+        // which requires `this.format` to be set. `load()` sets it before
+        // calling `generate()`; we mirror that here so the `.source = bitmap`
+        // path (used by UIUtil.textToTexture and other Canvas2D producers)
+        // doesn't hit "Required member 'format' is undefined" when assigning
+        // to a freshly-constructed BitmapTexture2D.
+        if (!this.format) {
+            this.format = this._ldrFormat;
+        }
 
         if (this._source instanceof HTMLImageElement) {
             this._source.decode().then(async () => {
@@ -60,6 +109,13 @@ export class BitmapTexture2D extends Texture {
      * @param loaderFunctions callback function when load complete
      */
     public async load(url: string, loaderFunctions?: LoaderFunctions) {
+        // Normalize relative asset URLs to origin-absolute so they
+        // hit Vite's publicDir instead of falling into the SPA
+        // fallback when the host document is an iframe srcdoc. See
+        // LoaderBase._normalizeAssetUrl for the underlying issue.
+        if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith('/') && typeof location !== 'undefined') {
+            url = '/' + url;
+        }
         this.name = StringUtil.getURLName(url);
         if (url.indexOf(';base64') != -1) {
             const img = document.createElement('img');
@@ -75,7 +131,7 @@ export class BitmapTexture2D extends Texture {
                 imageOrientation: this.flipY ? "flipY" : "from-image",
                 premultiplyAlpha: 'none'
             });
-            this.format = GPUTextureFormat.rgba8unorm;
+            this.format = this._ldrFormat;
             this.generate(imageBitmap);
         } else {
             return new Promise((succ, fial) => {
@@ -87,7 +143,7 @@ export class BitmapTexture2D extends Texture {
                     // const img = await r.blob();
                     // await this.loadFromBlob(img);
                     LoaderBase.read(url, r, loaderFunctions).then((chunks) => {
-                        let img = new Blob([chunks], { type: 'image/jpeg' });
+                        let img = new Blob([chunks as BlobPart], { type: 'image/jpeg' });
                         chunks = null;
                         this.loadFromBlob(img).then(() => {
                             succ(true);
@@ -120,7 +176,7 @@ export class BitmapTexture2D extends Texture {
                 premultiplyAlpha: 'none'
             });
         }
-        this.format = GPUTextureFormat.rgba8unorm;
+        this.format = this._ldrFormat;
         this.generate(imageBitmap);
         return true;
     }

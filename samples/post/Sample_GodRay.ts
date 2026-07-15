@@ -2,7 +2,7 @@ import {
 	View3D, DirectLight, Engine3D,
 	PostProcessingComponent, LitMaterial, HoverCameraController,
 	KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry,
-	CameraUtil, webGPUContext, BoxGeometry, AtmosphericComponent, GTAOPost, Color, FXAAPost, GBufferPost, GodRayPost, Time, BloomPost
+	CameraUtil, BoxGeometry, AtmosphericComponent, GTAOPost, Color, FXAAPost, GBufferPost, GodRayPost, Time, BloomPost
 } from '@orillusion/core';
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { GUIUtil } from '@samples/utils/GUIUtil';
@@ -12,12 +12,17 @@ export class Sample_GodRay {
 	scene: Scene3D;
 
 	async run() {
-		Engine3D.setting.shadow.shadowSize = 2048
-		Engine3D.setting.shadow.shadowBound = 400;
-		Engine3D.setting.shadow.shadowBias = 0.1;
-		Engine3D.setting.render.debug = true;
-
-		await Engine3D.init({ renderLoop: () => { this.loop() } });
+		const engine = await Engine3D.init({
+			setting: {
+				shadow: {
+					shadowSize: 2048,
+				},
+				render: {
+					debug: true,
+				},
+			},
+			renderLoop: () => { this.loop() }
+		});
 		GUIHelp.init();
 
 		this.scene = new Scene3D();
@@ -25,7 +30,7 @@ export class Sample_GodRay {
 		sky.sunY = 0.6;
 
 		let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera');
-		mainCamera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+		mainCamera.perspective(60, engine.context3D.aspect, 1, 5000.0);
 		let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
 		ctrl.setCamera(110, -10, 300);
 		await this.initScene();
@@ -34,7 +39,7 @@ export class Sample_GodRay {
 		let view = new View3D();
 		view.scene = this.scene;
 		view.camera = mainCamera;
-		Engine3D.startRenderView(view);
+		engine.startRenderView(view);
 
 		this.lightObj = new Object3D();
 		this.lightObj.rotationX = 15;
@@ -45,6 +50,7 @@ export class Sample_GodRay {
 		lc.castShadow = true;
 		lc.intensity = 45;
 		lc.indirect = 0.3;
+		lc.enableCSM = true;
 		this.scene.addChild(this.lightObj);
 		GUIUtil.renderDirLight(lc);
 		sky.relativeTransform = this.lightObj.transform;

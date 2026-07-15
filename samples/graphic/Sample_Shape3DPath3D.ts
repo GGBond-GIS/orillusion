@@ -11,6 +11,7 @@ import { GUIShape3D } from "@samples/utils/GUIShape3D";
  * @class Sample_Shape3DPath3D
  */
 export class Sample_Shape3DPath3D {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     view: View3D;
@@ -20,10 +21,13 @@ export class Sample_Shape3DPath3D {
         Matrix4.maxCount = 10000;
         Matrix4.allocCount = 10000;
 
-        await Engine3D.init({ beforeRender: () => this.update() });
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            beforeRender: () => this.update(),
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         GUIHelp.init();
 
@@ -31,7 +35,7 @@ export class Sample_Shape3DPath3D {
         this.scene.addComponent(Stats);
         let sky = this.scene.addComponent(AtmosphericComponent);
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(0, -60, 60);
 
@@ -39,7 +43,7 @@ export class Sample_Shape3DPath3D {
         this.view.scene = this.scene;
         this.view.camera = camera;
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
         await this.initScene();
 
@@ -72,9 +76,9 @@ export class Sample_Shape3DPath3D {
     private maker: Shape3DMaker;
     private async addNode() {
         let texts = [];
-        texts.push(await Engine3D.res.loadTexture("textures/grid.jpg") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/grid.jpg") as BitmapTexture2D);
 
-        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length);
+        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length, this.engine.context3D);
         bitmapTexture2DArray.setTextures(texts);
 
         this.maker = Shape3DMaker.makeRenderer(`path`, bitmapTexture2DArray, this.scene);

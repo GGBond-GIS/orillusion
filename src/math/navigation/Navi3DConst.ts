@@ -1,3 +1,6 @@
+/**
+ * @internal
+ */
 export class Navi3DConst {
     public static SetConst(epsilon: number) {
         this.EPSILON = epsilon;

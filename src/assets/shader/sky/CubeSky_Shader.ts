@@ -87,12 +87,16 @@ export class CubeSky_Shader {
         let maxLevel: u32 = textureNumLevels(baseMap);
         let dir = normalize(vWorldPos.xyz);
         var textureColor:vec3<f32> = textureSampleLevel(baseMap, baseMapSampler, normalize(dir.xyz), global.roughness * f32(maxLevel) ).xyz;
-        #if IS_HDR_SKY
-          textureColor = LinearToGammaSpace(textureColor);
-        #endif
+        // HDR sky stored as linear; emit as linear so the sRGB
+        // swapchain encode produces matching display values to the
+        // legacy non-srgb-swapchain + LinearToGammaSpace pairing.
 
         // let o_Target: vec4<f32> = globalUniform.hdrExposure * vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure ;
-        let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure;
+        // global.exposure is the per-sky-material control (SkyMaterial.exposure /
+        // AtmosphericComponent.exposure GUI slider) — previously unused here, so
+        // the slider had no visible effect. globalUniform.skyExposure is the
+        // separate scene-wide multiplier; both apply.
+        let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure * global.exposure;
         var fixProjMat = globalUniform.projMat ;
         if(global.enableFixOrthProj > 0.5){
           fixProjMat = global.fixOrthProj;
@@ -115,6 +119,10 @@ export class CubeSky_Shader {
       #else
         fragmentOutput.color = o_Target ;
         fragmentOutput.gBuffer = gBuffer ;
+      #endif
+
+      #if USE_OUTDEPTH
+        fragmentOutput.out_depth = fragCoord.z ;
       #endif
       return fragmentOutput;
     }

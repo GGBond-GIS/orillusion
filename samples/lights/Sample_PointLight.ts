@@ -11,8 +11,13 @@ export class Sample_PointLight {
     constructor() { }
 
     async run() {
-        Engine3D.setting.render.debug = true;
-        await Engine3D.init({});
+        const engine = await Engine3D.init({
+            setting: {
+                render: {
+                    debug: true,
+                },
+            },
+        });
 
         GUIHelp.init();
 
@@ -20,7 +25,7 @@ export class Sample_PointLight {
         let sky = this.scene.addComponent(AtmosphericComponent);
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
         //set camera data
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(0, -25, 500);
 
@@ -31,9 +36,9 @@ export class Sample_PointLight {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(view);
     }
 
     initScene(scene: Scene3D) {
@@ -61,7 +66,7 @@ export class Sample_PointLight {
                 mr2.material = mat;
                 scene.addChild(box);
 
-                box.transform.x = i * 40 - 300;
+                box.transform.x = i * 40 - 200;
                 box.transform.y = 5;
                 box.transform.z = j * 40 - 200;
             }

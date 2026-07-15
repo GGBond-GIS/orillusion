@@ -8,15 +8,18 @@ class Sample_GraphicLine {
     view: View3D;
     graphic3D: Graphic3D;
     async run() {
-
-        Engine3D.setting.material.materialChannelDebug = true;
-        Engine3D.setting.material.materialDebug = false;
-
-        await Engine3D.init({});
+        const engine = await Engine3D.init({
+            setting: {
+                material: {
+                    materialChannelDebug: true,
+                    materialDebug: false,
+                },
+            },
+        });
         GUIHelp.init();
         let param = createSceneParam();
         param.camera.distance = 200;
-        let exampleScene = createExampleScene(param);
+        let exampleScene = createExampleScene(engine, param);
         exampleScene.atmosphericSky.exposure = 1.0;
         this.view = exampleScene.view;
         this.scene = exampleScene.scene;
@@ -24,8 +27,8 @@ class Sample_GraphicLine {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        Engine3D.startRenderViews([exampleScene.view]);
-        let job = Engine3D.getRenderJob(exampleScene.view);
+        engine.startRenderViews([exampleScene.view]);
+        let job = engine.renderJobs.get(exampleScene.view);
         await this.initScene();
     }
 

@@ -1,3 +1,8 @@
+/**
+ * Internal constants holder for GLTF parsing: uniform names and property keys
+ * referenced while converting glTF materials/nodes into engine resources.
+ * @internal
+ */
 export class GLTFType {
     public static readonly GLTF_NODE_INDEX_PROPERTY: 'GLTF_NODE_INDEX';
 

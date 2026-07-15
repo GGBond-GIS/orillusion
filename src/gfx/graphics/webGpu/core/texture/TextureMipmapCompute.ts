@@ -1,5 +1,4 @@
-import { GPUContext } from '../../../../renderJob/GPUContext';
-import { webGPUContext } from '../../Context3D';
+import { Context3D } from '../../Context3D';
 import { Texture } from './Texture';
 
 class MipMapData {
@@ -55,30 +54,30 @@ export class TextureMipmapCompute {
         }
     `;
 
-    private static _pipelineMax: GPUComputePipeline;
-    private static _pipelineMin: GPUComputePipeline;
+    private static _getPipelines(ctx: Context3D) {
+        return ctx.cache(TextureMipmapCompute, () => {
+            const device = ctx.device;
+            return {
+                max: device.createComputePipeline({
+                    layout: `auto`,
+                    compute: {
+                        module: device.createShaderModule({ code: this.codeMax }),
+                        entryPoint: 'main',
+                    },
+                }),
+                min: device.createComputePipeline({
+                    layout: `auto`,
+                    compute: {
+                        module: device.createShaderModule({ code: this.codeMin }),
+                        entryPoint: 'main',
+                    },
+                }),
+            };
+        });
+    }
 
     public static createMipmap(texture: Texture, mipmapCount: number): void {
-        const device = webGPUContext.device;
-        this._pipelineMax ||= device.createComputePipeline({
-            layout: `auto`,
-            compute: {
-                module: device.createShaderModule({
-                    code: this.codeMax,
-                }),
-                entryPoint: 'main',
-            },
-        });
-
-        this._pipelineMin ||= device.createComputePipeline({
-            layout: `auto`,
-            compute: {
-                module: device.createShaderModule({
-                    code: this.codeMin,
-                }),
-                entryPoint: 'main',
-            },
-        });
+        const pipelines = this._getPipelines(texture._boundCtx!);
 
         let dstWidth = Math.ceil(texture.width * 0.5);
         let dstHeight = Math.ceil(texture.height * 0.5);
@@ -92,16 +91,19 @@ export class TextureMipmapCompute {
 
         let isMax = texture.width > 1024 && texture.height > 1024;
         if (isMax) {
-            this.mipmap(this._pipelineMax, mipmapData);
+            this.mipmap(pipelines.max, mipmapData);
         } else {
-            this.mipmap(this._pipelineMin, mipmapData);
+            this.mipmap(pipelines.min, mipmapData);
         }
     }
 
     private static mipmap(computePipeline: GPUComputePipeline, data: MipMapData): void {
-        const device = webGPUContext.device;
-        const commandEncoder = GPUContext.beginCommandEncoder();
-        let isCurrentMax = computePipeline == this._pipelineMax;
+        const ctx = data.texture._boundCtx!;
+        const device = ctx.device;
+        const gpu = ctx.gpuContext;
+        const pipelines = this._getPipelines(ctx);
+        const commandEncoder = gpu.beginCommandEncoder();
+        let isCurrentMax = computePipeline == pipelines.max;
         let dstView: GPUTextureView;
         let isBreakToMin: boolean;
         for (let i = data.mipLevel; i < data.mipmapCount; i++) {
@@ -154,10 +156,10 @@ export class TextureMipmapCompute {
                 break;
             }
         }
-        GPUContext.endCommandEncoder(commandEncoder);
+        gpu.endCommandEncoder(commandEncoder);
 
         if (isBreakToMin) {
-            this.mipmap(this._pipelineMin, data);
+            this.mipmap(pipelines.min, data);
         }
     }
 }

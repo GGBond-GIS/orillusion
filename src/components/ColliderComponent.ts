@@ -1,5 +1,4 @@
 import { ComponentCollect, View3D } from "..";
-import { Engine3D } from "../Engine3D";
 import { Ray } from "../math/Ray";
 import { Vector3 } from "../math/Vector3";
 import { ComponentBase } from "./ComponentBase";
@@ -8,7 +7,7 @@ import { ColliderShape, HitInfo } from "./shape/ColliderShape";
 
 /**
  * collider component
- * @group Components
+ * @group Collider
  */
 export class ColliderComponent extends ComponentBase {
     private _shape: ColliderShape;
@@ -21,8 +20,9 @@ export class ColliderComponent extends ComponentBase {
      * @internal
      */
     public start(): void {
-        if (Engine3D.setting.pick.mode == `pixel`) {
-            this.transform.scene3D.view.pickFire.mouseEnableMap.set(this.transform.worldMatrix.index, this);
+        const view = this.transform.scene3D?.view;
+        if (view?.engine3D?.setting.pick.mode == `pixel`) {
+            view.pickFire.mouseEnableMap.set(this.transform.worldMatrix.index, this);
         }
     }
 
@@ -61,8 +61,9 @@ export class ColliderComponent extends ComponentBase {
     }
 
     public beforeDestroy(force?: boolean) {
-        if (Engine3D.setting.pick.mode == `pixel`) {
-            this.transform.scene3D.view.pickFire.mouseEnableMap.delete(this.transform.worldMatrix.index);
+        const view = this.transform.scene3D?.view;
+        if (view?.engine3D?.setting.pick.mode == `pixel`) {
+            view.pickFire.mouseEnableMap.delete(this.transform.worldMatrix.index);
         }
         super.beforeDestroy(force);
     }

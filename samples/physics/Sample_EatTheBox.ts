@@ -2,6 +2,8 @@ import { BoxGeometry, Camera3D, Engine3D, LitMaterial, MeshRenderer, Object3D, S
 import { Stats } from "@orillusion/stats";
 import { Ammo, Physics, Rigidbody } from "@orillusion/physics";
 import dat from "dat.gui";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
+import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_EatTheBox {
     view: View3D;
@@ -17,15 +19,18 @@ class Sample_EatTheBox {
     async run() {
         //init physics and engine
         await Physics.init();
-        await Engine3D.init({
-            renderLoop: () => this.loop()
+        const engine = await Engine3D.init({
+            renderLoop: () => this.loop(),
+            //set shadow
+            setting: {
+                shadow: {
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+            },
         });
+        await GUIHelp.init();
 
-        //set shadow
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBound = 100;
-        Engine3D.setting.shadow.shadowBias = 0.01;
         //get original ammo world for processing more custom function
         this.ammoWorld = Physics.world;
 
@@ -37,18 +42,19 @@ class Sample_EatTheBox {
         //create camera
         let cameraObj = new Object3D();
         let camera = cameraObj.addComponent(Camera3D);
-        // camera.enableCSM = true;
-        camera.perspective(60, Engine3D.aspect, 1, 5000);
+        camera.perspective(60, engine.aspect, 1, 5000);
         camera.lookAt(new Vector3(0, 40, 35), new Vector3());
         scene.addChild(cameraObj);
 
         //add DirectLight
         let lightObj = new Object3D();
+        lightObj.y = 50;
         let light = lightObj.addComponent(DirectLight);
         light.intensity = 8;
         light.castShadow = true;
         lightObj.rotationX = 60;
         lightObj.rotationY = 80;
+        GUIUtil.renderDirLight(light);
         sky.relativeTransform = light.transform;
         light.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
         scene.addChild(lightObj);
@@ -57,6 +63,7 @@ class Sample_EatTheBox {
         this.view = new View3D();
         this.view.scene = scene;
         this.view.camera = camera;
+        this.view.engine3D = engine;
 
         //create floor and wall
         this.createFloor();
@@ -65,7 +72,7 @@ class Sample_EatTheBox {
         //create player(ball)
         this.createBall();
         //start render
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
         //add debug UI
         const gui = new dat.GUI();
@@ -167,6 +174,8 @@ class Sample_EatTheBox {
         mr.material = mat;
         mat.baseColor = KelvinUtil.color_temperature_to_rgb(1325);
         sphereObj.y = 5;
+        // attach to scene first so MoveScript.init() can resolve engine.inputSystem via transform.view3D
+        this.view.scene.addChild(sphereObj);
         //add movescript
         this.moveScript = sphereObj.addComponent(MoveScript);
         this.moveScript.rigidbody = sphereObj.addComponent(Rigidbody);
@@ -174,7 +183,6 @@ class Sample_EatTheBox {
         this.moveScript.rigidbody.mass = 10;
         let collider = sphereObj.addComponent(ColliderComponent);
         collider.shape = new SphereColliderShape(1);
-        this.view.scene.addChild(sphereObj);
     }
     private loop() {
         if (Physics.isInited) {
@@ -215,8 +223,9 @@ class MoveScript extends ComponentBase {
     y: number = 0;
     direction: Vector3 = new Vector3();
     init(): void {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, this.keyDown, this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, this.keyUp, this);
+        const input = (this.transform as any)?.view3D?.engine3D?.inputSystem;
+        input.addEventListener(KeyEvent.KEY_DOWN, this.keyDown, this);
+        input.addEventListener(KeyEvent.KEY_UP, this.keyUp, this);
     }
     private keyDown(e: KeyEvent) {
         if (e.keyCode == KeyCode.Key_A) {

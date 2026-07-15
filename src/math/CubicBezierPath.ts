@@ -27,10 +27,12 @@ export class CubicBezierPath {
         this.setControlVertices(controlVertices, t);
     }
 
+    /** Return the path type (open or closed). */
     public getPathType() {
         return this.type;
     }
 
+    /** Return true if the path is closed. */
     public isClosed() {
         return this.type == CubicBezierType.Closed ? true : false;
     }
@@ -42,6 +44,7 @@ export class CubicBezierPath {
         return this.numCurveSegments > 0 ? true : false;
     }
 
+    /** Reset the path to empty, open state with no control vertices or segments. */
     public clear() {
         this.controlVertices.length = 0;
         this.type = CubicBezierType.Open;
@@ -49,6 +52,7 @@ export class CubicBezierPath {
         this.numControlVertices = 0;
     }
 
+    /** Compute an approximate path length by summing squared distances between interpolated points. */
     public computeApproxLength(): number {
         if (!this.isValid()) return 0.0;
 
@@ -62,7 +66,7 @@ export class CubicBezierPath {
         for (let n = 1; n < numInterpolatedPoints; n++) {
             let a = controlVertices[(n - 1) * 3];
             let b = controlVertices[n * 3];
-            totalDist += a.subtract(b).lengthSquared;
+            totalDist += a.clone().sub(b).lengthSquared;
         }
 
         if (totalDist == 0.0) return 0.0;
@@ -70,16 +74,19 @@ export class CubicBezierPath {
         return totalDist;
     }
 
+    /** Return the approximate change in the raw parameter t per unit of path length. */
     public computeApproxParamPerUnitLength(): number {
         let length = this.computeApproxLength();
         return this.numCurveSegments / length;
     }
 
+    /** Return the approximate change in the normalized parameter t per unit of path length. */
     public computeApproxNormParamPerUnitLength(): number {
         let length = this.computeApproxLength();
         return 1.0 / length;
     }
 
+    /** Build the path from interpolated knots, generating interior control vertices automatically (knots.length must be >= 2). */
     public interpolatePoints(knots: Vector3[], t: CubicBezierType) {
         let numKnots = knots.length;
         if (numKnots < 2) console.error('point count must great 1');
@@ -97,30 +104,30 @@ export class CubicBezierPath {
                 for (let n = 0; n < numKnots; n++) controlVertices[n * 3] = knots[n];
 
                 // Place the first and last non-interpolated CVs.
-                let initialPoint = knots[1].subtract(knots[0]).mul(0.25);
+                let initialPoint = knots[1].clone().sub(knots[0]).multiplyScalar(0.25);
 
                 // Interpolate 1/4 away along first segment.
-                controlVertices[1] = knots[0].add(initialPoint);
-                let finalPoint = knots[numKnots - 2].subtract(knots[numKnots - 1]).mul(0.25);
+                controlVertices[1] = knots[0].clone().add(initialPoint);
+                let finalPoint = knots[numKnots - 2].clone().sub(knots[numKnots - 1]).multiplyScalar(0.25);
 
                 // Interpolate 1/4 backward along last segment.
-                controlVertices[this.numControlVertices - 2] = knots[numKnots - 1].add(finalPoint);
+                controlVertices[this.numControlVertices - 2] = knots[numKnots - 1].clone().add(finalPoint);
 
                 // Now we'll do all the interior non-interpolated CVs.
                 for (let k = 1; k < this.numCurveSegments; k++) {
-                    let a = knots[k - 1].subtract(knots[k]);
-                    let b = knots[k + 1].subtract(knots[k]);
+                    let a = knots[k - 1].clone().sub(knots[k]);
+                    let b = knots[k + 1].clone().sub(knots[k]);
                     let aLen = a.lengthSquared;
                     let bLen = b.lengthSquared;
 
                     if (aLen > 0.0 && bLen > 0.0) {
                         let abLen = (aLen + bLen) / 8.0;
-                        let ab = b.div(bLen).subtract(a.div(aLen));
+                        let ab = b.divideScalar(bLen).sub(a.divideScalar(aLen));
                         ab.normalize();
-                        ab = ab.mul(abLen);
+                        ab = ab.multiplyScalar(abLen);
 
-                        controlVertices[k * 3 - 1] = knots[k].subtract(ab);
-                        controlVertices[k * 3 + 1] = knots[k].add(ab);
+                        controlVertices[k * 3 - 1] = knots[k].clone().sub(ab);
+                        controlVertices[k * 3 + 1] = knots[k].clone().add(ab);
                     } else {
                         controlVertices[k * 3 - 1] = knots[k];
                         controlVertices[k * 3 + 1] = knots[k];
@@ -149,8 +156,8 @@ export class CubicBezierPath {
                     let modkp1 = (k + 1) % this.numCurveSegments;
                     let modk = k % this.numCurveSegments;
 
-                    let a = knots[modkm1].subtract(knots[modk]);
-                    let b = knots[modkp1].subtract(knots[modk]);
+                    let a = knots[modkm1].clone().sub(knots[modk]);
+                    let b = knots[modkp1].clone().sub(knots[modk]);
                     let aLen = a.lengthSquared;
                     let bLen = b.lengthSquared;
                     let mod3km1 = 3 * k - 1;
@@ -159,12 +166,12 @@ export class CubicBezierPath {
                     let mod3kp1 = (3 * k + 1) % (this.numControlVertices - 1);
                     if (aLen > 0.0 && bLen > 0.0) {
                         let abLen = (aLen + bLen) / 8.0;
-                        let ab = b.div(bLen).subtract(a.div(aLen));
+                        let ab = b.divideScalar(bLen).sub(a.divideScalar(aLen));
                         ab.normalize();
-                        ab = ab.mul(abLen);
+                        ab = ab.multiplyScalar(abLen);
 
-                        controlVertices[mod3km1] = knots[modk].subtract(ab);
-                        controlVertices[mod3kp1] = knots[modk].add(ab);
+                        controlVertices[mod3km1] = knots[modk].clone().sub(ab);
+                        controlVertices[mod3kp1] = knots[modk].clone().add(ab);
                     } else {
                         controlVertices[mod3km1] = knots[modk];
                         controlVertices[mod3kp1] = knots[modk];
@@ -176,6 +183,7 @@ export class CubicBezierPath {
     }
 
     // For a closed path the last CV must match the first.
+    /** Set the path directly from explicit control vertices; for a closed path the last CV must match the first. */
     public setControlVertices(cvs: Vector3[], t: CubicBezierType) {
         let numCVs = cvs.length;
         if (numCVs <= 0) return;
@@ -191,6 +199,7 @@ export class CubicBezierPath {
     }
 
     // t E [0, numSegments]. If the type is closed, the number of segments is one more than the equivalent open path.
+    /** Return the point on the path at parameter t in [0, numSegments]; closed paths wrap out-of-range t. */
     public getPoint(t: number): Vector3 {
         // Only closed paths accept t values out of range.
         if (this.type == CubicBezierType.Closed) {
@@ -221,12 +230,14 @@ export class CubicBezierPath {
 
     // Does the same as GetPoint except that t is normalized to be E [0, 1] over all segments. The beginning of the curve
     // is at t = 0 and the end at t = 1. Closed paths allow a value bigger than 1 in which case they loop.
+    /** Return the point on the path at normalized parameter t in [0, 1] over all segments. */
     public getPointNorm(t: number): Vector3 {
         return this.getPoint(t * this.numCurveSegments);
     }
 
     // Similar to GetPoint but returns the tangent at the specified point on the path. The tangent is not normalized.
     // The longer the tangent the 'more influence' it has pulling the path in that direction.
+    /** Return the (un-normalized) tangent on the path at parameter t in [0, numSegments]. */
     public getTangent(t: number): Vector3 {
         // Only closed paths accept t values out of range.
         if (this.type == CubicBezierType.Closed) {
@@ -255,6 +266,7 @@ export class CubicBezierPath {
         return bc.getTangent(t - segment);
     }
 
+    /** Return the (un-normalized) tangent at normalized parameter t in [0, 1] over all segments. */
     public getTangentNorm(t: number): Vector3 {
         return this.getTangent(t * this.numCurveSegments);
     }
@@ -262,6 +274,7 @@ export class CubicBezierPath {
     // This function returns a single closest point. There may be more than one point on the path at the same distance.
     // Use ComputeApproxParamPerUnitLength to determine a good paramThreshold. eg. Say you want a 15cm threshold,
     // use: paramThreshold = ComputeApproxParamPerUnitLength() * 0.15f.
+    /** Find the parameter t of the closest point on the path to pos, searching with the given param threshold. */
     public computeClosestParam(pos: Vector3, paramThreshold: number): number {
         let minDistSq = Number.MAX_SAFE_INTEGER;
         let closestParam = 0.0;
@@ -274,7 +287,7 @@ export class CubicBezierPath {
             let curveClosestParam = curve.getClosestParam(pos, paramThreshold);
 
             let curvePos = curve.getPoint(curveClosestParam);
-            let distSq = curvePos.subtract(pos).lengthSquared;
+            let distSq = curvePos.sub(pos).lengthSquared;
             if (distSq < minDistSq) {
                 minDistSq = distSq;
                 let startParam = startIndex / 3.0;
@@ -287,6 +300,7 @@ export class CubicBezierPath {
 
     // Same as above but returns a t value E [0, 1]. You'll need to use a paramThreshold like
     // ComputeApproxParamPerUnitLength() * 0.15f if you want a 15cm tolerance.
+    /** Like computeClosestParam but returns the closest point as a normalized parameter t in [0, 1]. */
     public computeClosestNormParam(pos: Vector3, paramThreshold: number) {
         return this.computeClosestParam(pos, paramThreshold * this.numCurveSegments);
     }

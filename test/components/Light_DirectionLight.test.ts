@@ -2,8 +2,8 @@ import { test, end } from '../util'
 import { Camera3D, CameraUtil, Color, DirectLight, Engine3D, Object3D, Scene3D, View3D } from '@orillusion/core';
 
 await test('DirectionLight test', async () => {
-    await Engine3D.init();
-    Engine3D.frameRate = 10;
+    const engine = await Engine3D.init();
+    engine.frameRate = 10;
 
     let view = new View3D();
     view.scene = new Scene3D();
@@ -16,7 +16,7 @@ await test('DirectionLight test', async () => {
     pl.castShadow = true;
 
     view.scene.addChild(directLight);
-    Engine3D.startRenderViews([view]);
+    engine.startRenderViews([view]);
 })
 
 setTimeout(end, 500)

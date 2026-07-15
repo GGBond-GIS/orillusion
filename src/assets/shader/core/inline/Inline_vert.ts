@@ -10,7 +10,7 @@ export let Inline_vert: string = /*wgsl*/ `
     var<private> ORI_MATRIX_V: mat4x4<f32>;
     var<private> ORI_MATRIX_M: mat4x4<f32>;
     var<private> ORI_MATRIX_PV: mat4x4<f32>;
-    var<private> ORI_MATRIX_PVInv: mat4x4<f32>;
+    var<private> ORI_MATRIX_PInv: mat4x4<f32>;
     var<private> ORI_MATRIX_World: mat4x4<f32>;
     var<private> ORI_CAMERAMATRIX: mat4x4<f32>;
     var<private> ORI_NORMALMATRIX: mat3x3<f32>;
@@ -49,14 +49,22 @@ export let Inline_vert: string = /*wgsl*/ `
         ORI_MATRIX_P = globalUniform.projMat ;
         ORI_MATRIX_V = globalUniform.viewMat ;
         ORI_MATRIX_PV = ORI_MATRIX_P * ORI_MATRIX_V ;
-        ORI_MATRIX_PVInv = globalUniform.pvMatrixInv ;
+        ORI_MATRIX_PInv = globalUniform.projMatInv ;
         ORI_CAMERAMATRIX = globalUniform.cameraWorldMatrix ;
-
+        
         ORI_MATRIX_M = models.matrix[u32(vertex.index)];
-            
+        
         #if USE_INSTANCEDRAW
             let modelID = instanceDrawID.matrixIDs[vertex.index];
             ORI_MATRIX_M = models.matrix[modelID];
         #endif
+
+        if (globalUniform.useRTE != 0) {
+            #if USE_INSTANCEDRAW
+                UpdateWorldMatrixToRTE_PrivatePtr(u32(modelID), &ORI_MATRIX_M);
+            #else
+                UpdateWorldMatrixToRTE_PrivatePtr(u32(vertex.index), &ORI_MATRIX_M);
+            #endif
+        }
     }
 `

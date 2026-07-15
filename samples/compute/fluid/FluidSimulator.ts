@@ -1,4 +1,4 @@
-import { ClusterLightingBuffer, ComputeGPUBuffer, MeshRenderer, PassType, RendererMask, RendererPassState, Time, Vector3, View3D, webGPUContext } from '@orillusion/core';
+import { ClusterLightingBuffer, ComputeGPUBuffer, MeshRenderer, PassType, RendererMask, RendererPassState, Time, Vector3, View3D } from '@orillusion/core';
 import { FluidSimulatorConfig } from './FluidSimulatorConfig';
 import { FluidSimulatorPipeline } from './FluidSimulatorPipeline';
 
@@ -60,7 +60,7 @@ export class FluidEmulation extends MeshRenderer {
         this.mConfig.maxDensity = this.mConfig.NUM / (this.mConfig.XMAX - this.mConfig.XMIN) / (this.mConfig.YMAX - this.mConfig.YMIN) / (this.mConfig.ZMAX - this.mConfig.ZMIN);
 
         this.mFluidComputePipeline = new FluidSimulatorPipeline(this.mConfig);
-        let device = webGPUContext.device;
+        let device = (this.transform as any)?.view3D?.engine3D?.context3D.device as GPUDevice;
         const { NUM } = this.mConfig;
 
         const modelView = new Float32Array(16 * NUM);

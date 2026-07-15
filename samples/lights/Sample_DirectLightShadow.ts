@@ -1,23 +1,29 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { Scene3D, HoverCameraController, Engine3D, AtmosphericComponent, Object3D, Camera3D, Vector3, View3D, DirectLight, KelvinUtil, LitMaterial, MeshRenderer, BoxGeometry, CameraUtil, SphereGeometry, Color, Object3DUtil, BlendMode } from "@orillusion/core";
+import { Scene3D, HoverCameraController, Engine3D, AtmosphericComponent, Object3D, Camera3D, Vector3, View3D, DirectLight, KelvinUtil, LitMaterial, MeshRenderer, BoxGeometry, CameraUtil, SphereGeometry, Color, Object3DUtil, BlendMode, UnLitMaterial } from "@orillusion/core";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 //sample of direction light
 class Sample_DirectLightShadow {
+    engine: Engine3D;
     scene: Scene3D;
     async run() {
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.render.useLogDepth = false;
-
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowBound = 400;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBias = 0.02;
-
-        Engine3D.setting.occlusionQuery.octree = { width: 1000, height: 1000, depth: 1000, x: 0, y: 0, z: 0 }
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                render: {
+                    debug: true,
+                    useLogDepth: false,
+                },
+                shadow: {
+                    enable: true,
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+                occlusionQuery: {
+                    octree: { width: 1000, height: 1000, depth: 1000, x: 0, y: 0, z: 0 },
+                },
+            },
+        });
 
         GUIHelp.init();
 
@@ -26,34 +32,44 @@ class Sample_DirectLightShadow {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        // mainCamera.enableCSM = true;
-        mainCamera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        mainCamera.perspective(45, engine.aspect, 0.1, 1000.0);
         //set camera data
         mainCamera.object3D.z = -15;
-        mainCamera.object3D.addComponent(HoverCameraController).setCamera(-15, -35, 200);
+        let cameraController = mainCamera.object3D.addComponent(HoverCameraController);
+        cameraController.setCamera(0, -15, 200);
+        cameraController.maxDistance = 10000;
 
-        sky.relativeTransform = this.initLight();
+        sky.relativeTransform = this.initLight(Color.COLOR_WHITE);
+        this.initLight(Color.COLOR_GREEN).x += 100;
         this.initScene();
 
         let view = new View3D();
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
-        GUIUtil.renderDebug();
+        engine.startRenderView(view);
+        GUIUtil.renderDebug(view);
     }
 
     // create direction light
-    private initLight() {
+    private initLight(color: Color) {
         // add a direction light
         let lightObj3D = new Object3D();
-        lightObj3D.rotationX = 46;
-        lightObj3D.rotationY = 62;
+        lightObj3D.localPosition.set(-50, 200, 0);
+        lightObj3D.rotationX = 40;
+        lightObj3D.rotationY = 0;
         lightObj3D.rotationZ = 0;
         let sunLight = lightObj3D.addComponent(DirectLight);
         sunLight.intensity = 3;
-        sunLight.lightColor = KelvinUtil.color_temperature_to_rgb(6553);
+        sunLight.lightColor = color; // KelvinUtil.color_temperature_to_rgb(6553);
         sunLight.castShadow = true;
+        sunLight.shadowBoundWidth = 100;
+        sunLight.shadowBoundHeight = 500;
+        sunLight.shadowBoundNear = 0.01;
+        sunLight.shadowBoundFar = 250;
+        sunLight.shadowMapWidth = 512;
+        sunLight.shadowMapHeight = 512;
+        sunLight.enableCSM = false;
 
         GUIUtil.renderDirLight(sunLight);
         this.scene.addChild(lightObj3D);
@@ -78,12 +94,12 @@ class Sample_DirectLightShadow {
         }
         {
             let mat = new LitMaterial();
-            mat.baseMap = Engine3D.res.grayTexture;
+            mat.baseMap = this.engine.res.grayTexture;
             // mat.roughness = 0.4;
             // mat.metallic = 0.6;
             let floor = new Object3D();
             let mr = floor.addComponent(MeshRenderer);
-            mr.geometry = new BoxGeometry(10000, 1, 10000);
+            mr.geometry = new BoxGeometry(1000, 1, 1000);
             mr.material = mat;
             this.scene.addChild(floor);
         }
@@ -91,6 +107,7 @@ class Sample_DirectLightShadow {
         {
             for (let i = 0; i < 100; i++) {
                 let item = Object3DUtil.GetSingleSphere(4, 0.6, 0.4, 0.2);
+                item.scaleY = 4;
                 let angle = Math.PI * 4 * i / 50;
                 item.x = Math.sin(angle) * (50 + i);
                 item.z = Math.cos(angle) * (50 + i);

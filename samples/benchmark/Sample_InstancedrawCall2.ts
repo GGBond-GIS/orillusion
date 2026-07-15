@@ -9,8 +9,12 @@ class Sample_SphereDraw {
     public anim: boolean = false;
     async run() {
         // init engine
-        Engine3D.setting.pick.enable = false;
-        await Engine3D.init({ renderLoop: () => this.renderLoop() });
+        const engine = await Engine3D.init({
+            renderLoop: () => this.renderLoop(),
+            setting: {
+                pick: { enable: false },
+            },
+        });
         // create new Scene
         this.scene = new Scene3D();
 
@@ -23,7 +27,7 @@ class Sample_SphereDraw {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
 
         // add a basic camera controller
         let hoverCameraController = mainCamera.object3D.addComponent(HoverCameraController);
@@ -47,7 +51,7 @@ class Sample_SphereDraw {
         view.camera = mainCamera;
 
         // start render
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         GUIHelp.init();
         GUIHelp.open();
@@ -86,7 +90,7 @@ class Sample_SphereDraw {
             group.addChild(obj);
             this._list.push(obj);
 
-            let d = obj.transform.worldPosition.subtract(group.transform.worldPosition);
+            let d = obj.transform.worldPosition.clone().sub(group.transform.worldPosition);
             d.normalize();
 
             let sc = Math.random() * 0.5 + 0.1;

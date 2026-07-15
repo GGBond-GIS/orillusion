@@ -4,7 +4,8 @@ import { VertexAttributeName } from "../core/geometry/VertexAttributeName";
 import { Vector3 } from "../math/Vector3";
 
 /**
- * Plane geometry
+ * Strip (ribbon) geometry built from a list of paired point segments,
+ * forming a continuous band of quads.
  * @group Geometry
  */
 export class StripeGeometry extends GeometryBase {

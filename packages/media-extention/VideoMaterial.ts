@@ -1,4 +1,4 @@
-import { Color, Engine3D, Material, PassType, RenderShaderPass, Shader, ShaderLib, Texture, Vector4 } from "@orillusion/core";
+import { Color, Context3D, Engine3D, Material, PassType, RenderShaderPass, Shader, ShaderLib, Texture, Vector4 } from "@orillusion/core";
 import { VideoShader } from "./VideoShader";
 
 /**
@@ -10,7 +10,7 @@ export class VideoMaterial extends Material {
     /**
      * Create new VideoMaterial
      */
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
         ShaderLib.register("VideoShader", VideoShader);
 
@@ -36,7 +36,7 @@ export class VideoMaterial extends Material {
         newShader.addRenderPass(colorPass);
         this.shader = newShader;
         // default value
-        colorPass.setTexture(`baseMap`, Engine3D.res.whiteTexture);
+        colorPass.setTexture(`baseMap`, Engine3D.resFor(ctx).whiteTexture);
     }
 
     /**

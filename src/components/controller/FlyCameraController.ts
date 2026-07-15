@@ -72,21 +72,30 @@ export class FlyCameraController extends ComponentBase {
      * @param lookAt target position
      */
     public setCamera(cameraPos: Vector3, lookAt: Vector3) {
-        this.targetPos.copyFrom(cameraPos);
-        this.lookAtPos.copyFrom(lookAt);
+        this.targetPos.copy(cameraPos);
+        this.lookAtPos.copy(lookAt);
         this.Reset();
     }
 
     /**
      * @internal
      */
-    public start(): void {
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
-        Engine3D.inputSystem.addEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
+    private _input(): any {
+        const view = this.transform?.view3D;
+        const owner = (view as any)?.engine3D;
+        return owner?.inputSystem;
+    }
 
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, this.keyUp, this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, this.keyDown, this);
+    public start(): void {
+        const input = this._input();
+        if (input) {
+            input.addEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
+            input.addEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
+            input.addEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
+
+            input.addEventListener(KeyEvent.KEY_UP, this.keyUp, this);
+            input.addEventListener(KeyEvent.KEY_DOWN, this.keyDown, this);
+        }
 
         this.transform.lookAt(this.targetPos, this.lookAtPos);
 
@@ -155,8 +164,10 @@ export class FlyCameraController extends ComponentBase {
     }
 
     private Reset() {
-        this._lastPos.x = Engine3D.inputSystem.mouseLastX;
-        this._lastPos.y = Engine3D.inputSystem.mouseLastY;
+        const input = this._input();
+        if (!input) return;
+        this._lastPos.x = input.mouseLastX;
+        this._lastPos.y = input.mouseLastY;
     }
 
     private mouseDown(e: PointerEvent3D) {
@@ -218,10 +229,11 @@ export class FlyCameraController extends ComponentBase {
         let dt = clamp(Time.delta, 0.0, 0.016);
 
         if (this._mouseDown) {
-            // let rX = Lerp(transform.rotationY, transform.rotationY + (inputSystem.mouseLastX - this._lastPos.x) * 0.25, Time.detail * this._mouseFactory);
-            // let rY = Lerp(transform.rotationX, transform.rotationX + (inputSystem.mouseLastY - this._lastPos.y) * 0.25, Time.detail * this._mouseFactory);
-            transform.rotationY -= this.internal(transform.rotationY + (Engine3D.inputSystem.mouseLastX - this._lastPos.x) * 0.25, transform.rotationY, dt * this._mouseFactory);
-            transform.rotationX -= this.internal(transform.rotationX + (Engine3D.inputSystem.mouseLastY - this._lastPos.y) * 0.25, transform.rotationX, dt * this._mouseFactory);
+            const input = this._input();
+            if (input) {
+                transform.rotationY -= this.internal(transform.rotationY + (input.mouseLastX - this._lastPos.x) * 0.25, transform.rotationY, dt * this._mouseFactory);
+                transform.rotationX -= this.internal(transform.rotationX + (input.mouseLastY - this._lastPos.y) * 0.25, transform.rotationX, dt * this._mouseFactory);
+            }
             this.Reset();
         }
 
@@ -272,12 +284,15 @@ export class FlyCameraController extends ComponentBase {
      * @internal
      */
     public destroy(force?: boolean): void {
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
-        Engine3D.inputSystem.removeEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
+        const input = this._input();
+        if (input) {
+            input.removeEventListener(PointerEvent3D.POINTER_WHEEL, this.mouseWheel, this);
+            input.removeEventListener(PointerEvent3D.POINTER_UP, this.mouseUp, this);
+            input.removeEventListener(PointerEvent3D.POINTER_DOWN, this.mouseDown, this);
 
-        Engine3D.inputSystem.removeEventListener(KeyEvent.KEY_UP, this.keyUp, this);
-        Engine3D.inputSystem.removeEventListener(KeyEvent.KEY_DOWN, this.keyDown, this);
+            input.removeEventListener(KeyEvent.KEY_UP, this.keyUp, this);
+            input.removeEventListener(KeyEvent.KEY_DOWN, this.keyDown, this);
+        }
         super.destroy(force);
     }
 }

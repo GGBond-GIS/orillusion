@@ -3,22 +3,26 @@ import { Object3D, Scene3D, Engine3D, CameraUtil, HoverCameraController, View3D,
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_PBRMaterial {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
 
     async run() {
 
-        //config settings
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 50;
-        Engine3D.setting.shadow.shadowBias = 0.02;
-        await Engine3D.init({ canvasConfig: { alpha: true, zIndex: 11, backgroundImage: '/logo/bg.webp' } });
+        const engine = this.engine = await Engine3D.init({
+            canvasConfig: { alpha: true, zIndex: 11, backgroundImage: '/logo/bg.webp' },
+            //config settings
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         GUIHelp.init(999);
 
         this.scene = new Scene3D();
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 0.01, 5000.0);
+        camera.perspective(60, engine.aspect, 0.01, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(-25, -5, 30);
 
@@ -26,10 +30,10 @@ class Sample_PBRMaterial {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
         await this.initScene();
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(view);
     }
 
     async initScene() {
@@ -56,7 +60,7 @@ class Sample_PBRMaterial {
         }
 
         {
-            let model = (await Engine3D.res.loadGltf('gltfs/wukong/wukong.gltf', {})) as Object3D;
+            let model = (await this.engine.res.loadGltf('gltfs/wukong/wukong.gltf', {})) as Object3D;
             let renderList = model.getComponentsInChild(MeshRenderer);
             for (const item of renderList) {
                 let material = item.material;

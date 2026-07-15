@@ -2,6 +2,7 @@ import { Engine3D } from "../../../Engine3D";
 import { GeometryBase, LODDescriptor } from "../../../core/geometry/GeometryBase";
 import { GeometryVertexType } from "../../../core/geometry/GeometryVertexType";
 import { VertexAttributeName } from "../../../core/geometry/VertexAttributeName";
+import { VertexAttribute } from "../../../core/geometry/VertexAttribute";
 import { BytesArray } from "../../../util/BytesArray";
 import { ParserBase } from "../ParserBase";
 import { ParserFormat } from "../ParserFormat";
@@ -10,12 +11,29 @@ import { BlendShapeData } from "./prefabData/BlendShapeData";
 import { PrefabMeshData } from "./prefabData/PrefabMeshData";
 
 
+/**
+ * Parses mesh blocks from an Orillusion prefab binary stream. It decodes the
+ * vertex layout, index buffer, optional skeleton bindings and blend shapes,
+ * builds a {@link GeometryBase}, and registers it with the engine resource host.
+ * @group Loader
+ */
 export class PrefabMeshParser extends ParserBase {
     static format: ParserFormat = ParserFormat.BIN;
 
+    /**
+     * Parse a raw mesh buffer. Reserved entry point; not used by the prefab
+     * pipeline, which decodes meshes through {@link PrefabMeshParser.parserMeshs}.
+     * @param buffer the raw mesh buffer.
+     */
     public async parseBuffer(buffer: ArrayBuffer) {
     }
 
+    /**
+     * Read every mesh block from the stream, build the corresponding
+     * geometries, and register them on the resource host keyed by mesh id.
+     * @param bytesStream the prefab binary stream positioned at the mesh section.
+     * @param prefabParser the owning prefab parser, used for context lookup.
+     */
     public static parserMeshs(bytesStream: BytesArray, prefabParser: PrefabParser) {
 
 
@@ -95,6 +113,26 @@ export class PrefabMeshParser extends ParserBase {
             geometry.geometryType = GeometryVertexType.compose_bin;
             geometry.setIndices(prefabMesh.indices);
             geometry.setAttribute(VertexAttributeName.all, prefabMesh.vertexBuffer);
+
+            // Record the real interleave layout (attribute name → byte offset
+            // within the vertex stride) so each render pass can build its own
+            // VertexState over this shared packed buffer, instead of forcing
+            // every pass to declare the identical full attribute set.
+            const dimFormat = ['', 'float32', 'float32x2', 'float32x3', 'float32x4'] as GPUVertexFormat[];
+            let composeBinLayout: VertexAttribute[] = [];
+            let floatOffset = 0;
+            for (let i = 0; i < attributes.length; i++) {
+                const dim = attributes[i].dim;
+                composeBinLayout.push({
+                    name: attributes[i].att,
+                    format: dimFormat[dim] || `float32`,
+                    offset: floatOffset * 4,
+                    shaderLocation: i,
+                    stride: dim
+                });
+                floatOffset += dim;
+            }
+            geometry.vertexBuffer.setComposeBinLayout(composeBinLayout);
             if (useSkeleton) {
                 geometry.skinNames = prefabMesh.bones;
                 geometry.bindPose = prefabMesh.bindPose;
@@ -142,14 +180,13 @@ export class PrefabMeshParser extends ParserBase {
             }
 
             geometry.name = prefabMesh.meshName;
-            Engine3D.res.addGeometry(prefabMesh.meshID, geometry);
+            Engine3D.resFor(prefabParser.ctx).addGeometry(prefabMesh.meshID, geometry);
         }
     }
 
     /**
-     * Verify parsing validity
-     * @param ret
-     * @returns
+     * Verify that parsing produced valid data.
+     * @returns true when data is present; throws otherwise.
      */
     public verification(): boolean {
         if (this.data) {

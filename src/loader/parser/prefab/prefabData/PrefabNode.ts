@@ -3,6 +3,11 @@ import { Vector3 } from "../../../../math/Vector3";
 import { BytesArray } from "../../../../util/BytesArray";
 import { KV } from "./KVData";
 
+/**
+ * Internal data carrier for a single component attached to a prefab node:
+ * the component type name and its decoded {@link KV} property list.
+ * @internal
+ */
 export class ComData {
     comName: string;
     data: KV[];
@@ -24,6 +29,11 @@ export class ComData {
     }
 }
 
+/**
+ * Internal data carrier for a node in the decoded prefab hierarchy: its
+ * transform, attached component data and child nodes.
+ * @internal
+ */
 export class PrefabNode {
     name: string;
 

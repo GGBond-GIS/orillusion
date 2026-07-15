@@ -29,9 +29,19 @@ export interface GeoJsonStruct {
     features: GeoJsonNodeStruct[];
 }
 
+/**
+ * Parser for GeoJSON feature collections. Parses the raw JSON text into
+ * a typed {@link GeoJsonStruct} that downstream GIS utilities can consume.
+ * @group Loader
+ */
 export class GeoJsonParser extends ParserBase {
     static format: ParserFormat = ParserFormat.JSON;
+    /** Raw GeoJSON source text passed to the parser. */
     public json: string;
+    /**
+     * Parse GeoJSON text into a {@link GeoJsonStruct}.
+     * @param data Raw GeoJSON string.
+     */
     public async parseString(data: any) {
         this.json = data;
         this.data = JSON.parse(data) as GeoJsonStruct;

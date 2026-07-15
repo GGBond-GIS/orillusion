@@ -1,0 +1,29 @@
+{
+    "name": "@orillusion/physics-rapier",
+    "version": "0.1.0",
+    "author": "Orillusion",
+    "description": "Orillusion Physics Plugin, Powered by Rapier (Rust → WASM).",
+    "main": "./dist/physics-rapier.umd.js",
+    "module": "./dist/physics-rapier.es.js",
+    "module:dev": "./index.ts",
+    "types": "./dist/index.d.ts",
+    "files": ["dist"],
+    "scripts": {
+        "build": "vite build && npm run build:types && npm run build:clean",
+        "build:types": "tsc --emitDeclarationOnly --experimentalDecorators -p tsconfig.json",
+        "build:clean": "mv dist/packages/physics-rapier/* dist && rm -rf dist/src && rm -rf dist/packages",
+        "docs": "npm run docs:typedoc ../../docs/physics-rapier index.ts",
+        "docs:typedoc": "npx typedoc --plugin typedoc-plugin-markdown --tsconfig tsconfig.json --gitRevision main --hideBreadcrumbs --router member --readme none --excludeInternal --excludePrivate --excludeProtected --excludeExternals --sort source-order --out"
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Orillusion/orillusion.git"
+    },
+    "dependencies": {
+        "@dimforge/rapier3d-compat": "^0.14.0"
+    },
+    "peerDependencies": {
+        "@orillusion/core": ">=0.9.0"
+    }
+}

@@ -12,5 +12,34 @@ export enum PassType {
     POINT_SHADOW = 1 << 7,
     POST = 1 << 8,
     DEPTH = 1 << 9,
-    UI = 1 << 10,
+    /** Weighted-Blended OIT accumulation pass (McGuire & Bavoil 2013).
+     *  Materials with `oitMode === 'weighted'` register this pass; the
+     *  TransparentOITFeature iterates them and writes to two attachments:
+     *  `_OITAccum` (RGBA16F, blend=ONE/ONE) and `_OITReveal` (R8, blend=
+     *  ZERO/ONE_MINUS_SRC_ALPHA). TransparentResolveFeature composites
+     *  `accum.rgb / max(accum.a, 1e-4)` mixed by `1 - reveal` into
+     *  `_ColorBuffer`. */
+    OIT_ACCUM = 1 << 10,
+    /** Dual depth peeling depth pass (one of three sub-pass types).
+     *  Materials with `oitMode === 'depth-peel'` register this pass;
+     *  the TransparentDualDepthPeelingFeature runs it once per peel
+     *  iteration with MAX blend on an RG32F MRT to extract the
+     *  next-nearest and next-furthest fragment depths per pixel.
+     *  Output: `vec4(-fragDepth, fragDepth, 0, 0)`. After MAX blending,
+     *  channel R holds `max(-d_i)` = `-min(d_i)` and G holds `max(d_i)`. */
+    OIT_DEPTH_PEEL_DEPTH = 1 << 11,
+    /** Dual depth peeling front-color accumulation pass. Renders the
+     *  layer at the current peel depth with `over` blending against
+     *  the previously-accumulated front color: each new layer
+     *  contributes `(1 - prevFrontA) · α · rgb` to the running sum.
+     *  When any front layer reaches α=1, prevFrontA becomes 1 and
+     *  subsequent layers contribute 0 — front fragment dominates and
+     *  α=1 is naturally opaque (the property WBOIT lacks at small
+     *  scene scales). */
+    OIT_DEPTH_PEEL_FRONT = 1 << 12,
+    /** Dual depth peeling back-color accumulation pass. Renders the
+     *  same layer with back-to-front blending into a separate accum.
+     *  Final composite (TransparentResolveFeature side):
+     *  `out = bg · (1 - frontA) + frontColor + (1 - frontA) · backColor`. */
+    OIT_DEPTH_PEEL_BACK = 1 << 13,
 }

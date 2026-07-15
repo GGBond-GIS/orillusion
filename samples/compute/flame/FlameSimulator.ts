@@ -1,4 +1,4 @@
-import { AnimatorComponent, ClusterLightingBuffer, ComputeGPUBuffer, GeometryBase, MeshRenderer, PassType, RendererMask, RendererPassState, SkeletonAnimationComponent, SkinnedMeshRenderer, SkinnedMeshRenderer2, Time, View3D } from '@orillusion/core';
+import { AnimatorComponent, ClusterLightingBuffer, ComputeGPUBuffer, Matrix4, MeshRenderer, PassType, RendererMask, RendererPassState, SkinnedMeshRenderer2, Time, View3D } from '@orillusion/core';
 import { FlameSimulatorConfig } from './FlameSimulatorConfig';
 import { FlameSimulatorPipeline } from './FlameSimulatorPipeline';
 
@@ -6,6 +6,7 @@ export class FlameSimulator extends MeshRenderer {
     protected mConfig: FlameSimulatorConfig;
     protected mFlameComputePipeline: FlameSimulatorPipeline;
     protected mGlobalArgs: ComputeGPUBuffer;
+    protected mInvModelMatrix: Matrix4 = new Matrix4();
     constructor() {
         super();
         this.addRendererMask(RendererMask.Particle)
@@ -44,25 +45,37 @@ export class FlameSimulator extends MeshRenderer {
 
     public onCompute(view: View3D, command?: GPUCommandEncoder) {
         if (this.mFlameComputePipeline) {
+            this.mInvModelMatrix.copy(this.transform.worldMatrix);
+            this.mInvModelMatrix.invert();
+            const invBuf = this.mFlameComputePipeline.modelInverseMatrixBuffer;
+            invBuf.setMatrix("", this.mInvModelMatrix);
+            invBuf.apply();
+
             this.mFlameComputePipeline.updateInput(Time.time / 1000.0, Time.delta / 1000.0);
             this.mFlameComputePipeline.updateInputData();
-            this.mFlameComputePipeline.compute(command);
+            this.mFlameComputePipeline.compute(view, command);
         }
     }
 
     public nodeUpdate(view: View3D, passType: PassType, renderPassState: RendererPassState, clusterLightingBuffer: ClusterLightingBuffer) {
+        // Bind the compute-produced storage buffers onto the material's COLOR
+        // pass exactly once. Shadow/reflection/etc. passes also reach this
+        // method, but the flame material only registers a COLOR sub-shader —
+        // using the incoming `passType` to resolve passes would silently miss
+        // the COLOR pass when SHADOW runs first and leave `particlePosition`
+        // unbound by the time ColorPassRenderer tries to build the pipeline.
         if (!this.mFlameComputePipeline) {
             let animatorComponent = this.object3D.getComponentsInChild(AnimatorComponent)[0];
             let skinnedMeshRenderer = this.object3D.getComponentsInChild(SkinnedMeshRenderer2)[0];
             let attributeArrays = skinnedMeshRenderer.geometry.vertexAttributeMap;
-            this.mFlameComputePipeline = new FlameSimulatorPipeline(this.mConfig, animatorComponent, skinnedMeshRenderer);
+            this.mFlameComputePipeline = new FlameSimulatorPipeline(this.mConfig, animatorComponent, skinnedMeshRenderer, view.engine3D.context3D);
             this.mFlameComputePipeline.initParticle(attributeArrays);
 
             let material = this.materials[0];
-            let passes = material.getPass(passType)
-            if (passes) {
-                for (let i = 0; i < passes.length; i++) {
-                    var subs = passes[i];
+            let colorPasses = material.getPass(PassType.COLOR);
+            if (colorPasses) {
+                for (let i = 0; i < colorPasses.length; i++) {
+                    const subs = colorPasses[i];
                     subs.setStorageBuffer(`particlePosition`, this.mFlameComputePipeline.positionBuffer);
                     subs.setStorageBuffer(`particleGlobalData`, this.mGlobalArgs);
                 }

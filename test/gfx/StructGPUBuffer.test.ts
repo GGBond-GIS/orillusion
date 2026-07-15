@@ -1,5 +1,5 @@
 import { test, expect, end, delay } from '../util'
-import { Color, Engine3D, Struct, StructStorageGPUBuffer, Vector3, webGPUContext } from '@orillusion/core';
+import { Color, Engine3D, Struct, StructStorageGPUBuffer, Vector3 } from '@orillusion/core';
 
 class TestInfo extends Struct {
     public index: number = 0;
@@ -12,8 +12,8 @@ class TestInfo extends Struct {
 }
 
 await test('StructGPUBuffer ', async () => {
-    let suc = await webGPUContext.init();
-    expect(suc).toEqual(true);
+    const engine = await Engine3D.init();
+    expect(engine.context3D != null).toEqual(true);
 
     let arr_TestInfos: TestInfo[] = [];
     for (let i = 0; i < 100; i++) {

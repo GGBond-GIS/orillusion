@@ -1,3 +1,4 @@
+import { DirectLight } from '../../../components/lights/DirectLight';
 import { ILight } from '../../../components/lights/ILight';
 import { LightType } from '../../../components/lights/LightData';
 import { Scene3D } from '../../../core/Scene3D';
@@ -7,7 +8,6 @@ import { GlobalBindGroup } from '../../graphics/webGpu/core/bindGroups/GlobalBin
 import { GlobalUniformGroup } from '../../graphics/webGpu/core/bindGroups/GlobalUniformGroup';
 /**
  * @internal
- * @group Lights
  */
 export class ShadowLightsCollect {
 
@@ -16,12 +16,12 @@ export class ShadowLightsCollect {
 
     public static directionLightList: Map<Scene3D, ILight[]>;
     public static pointLightList: Map<Scene3D, ILight[]>;
-    public static shadowLights: Map<Scene3D, Float32Array>;
+    public static shadowLights: Map<Scene3D, Float32Array<ArrayBuffer>>;
 
     public static init() {
         this.directionLightList = new Map<Scene3D, ILight[]>();
         this.pointLightList = new Map<Scene3D, ILight[]>();
-        this.shadowLights = new Map<Scene3D, Float32Array>();
+        this.shadowLights = new Map<Scene3D, Float32Array<ArrayBuffer>>();
     }
 
     public static createBuffer(view: View3D) {
@@ -105,9 +105,19 @@ export class ShadowLightsCollect {
             }
             if (!light.shadowCamera) {
                 light.shadowCamera = CameraUtil.createCamera3DObject(null, 'shadowCamera');
+                light.shadowCamera.shadowLight = light;
                 light.shadowCamera.isShadowCamera = true;
                 let shadowBound = -1000;
                 light.shadowCamera.orthoOffCenter(shadowBound, -shadowBound, shadowBound, -shadowBound, 1, 10000);
+            }
+            // Shadow cameras are not added to the scene graph, so their
+            // transform.view3D is always null. Bind directly to the light's
+            // engine context so GlobalBindGroup can find its device.
+            // Re-resolve on every call so a light that gained view3D after
+            // first creation still gets bound.
+            if (!light.shadowCamera._boundCtx) {
+                const lightCtx = light.transform.view3D?.engine3D?.context3D;
+                if (lightCtx) (light.shadowCamera as any)._boundCtx = lightCtx;
             }
             if (list.indexOf(light) == -1) {
                 list.push(light);
@@ -158,6 +168,15 @@ export class ShadowLightsCollect {
     }
 
 
+    // Called from Engine3D.dispose() — the scene-keyed maps here would
+    // otherwise grow one entry per disposed engine and pin every Scene3D
+    // (plus its light list) forever.
+    public static removeScene(scene: Scene3D) {
+        this.directionLightList?.delete(scene);
+        this.pointLightList?.delete(scene);
+        this.shadowLights?.delete(scene);
+    }
+
     public static update(view: View3D) {
 
         let shadowLights = this.shadowLights.get(view.scene);
@@ -172,9 +191,17 @@ export class ShadowLightsCollect {
         if (directionLightList) {
             let j = 0;
             for (let i = 0; i < directionLightList.length; i++) {
-                const light = directionLightList[i];
+                const light = directionLightList[i] as DirectLight;
                 shadowLights[i] = light.lightData.index;
-                light.lightData.castShadowIndex = j++;
+                if (light.enableCSM) {
+                    light.lightData.castShadowIndex = j;
+                    j += light.lightData.csmShadowMapNum;
+                } else {
+                    light.lightData.castShadowIndex = j++;
+                }
+            }
+            if (j > view.engine3D.setting.shadow.maxShadowMapNum) {
+                console.error('ShadowLightsCollect: max shadow map num reached, please increase engine.setting.shadow.maxShadowMapNum');
             }
             nDirShadowEnd = directionLightList.length;
         }

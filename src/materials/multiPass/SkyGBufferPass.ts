@@ -5,7 +5,6 @@ import { PassType } from '../../gfx/renderJob/passRenderer/state/PassType';
 
 /**
  * @internal
- * @group Material
  */
 export class SkyGBufferPass extends RenderShaderPass {
 

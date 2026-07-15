@@ -14,7 +14,7 @@ export class ParticleOverLifeColorModule extends ParticleModuleBase {
      * Set start color
      */
     public set startColor(v: Color) {
-        this._colorSegments[0].copyFrom(v);
+        this._colorSegments[0].copy(v);
         this.needReset = true;
     }
 
@@ -44,7 +44,7 @@ export class ParticleOverLifeColorModule extends ParticleModuleBase {
      * Set end color
      */
     public set endColor(v: Color) {
-        this._colorSegments[1].copyFrom(v);
+        this._colorSegments[1].copy(v);
         this.needReset = true;
     }
 

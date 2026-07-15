@@ -65,8 +65,8 @@ export class ExtrudeGeometry extends GeometryBase {
 
         let anchorPoint: Vector3 = options.anchorPoint !== undefined ? options.anchorPoint : new Vector3(0, 0, 0.5);
         const result = this.getExtractPointsAndBoundingSize(this.shapes, options);
-        const offsetSize = result.BoundingSize.min.subtract(result.BoundingSize.max);
-        offsetSize.multiply(anchorPoint, offsetSize);
+        const offsetSize = result.BoundingSize.min.clone().sub(result.BoundingSize.max);
+        Vector3.multiply(offsetSize, anchorPoint, offsetSize);
 
         for (let shape of this.shapes) {
             this.addShape(shape, options, offsetSize);

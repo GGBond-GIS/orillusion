@@ -4,6 +4,9 @@ import { Navi3DPoint } from "./Navi3DPoint";
 import { Navi3DPointFat } from "./Navi3DPointFat";
 import { Navi3DTriangle } from "./Navi3DTriangle";
 
+/**
+ * @internal
+ */
 export class Navi3DEdge {
 
     private _edgeMask: number = 0;
@@ -51,25 +54,25 @@ export class Navi3DEdge {
     }
 
     public initFatPoints(radius: number): void {
-        this._edgeDirA2B = this._pointB.subtract(this._pointA);
+        this._edgeDirA2B = this._pointB.clone().sub(this._pointA);
         this._edgeDirA2B.normalize();
 
         this.fatPointA = this.fatPointA || new Navi3DPointFat(this._pointA, this);
         this.fatPointB = this.fatPointB || new Navi3DPointFat(this._pointB, this);
 
         if (this.fatPointA.radius != radius) {
-            Navi3DEdge.CALC_FAT_VECTOR.copyFrom(this._edgeDirA2B);
-            Navi3DEdge.CALC_FAT_VECTOR.scaleBy(radius);
+            Navi3DEdge.CALC_FAT_VECTOR.copy(this._edgeDirA2B);
+            Navi3DEdge.CALC_FAT_VECTOR.multiplyScalar(radius);
             Navi3DEdge.CALC_FAT_VECTOR.incrementBy(this._pointA);
-            this.fatPointA.copyFrom(Navi3DEdge.CALC_FAT_VECTOR);
+            this.fatPointA.copy(Navi3DEdge.CALC_FAT_VECTOR);
             this.fatPointA.radius = radius;
         }
 
         if (this.fatPointB.radius != radius) {
-            Navi3DEdge.CALC_FAT_VECTOR.copyFrom(this._edgeDirA2B);
-            Navi3DEdge.CALC_FAT_VECTOR.scaleBy(-radius);
+            Navi3DEdge.CALC_FAT_VECTOR.copy(this._edgeDirA2B);
+            Navi3DEdge.CALC_FAT_VECTOR.multiplyScalar(-radius);
             Navi3DEdge.CALC_FAT_VECTOR.incrementBy(this._pointB);
-            this.fatPointB.copyFrom(Navi3DEdge.CALC_FAT_VECTOR);
+            this.fatPointB.copy(Navi3DEdge.CALC_FAT_VECTOR);
             this.fatPointB.radius = radius;
         }
 

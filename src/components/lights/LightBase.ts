@@ -7,9 +7,9 @@ import { Transform } from '../Transform';
 import { GILighting } from './GILighting';
 import { LightData } from './LightData';
 import { ShadowLightsCollect } from '../../gfx/renderJob/collect/ShadowLightsCollect';
+import { ReflectionPass } from '../../gfx/renderJob/graph/passes/ReflectionPass';
 import { IESProfiles } from './IESProfiles';
 import { ILight } from './ILight';
-import { Engine3D } from '../../Engine3D';
 
 /**
  * @internal
@@ -24,6 +24,22 @@ export class LightBase extends ComponentBase implements ILight {
      * light size
      */
     public size: number = 1;
+    /**
+     * Per-light PCSS penumbra multiplier. Default -1 means "fall back to the
+     * global `engine.setting.shadow.shadowSoft`". Set a positive value to
+     * override on this light only (e.g. a large area light casts a wider
+     * penumbra than a small spotlight). Live-tunable — the value is
+     * republished to the GPU each frame via LightEntries.
+     */
+    public get softness(): number { return this.lightData?.softness ?? -1; }
+    public set softness(value: number) {
+        if (this.lightData) this.lightData.softness = value;
+    }
+    /**
+     * light shadow map size
+     */
+    public shadowMapWidth: number = 0;
+    public shadowMapHeight: number = 0;
 
     /**
      * light source data
@@ -49,6 +65,8 @@ export class LightBase extends ComponentBase implements ILight {
 
     protected _castGI: boolean = false;
     protected _castShadow: boolean = false;
+    protected _shadowBoundWidth: number = 0;
+    protected _shadowBoundHeight: number = 0;
     private _iesProfiles: IESProfiles;
 
     constructor() {
@@ -60,9 +78,12 @@ export class LightBase extends ComponentBase implements ILight {
 
         this.lightData = new LightData();
         this.lightData.lightMatrixIndex = this.transform.worldMatrix.index;
+        // shadowBias sized at start() once transform.view3D is available so
+        // we can read maxCascades from the owning engine's setting.
     }
 
     protected onChange() {
+        if (!this.object3D) return;
         if (this.bindOnChange) this.bindOnChange();
         this.transform.object3D.bound.setFromCenterAndSize(this.transform.worldPosition, new Vector3(this.size, this.size, this.size));
         if (this._castGI) {
@@ -76,14 +97,31 @@ export class LightBase extends ComponentBase implements ILight {
             ShadowLightsCollect.removeShadowLight(this);
         }
 
-        if (this.transform.view3D && Engine3D.renderJobs) {
-            let renderer = Engine3D.renderJobs.get(this.transform.view3D).reflectionRenderer;
-            if (renderer)
-                Engine3D.renderJobs.get(this.transform.view3D).reflectionRenderer.forceUpdate();
+        const view = this.transform.view3D;
+        if (view) {
+            // ReflectionPass owns the cube-face cache; bumping its
+            // dirty flag ensures the next frame re-renders all probes
+            // with the new lighting. graph-only path — legacy pre-FG
+            // code path is no longer reachable.
+            const reflectionPass = view.renderGraph?.getPass<ReflectionPass>('ReflectionPass');
+            reflectionPass?.forceUpdate();
         }
     }
 
     public start(): void {
+        // Now that the light is attached to a scene/view we can resolve the
+        // owning engine's setting and size the per-cascade shadow bias array.
+        const shadow = this.transform.view3D?.engine3D?.setting.shadow;
+        if (shadow) {
+            if (!this.shadowMapWidth) this.shadowMapWidth = shadow.shadowSize;
+            if (!this.shadowMapHeight) this.shadowMapHeight = shadow.shadowSize;
+            if (!this.lightData.shadowBias || this.lightData.shadowBias.length === 0) {
+                this.lightData.shadowBias = new Array<number>(shadow.maxCascades).fill(0);
+            }
+            if (!this.lightData.normalBias || this.lightData.normalBias.length === 0) {
+                this.lightData.normalBias = new Array<number>(shadow.maxCascades).fill(0);
+            }
+        }
         this.transform.onPositionChange = () => this.onPositionChange();
         // this.transform.onScaleChange = () => this.onScaleChange();
         this.transform.onRotationChange = () => this.onRotChange();
@@ -93,17 +131,17 @@ export class LightBase extends ComponentBase implements ILight {
     }
 
     protected onPositionChange() {
-        this.lightData.lightPosition.copyFrom(this.transform.worldPosition);
+        this.lightData.lightPosition.copy(this.transform.worldPosition);
         this.onChange();
     }
 
     protected onRotChange() {
         if (this.dirFix == 1) {
-            this.lightData.direction.copyFrom(this.transform.forward);
+            this.lightData.direction.copy(this.transform.forward);
         } else {
-            this.lightData.direction.copyFrom(this.transform.back);
+            this.lightData.direction.copy(this.transform.back);
         }
-        this.lightData.lightTangent.copyFrom(this.transform.up);
+        this.lightData.lightTangent.copy(this.transform.up);
         this.onChange();
     }
 
@@ -124,8 +162,11 @@ export class LightBase extends ComponentBase implements ILight {
 
     public set iesProfiles(iesProfiles: IESProfiles) {
         this._iesProfiles = iesProfiles;
-        this.lightData.iesIndex = iesProfiles.index;
-        IESProfiles.use = true;
+        // The layer index is assigned when LightEntries registers the
+        // profile into the owning engine's IESProfilesPool at upload
+        // time — the engine ctx is unknown here (light may not be
+        // attached to a rendered view yet).
+        this.lightData.iesIndex = iesProfiles ? iesProfiles.index : -1;
         this.onChange();
     }
 

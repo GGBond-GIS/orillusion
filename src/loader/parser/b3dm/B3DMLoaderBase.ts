@@ -1,6 +1,10 @@
 ﻿import { FeatureTable, BatchTable } from './FeatureTable.js';
 import { readMagicBytes } from "./readMagicBytes";
 
+/**
+ * Parses the b3dm binary header and splits out the feature table, batch table, and glb payload.
+ * @internal
+ */
 export class B3DMLoaderBase  {
 
  async parse( buffer: ArrayBuffer ) {

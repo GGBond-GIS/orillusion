@@ -5,22 +5,37 @@ import { Orientation3D } from "../../../math/Orientation3D";
 import { Object3D } from "../../../core/entities/Object3D";
 import { TileSet } from "../../../loader/parser/tileRenderer/TileSet";
 import { Engine3D } from "../../../Engine3D";
+import { Context3D } from "../../../gfx/graphics/webGpu/Context3D";
 
+/**
+ * Loads and assembles a 3D Tiles tileset into a scene graph.
+ * Reads a tileset.json, applies the root/up-axis transforms, and recursively
+ * loads each referenced tile (glb, b3dm, i3dm, or nested tileset) into `group`.
+ * @group Loader
+ */
 export class TilesRenderer {
     public readonly group: Object3D;
     private _modelList: Object3D[];
     private _tileSet: TileSet;
     private _rootPath: string;
+    private _ctx?: Context3D;
 
-    constructor() {
+    constructor(ctx?: Context3D) {
         this.group = new Object3D();
+        this._ctx = ctx;
     }
 
+    /**
+     * Load a tileset and add all of its tiles as children of `group`.
+     * @param rootPath Base directory used to resolve tile content URIs.
+     * @param file Tileset descriptor file name (e.g. `tileset.json`).
+     */
     public async loadTileSet(rootPath: string, file: string) {
         this._modelList = [];
         this._rootPath = rootPath;
         let combinePath = rootPath + '/' + file;
-        this._tileSet = (await Engine3D.res.loadJSON(combinePath)) as TileSet;
+        const res = Engine3D.resFor(this._ctx);
+        this._tileSet = (await res.loadJSON(combinePath)) as TileSet;
         if (this._tileSet.root.transform) {
             let rootMatrix = new Matrix4();
             for (let i = 0; i < 16; i++) {
@@ -68,17 +83,17 @@ export class TilesRenderer {
                 };
                 let tileObject3D: Object3D;
                 if (url.endsWith('.glb')) {
-                    tileObject3D = (await Engine3D.res.loadGltf(url, functions)) as Object3D;
+                    tileObject3D = (await res.loadGltf(url, functions)) as Object3D;
                     this.applyTransform(tileObject3D.transform, adjustmentTransform)
                 } else if (url.endsWith('tileset.json')) {
                     let childTilesetUrl = url.replace('/tileset.json', '');
-                    let tilesRenderer = new TilesRenderer();
+                    let tilesRenderer = new TilesRenderer(this._ctx);
                     await tilesRenderer.loadTileSet(childTilesetUrl, 'tileset.json');
                     tileObject3D = tilesRenderer.group;
                 } else if (url.endsWith('.i3dm')) {
-                    tileObject3D = (await Engine3D.res.loadI3DM(url, functions, adjustmentTransform)) as Object3D;
+                    tileObject3D = (await res.loadI3DM(url, functions, adjustmentTransform)) as Object3D;
                 } else if (url.endsWith('.b3dm')) {
-                    tileObject3D = (await Engine3D.res.loadB3DM(url, functions, adjustmentTransform)) as Object3D;
+                    tileObject3D = (await res.loadB3DM(url, functions, adjustmentTransform)) as Object3D;
                 }
 
                 if (tileObject3D) {
@@ -103,13 +118,13 @@ export class TilesRenderer {
     private applyTransform(transform: Transform, matrix: Matrix4) {
         let prs: Vector3[] = matrix.decompose(Orientation3D.QUATERNION);
 
-        transform.localRotQuat.copyFrom(prs[1]);
+        transform.localRotQuat.copy(prs[1]);
         transform.localRotQuat = transform.localRotQuat;
 
-        transform.localPosition.copyFrom(prs[0]);
+        transform.localPosition.copy(prs[0]);
         transform.localPosition = transform.localPosition;
 
-        transform.localScale.copyFrom(prs[2]);
+        transform.localScale.copy(prs[2]);
         transform.localScale = transform.localScale;
     }
 

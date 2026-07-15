@@ -23,16 +23,16 @@ export class Bezier3D {
         let uuu = u * u * u;
         let tt = t * t;
         let ttt = t * t * t;
-        let p = p0.mul(uuu);
-        let tp1 = c1.mul(3);
-        tp1 = tp1.mul(t);
-        tp1 = tp1.mul(uu);
+        let p = p0.clone().multiplyScalar(uuu);
+        let tp1 = c1.clone().multiplyScalar(3);
+        tp1 = tp1.multiplyScalar(t);
+        tp1 = tp1.multiplyScalar(uu);
 
-        let tp2 = c2.mul(3);
-        tp2 = tp2.mul(tt);
-        tp2 = tp2.mul(u);
+        let tp2 = c2.clone().multiplyScalar(3);
+        tp2 = tp2.multiplyScalar(tt);
+        tp2 = tp2.multiplyScalar(u);
 
-        let tp3 = p3.mul(ttt);
+        let tp3 = p3.clone().multiplyScalar(ttt);
         p = p.add(tp1);
         p = p.add(tp2);
         p = p.add(tp3);
@@ -54,13 +54,13 @@ export class Bezier3D {
         let uu = u * u;
         let tt = t * t;
 
-        let pp0 = p0.mul(uu);
+        let pp0 = p0.clone().multiplyScalar(uu);
 
-        let cc1 = c1.mul(2);
-        cc1.scaleBy(u);
-        cc1.scaleBy(t);
+        let cc1 = c1.clone().multiplyScalar(2);
+        cc1.multiplyScalar(u);
+        cc1.multiplyScalar(t);
 
-        let pp1 = p1.mul(tt);
+        let pp1 = p1.clone().multiplyScalar(tt);
 
         pp0 = pp0.add(cc1);
         pp0 = pp0.add(pp1);
@@ -76,16 +76,16 @@ export class Bezier3D {
         let uuu = u * u * u;
         let tt = t * t;
         let ttt = t * t * t;
-        let p = ps[skip].mul(uuu);
-        let tp1 = ps[skip + 1].mul(3);
-        tp1 = tp1.mul(t);
-        tp1 = tp1.mul(uu);
+        let p = ps[skip].clone().multiplyScalar(uuu);
+        let tp1 = ps[skip + 1].clone().multiplyScalar(3);
+        tp1 = tp1.multiplyScalar(t);
+        tp1 = tp1.multiplyScalar(uu);
 
-        let tp2 = ps[skip + 2].mul(3);
-        tp2 = tp2.mul(tt);
-        tp2 = tp2.mul(u);
+        let tp2 = ps[skip + 2].clone().multiplyScalar(3);
+        tp2 = tp2.multiplyScalar(tt);
+        tp2 = tp2.multiplyScalar(u);
 
-        let tp3 = ps[skip + 3].mul(ttt);
+        let tp3 = ps[skip + 3].clone().multiplyScalar(ttt);
         p = p.add(tp1);
         p = p.add(tp2);
         p = p.add(tp3);

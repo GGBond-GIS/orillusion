@@ -1,24 +1,29 @@
+import { Camera3D } from '../..';
 import { Picker_cs } from '../../assets/shader/compute/Picker_cs';
 import { View3D } from '../../core/View3D';
 import { GlobalBindGroup } from '../../gfx/graphics/webGpu/core/bindGroups/GlobalBindGroup';
 import { ComputeGPUBuffer } from '../../gfx/graphics/webGpu/core/buffer/ComputeGPUBuffer';
 import { ComputeShader } from '../../gfx/graphics/webGpu/shader/ComputeShader';
-import { GPUContext } from '../../gfx/renderJob/GPUContext';
 import { GBufferFrame } from '../../gfx/renderJob/frame/GBufferFrame';
 import { Vector2 } from '../../math/Vector2';
 import { Vector3 } from '../../math/Vector3';
 /**
  * @internal
- * @group IO
  */
 export class PickCompute {
     private _computeShader: ComputeShader;
     private _outBuffer: ComputeGPUBuffer;
     constructor() { }
 
-    public init() {
-        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer);
+    public init(view: View3D) {
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, view.engine3D.context3D);
         this._computeShader = new ComputeShader(Picker_cs);
+
+        // Mirror the render-pipeline's USE_LOGDEPTH define onto the picker
+        // compute shader so the gBuffer-decode path picks the log-aware
+        // reconstruction branch (otherwise log-encoded depth would be
+        // unprojected as if it were NDC z, breaking pick worldPos).
+        this._computeShader.setDefine(`USE_LOGDEPTH`, !!view.engine3D.setting.render.useLogDepth);
 
         this._outBuffer = new ComputeGPUBuffer(32);
         this._computeShader.setStorageBuffer('outBuffer', this._outBuffer);
@@ -29,9 +34,10 @@ export class PickCompute {
         let stand = GlobalBindGroup.getCameraGroup(view.camera);
         this._computeShader.setStorageBuffer('globalUniform', stand.uniformGPUBuffer);
 
-        let command = GPUContext.beginCommandEncoder();
-        GPUContext.computeCommand(command, [this._computeShader]);
-        GPUContext.endCommandEncoder(command);
+        const gpu = view.engine3D.context3D.gpuContext;
+        let command = gpu.beginCommandEncoder();
+        gpu.computeCommand(command, [this._computeShader]);
+        gpu.endCommandEncoder(command);
         this._outBuffer.readBuffer();
     }
 
@@ -54,6 +60,11 @@ export class PickCompute {
         var y = this._outBuffer.outFloat32Array[5];
         var z = this._outBuffer.outFloat32Array[6];
         target.set(x, y, z);
+
+        if (Camera3D.mainCamera._boundCtx?.engine?.setting.useRTE) {
+            Vector3.add(target, Camera3D.mainCamera.transform.worldPosition, target);
+        }
+        
         return target;
     }
 
@@ -66,7 +77,7 @@ export class PickCompute {
         var x = this._outBuffer.outFloat32Array[8];
         var y = this._outBuffer.outFloat32Array[9];
         var z = this._outBuffer.outFloat32Array[10];
-        target.set(x * 2.0 - 1.0, y * 2.0 - 1.0, z * 2.0 - 1.0).normalize();
+        target.set(x, y, z).normalize();
         return target;
     }
 
