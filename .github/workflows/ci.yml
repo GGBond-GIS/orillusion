@@ -29,6 +29,9 @@ jobs:
     - name: Test Build
       run: pnpm run build:test
 
+    - name: Install Electron
+      run: node node_modules/electron/install.js
+
     - name: Test in Electron
       run: pnpm run test:ci
       timeout-minutes: 5
