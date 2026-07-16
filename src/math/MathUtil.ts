@@ -354,7 +354,11 @@ export let PingPong = function (t: number, start: number, end: number): number {
  */
 export let RepeatSE = function (t: number, start: number, end: number): number {
     let len = end - start;
-    return (t % len) + start;
+    // Wrap into [start, end). JS `%` keeps the sign of the dividend, so a
+    // bare `(t % len)` leaves negative inputs negative (e.g. -0.5 stays -0.5
+    // instead of looping to 0.5). Normalize with `((x % len) + len) % len`
+    // so Repeat loops correctly for times before `start`, matching PingPong.
+    return (((t - start) % len) + len) % len + start;
 };
 
 /**

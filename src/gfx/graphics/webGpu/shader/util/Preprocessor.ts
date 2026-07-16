@@ -1,5 +1,5 @@
 import { ShaderLib } from '../../../../../assets/shader/ShaderLib';
-import { evalCondition } from './PreprocessorExpr';
+import { evalCondition, expand } from './PreprocessorExpr';
 
 /**
  * @internal
@@ -31,7 +31,8 @@ export class Preprocessor {
         let endIndex = code.indexOf('\n', code.lastIndexOf('#'));
         let codeBlock = code.substring(begIndex, endIndex);
         let tail = code.substring(endIndex);
-        return header + this.parsePreprocessCommand(context, codeBlock, defineValue) + tail;
+        let body = this.parsePreprocessCommand(context, codeBlock, defineValue);
+        return expand(header, defineValue) + body + expand(tail, defineValue);
     }
 
     protected static parseAutoBindingForAllGroup(code: string): string {
@@ -170,7 +171,8 @@ export class Preprocessor {
             let skip = stack[stack.length - 1];
             if (line.trim().indexOf('#') != 0) {
                 if (!skip) {
-                    result += line + '\n';
+                    // Expand `#define`d identifiers in emitted body lines.
+                    result += expand(line, defineValue) + '\n';
                 }
                 continue;
             }
@@ -259,7 +261,10 @@ export class Preprocessor {
 
     protected static parseCondition(condition: string, defineValue: { [name: string]: any }): boolean {
         try {
-            return evalCondition(condition, defineValue);
+            // Expand identifier references first so a chained `#define A B`
+            // (with `#define B 1`) resolves: `A` → `B`, then evalCondition's
+            // own lookup turns `B` into 1. Single-pass expand avoids loops.
+            return evalCondition(expand(condition, defineValue), defineValue);
         } catch (e) {
             console.error(`preprocess condition parse error: '${condition}'`, e);
             return false;

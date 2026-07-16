@@ -72,7 +72,9 @@ await test('AnimationCurve WarpTimeMode test', async () => {
     let v0 = animationCurve.getValue(-0.5);
     let v1 = animationCurve.getValue(1.5);
 
-    expect(v0).toEqual(-8127000.075000001);
+    // preWarp Repeat loops -0.5 → 0.5, postWarp PingPong reflects 1.5 → 0.5,
+    // so both sample the same interior point as getValue(0.5).
+    expect(v0).toEqual(0.45625000000000004);
     expect(v1).toEqual(0.45625000000000004);
 })
 
