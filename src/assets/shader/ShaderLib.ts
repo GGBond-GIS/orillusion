@@ -164,6 +164,15 @@ export class ShaderLib {
         ShaderLib.register("ZPass_shader_vs", ZPassShader_vs);
     }
 
+    /**
+     * Monotonic revision of the registered chunk set. Anything caching data
+     * derived from #include expansion (see Preprocessor's parse cache) must
+     * invalidate when this changes, otherwise an HMR edit or a re-init with
+     * different seed settings would keep serving stale expansions — the same
+     * staleness class described in register() below.
+     */
+    public static _revision: number = 0;
+
     public static register(keyName: string, code: string) {
         // Always overwrite. Skipping on duplicate keys means vite HMR
         // can't propagate edits to *_frag.ts shader strings — the new
@@ -173,7 +182,9 @@ export class ShaderLib {
         // confusing "works only after toggle / hard refresh" symptom
         // when the shader edit changed compositing behaviour
         // (e.g. UnLit_frag's USE_OIT_ACCUM pre-mul branch).
-        ShaderLib[keyName.toLowerCase()] = code;
+        let key = keyName.toLowerCase();
+        if (ShaderLib[key] !== code) ShaderLib._revision++;
+        ShaderLib[key] = code;
     }
 
     public static getShader(keyName: string): string {
