@@ -1,4 +1,4 @@
-import { Matrix4 } from '../..';
+import { Matrix4, Quaternion } from '../..';
 import matrix from './matrix';
 
 export type FloatArray = Float32Array | Float64Array;
@@ -50,8 +50,8 @@ export class WasmMatrix {
     static stateStruct: number = 4;
     /** Number of float entries per object in {@link matrixSRTBuffer}: 3 scale + 4 rotation quaternion (x, y, z, w) + 3 translation. */
     static srtStride: number = 10;
-    /** Number of float entries per object in {@link matrixContinuedSRTBuffer}: 3 scale + 3 Euler rotation delta + 3 translation delta. */
-    static continuedSrtStride: number = 9;
+    /** Number of float entries per object in {@link matrixContinuedSRTBuffer}: 3 scale + 4 rotation delta quaternion (x, y, z, w) + 3 translation delta. */
+    static continuedSrtStride: number = 10;
     /** Whether matrices are stored in 64-bit (double) precision. */
     static useDoublePrecision: boolean = false;
 
@@ -125,39 +125,44 @@ export class WasmMatrix {
      * @param depthOrder hierarchy depth order used for update sequencing
      */
     public static setParent(matIndex: number, x: number, depthOrder: number) {
-        this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 2] = x >= 0 ? x : -1;
-        this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 3] = depthOrder;
+        const index = matIndex * WasmMatrix.stateStruct;
+        this.matrixStateBuffer[index + 2] = x >= 0 ? x : -1;
+        this.matrixStateBuffer[index + 3] = depthOrder;
         // console.warn(`${matIndex} -> ${depthOrder}`);
     }
 
     /** Set the local translation of a matrix. */
     public static setTranslate(matIndex: number, x: number, y: number, z: number) {
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 7] = x;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 8] = y;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 9] = z;
+        const index = matIndex * WasmMatrix.srtStride;
+        this.matrixSRTBuffer[index + 7] = x;
+        this.matrixSRTBuffer[index + 8] = y;
+        this.matrixSRTBuffer[index + 9] = z;
     }
 
     /** Set the local rotation of a matrix (quaternion x, y, z, w). */
     public static setRotation(matIndex: number, x: number, y: number, z: number, w: number) {
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 3] = x;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 4] = y;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 5] = z;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 6] = w;
+        const index = matIndex * WasmMatrix.srtStride;
+        this.matrixSRTBuffer[index + 3] = x;
+        this.matrixSRTBuffer[index + 4] = y;
+        this.matrixSRTBuffer[index + 5] = z;
+        this.matrixSRTBuffer[index + 6] = w;
     }
 
     /** Set the local scale of a matrix. */
     public static setScale(matIndex: number, x: number, y: number, z: number) {
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 0] = x;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 1] = y;
-        this.matrixSRTBuffer[matIndex * WasmMatrix.srtStride + 2] = z;
+        const index = matIndex * WasmMatrix.srtStride;
+        this.matrixSRTBuffer[index + 0] = x;
+        this.matrixSRTBuffer[index + 1] = y;
+        this.matrixSRTBuffer[index + 2] = z;
     }
 
     /** Set a per-frame continuous translation delta (auto-applied each update). */
     public static setContinueTranslate(matIndex: number, x: number, y: number, z: number) {
         if (x != 0 || y != 0 || z != 0) {
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 6] = x;
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 7] = y;
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 8] = z;
+            const index = matIndex * WasmMatrix.continuedSrtStride;
+            this.matrixContinuedSRTBuffer[index + 7] = x;
+            this.matrixContinuedSRTBuffer[index + 8] = y;
+            this.matrixContinuedSRTBuffer[index + 9] = z;
             this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 1] = 1;
         }
     }
@@ -165,9 +170,12 @@ export class WasmMatrix {
     /** Set a per-frame continuous rotation delta (Euler degrees/frame, auto-applied each update). */
     public static setContinueRotation(matIndex: number, x: number, y: number, z: number) {
         if (x != 0 || y != 0 || z != 0) {
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 3] = x;
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 4] = y;
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 5] = z;
+            const temp = Quaternion.HELP_2.setFromEuler(x, y, z);
+            const index = matIndex * WasmMatrix.continuedSrtStride;
+            this.matrixContinuedSRTBuffer[index + 3] = temp.x;
+            this.matrixContinuedSRTBuffer[index + 4] = temp.y;
+            this.matrixContinuedSRTBuffer[index + 5] = temp.z;
+            this.matrixContinuedSRTBuffer[index + 6] = temp.w;
             this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 1] = 1;
         }
     }
@@ -175,9 +183,10 @@ export class WasmMatrix {
     /** Set a per-frame continuous scale delta (auto-applied each update). */
     public static setContinueScale(matIndex: number, x: number, y: number, z: number) {
         if (x != 0 || y != 0 || z != 0) {
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 0] = x;
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 1] = y;
-            this.matrixContinuedSRTBuffer[matIndex * WasmMatrix.continuedSrtStride + 2] = z;
+            const index = matIndex * WasmMatrix.continuedSrtStride;
+            this.matrixContinuedSRTBuffer[index + 0] = x;
+            this.matrixContinuedSRTBuffer[index + 1] = y;
+            this.matrixContinuedSRTBuffer[index + 2] = z;
             this.matrixStateBuffer[matIndex * WasmMatrix.stateStruct + 1] = 1;
         }
     }
