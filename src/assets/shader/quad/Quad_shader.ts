@@ -89,6 +89,69 @@ export let Quad_frag_wgsl: string = /*wgsl*/ `
     }
 `
 /**
+ * Present blit for opaque canvases (CanvasConfig.alpha unset/false).
+ * The swapchain always runs with alphaMode 'premultiplied' (see
+ * Context3D.init), so whatever alpha the scene left in the color
+ * buffer would be composited against the page. A default-configured
+ * canvas must be opaque: a scene with no sky and no opaque geometry
+ * (e.g. pure additive-particle demos) leaves alpha 0 in the color
+ * buffer, and without this clamp the page background bleeds through
+ * the render — the result then changes with the page's CSS color and
+ * with per-compositor handling of out-of-range premultiplied values.
+ * @internal
+ */
+export let Quad_opaque_frag_wgsl: string = /*wgsl*/ `
+    struct FragmentOutput {
+        @location(auto) o_Target: vec4<f32>
+    };
+
+    @group(1) @binding(0)
+    var baseMapSampler: sampler;
+    @group(1) @binding(1)
+    var baseMap: texture_2d<f32>;
+
+    @fragment
+    fn main(@location(auto) fragUV: vec2<f32>) -> FragmentOutput {
+        var uv = fragUV ;
+        uv.y = 1.0 - uv.y ;
+        var color: vec4<f32> = textureSample(baseMap, baseMapSampler, uv );
+        color.a = 1.0;
+        return FragmentOutput(color);
+    }
+`
+/**
+ * Present blit for transparent canvases (CanvasConfig.alpha).
+ * The swapchain is configured with alphaMode 'premultiplied', which
+ * requires every component of rgb <= a; values outside that range are
+ * undefined per the WebGPU spec (some compositors clamp rgb to a,
+ * silently erasing additive content whose pixels carry light in rgb
+ * but 0 coverage in alpha). Lift alpha to the brightest color
+ * component so the output is always spec-valid: additive light then
+ * composites as glow that partially occludes the page instead of
+ * being clamped away.
+ * @internal
+ */
+export let Quad_premultiply_frag_wgsl: string = /*wgsl*/ `
+    struct FragmentOutput {
+        @location(auto) o_Target: vec4<f32>
+    };
+
+    @group(1) @binding(0)
+    var baseMapSampler: sampler;
+    @group(1) @binding(1)
+    var baseMap: texture_2d<f32>;
+
+    @fragment
+    fn main(@location(auto) fragUV: vec2<f32>) -> FragmentOutput {
+        var uv = fragUV ;
+        uv.y = 1.0 - uv.y ;
+        var color: vec4<f32> = textureSample(baseMap, baseMapSampler, uv );
+        let coverage = saturate(max(color.r, max(color.g, color.b)));
+        color.a = max(color.a, coverage);
+        return FragmentOutput(color);
+    }
+`
+/**
  * @internal
  */
 export let Quad_depth2d_frag_wgsl: string = /*wgsl*/ `

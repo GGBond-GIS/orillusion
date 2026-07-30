@@ -96,7 +96,14 @@ export class BlendFactor {
                 blend.color.dstFactor = 'one';
                 blend.color.operation = `add`;
 
-                blend.alpha.srcFactor = `one`;
+                // Additive blending contributes light, not coverage —
+                // keep the destination alpha untouched. Accumulating
+                // src alpha (`one`+`one`) turned every covered pixel
+                // opaque, so on a transparent canvas
+                // (CanvasConfig.alpha) additive sprites with opaque
+                // black textures composited as solid black blocks
+                // instead of glowing over the page background.
+                blend.alpha.srcFactor = `zero`;
                 blend.alpha.dstFactor = `one`;
                 blend.alpha.operation = `add`;
                 break;
@@ -130,7 +137,8 @@ export class BlendFactor {
                 blend.color.dstFactor = 'one';
                 blend.color.operation = `max`;
 
-                blend.alpha.srcFactor = `one`;
+                // Same coverage rule as ADD above.
+                blend.alpha.srcFactor = `zero`;
                 blend.alpha.dstFactor = `one`;
                 blend.alpha.operation = `add`;
                 break;

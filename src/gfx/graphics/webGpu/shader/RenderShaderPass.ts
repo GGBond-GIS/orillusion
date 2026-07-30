@@ -1119,9 +1119,18 @@ export class RenderShaderPass extends ShaderPassBase {
                 //   - **Early-Z is still active for opaques.** The depth
                 //     test runs before the fragment shader; overdrawn
                 //     opaques are rejected before the lit shader runs.
+                //   - Only the default `less`/`less_equal` compares get
+                //     the 1-ULP relaxation. A material that explicitly
+                //     sets another compare (`always`, `greater`, …) —
+                //     e.g. Graphic3D overlays toggling depth-test off —
+                //     must keep it; forcing `less_equal` here silently
+                //     disabled `material.depthCompare` for every
+                //     zPrePass-on scene.
                 renderPipelineDescriptor[`depthStencil`] = {
                     depthWriteEnabled: shaderState.depthWriteEnabled,
-                    depthCompare: GPUCompareFunction.less_equal,
+                    depthCompare: shaderState.depthCompare == GPUCompareFunction.less
+                        ? GPUCompareFunction.less_equal
+                        : shaderState.depthCompare,
                     format: renderPassState.zPreTexture.format,
                 };
             } else {

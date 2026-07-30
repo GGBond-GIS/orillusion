@@ -37,7 +37,7 @@ import { Clearcoat_frag } from './materials/program/Clearcoat_frag';
 import { Lit_shader } from './materials/Lit_shader';
 import { PBRLItShader } from './materials/PBRLItShader';
 import { BxdfDebug_frag } from './materials/program/BxdfDebug_frag';
-import { Quad_depth2d_frag_wgsl, Quad_depthCube_frag_wgsl, Quad_frag_wgsl, Quad_vert_wgsl } from './quad/Quad_shader';
+import { Quad_depth2d_frag_wgsl, Quad_depthCube_frag_wgsl, Quad_frag_wgsl, Quad_opaque_frag_wgsl, Quad_premultiply_frag_wgsl, Quad_vert_wgsl } from './quad/Quad_shader';
 import { ColorUtil } from './utils/ColorUtil';
 import { GenerayRandomDir } from './utils/GenerayRandomDir';
 import { MatrixShader } from './math/MatrixShader';
@@ -136,6 +136,8 @@ export class ShaderLib {
         ShaderLib.register('GenerayRandomDir', GenerayRandomDir);
         ShaderLib.register('Quad_vert_wgsl', Quad_vert_wgsl);
         ShaderLib.register('Quad_frag_wgsl', Quad_frag_wgsl);
+        ShaderLib.register('Quad_premultiply_frag_wgsl', Quad_premultiply_frag_wgsl);
+        ShaderLib.register('Quad_opaque_frag_wgsl', Quad_opaque_frag_wgsl);
         ShaderLib.register('Quad_depth2d_frag_wgsl', Quad_depth2d_frag_wgsl);
         ShaderLib.register('Quad_depthCube_frag_wgsl', Quad_depthCube_frag_wgsl);
         ShaderLib.register('sky_vs_frag_wgsl', CubeSky_Shader.sky_vs_frag_wgsl);
