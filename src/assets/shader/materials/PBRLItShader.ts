@@ -421,28 +421,96 @@ export let PBRLItShader: string = /*wgsl*/ `
             // compositor reveals the HTML cell at full strength.
             let backdropDirect = textureSample(sceneColorPyramid, sceneColorPyramidSampler, screenUV);
             let opacity = ORI_FragmentOutput.color.a;
-            // Body alpha = opacity (uniform across the dragon).
-            // Earlier we used opacity * backdropDirect.a so the
-            // alpha-canvas trick fully revealed HTML through cells,
-            // but that collapsed the dragon's body to invisible at
-            // cells coverage — the user reads it as "no alpha-blend
-            // with the colour cells", which is what the standard PBR
-            // transparent path actually shows at high transmission
-            // (the dragon body does occupy those pixels).
             let bodySrcA = opacity;
-            // canvasAlpha keeps the cloth-blocks-HTML semantics: at
-            // cloth coverage we end at 1 (premultiplied compositor
-            // skips HTML). At cells (backdrop.a = 0) it stays at
-            // bodySrcA, so HTML still shows through proportionally to
-            // (1 - opacity).
-            let cutoutAlpha = bodySrcA + backdropDirect.a * (1.0 - bodySrcA);
+            // --- Page transmission through canvas alpha ---
+            // The HTML page lives in the browser's DOM compositor, not
+            // in the GPU scene, so refraction can never *sample* it.
+            // The only way glass can "transmit" the page is to lower
+            // the canvas alpha by the transmitted fraction and let the
+            // premultiplied compositor blend the page behind us:
+            //   out = ownLightRGB + page * (1 - alpha)
+            //
+            // The transmitted fraction may only reveal the page where
+            // the transmitted path truly ends in empty space — i.e.
+            // neither the refracted sample (refractCoverage) nor the
+            // straight-through backdrop at this pixel (backdropDirect.a
+            // — the opaque queue OVERWRITES the color buffer, so
+            // anything the pyramid holds here would otherwise be lost,
+            // not composited by the browser) has scene coverage.
+            let directCov = clamp(backdropDirect.a, 0.0, 1.0);
+            let sceneCov = max(refractCoverage, directCov);
+            // Per-channel medium filter (Beer-Lambert x surface tint).
+            // Source-over only offers a SCALAR (1 - alpha) page term,
+            // so the colored filter is decomposed:
+            //   - the weakest-transmitted channel (tPass) becomes the
+            //     scalar page pass-through -> drives alpha;
+            //   - the per-channel excess (mediumVis - tPass) is
+            //     emitted as own light under a neutral-bright-page
+            //     assumption (pageTintGlow).
+            // Over a white page the two recombine to exactly
+            // mediumVis * page — amber glass reads amber; over colored
+            // cells the hue dominates while the cell still shows
+            // through at tPass strength.
+            let mediumVis = clamp(transmittance * tint, vec3f(0.0), vec3f(1.0));
+            // Floor the scalar pass-through at half the average
+            // transmission: a fully saturated filter (e.g. pure-yellow
+            // attenuation, min channel = 0) would otherwise drive
+            // alpha to 1 and read as opaque emissive plastic instead
+            // of stained glass. The floor trades a little hue
+            // saturation for guaranteed see-through.
+            let minVis = min(mediumVis.r, min(mediumVis.g, mediumVis.b));
+            let avgVis = dot(mediumVis, vec3f(1.0 / 3.0));
+            let tPass = max(minVis, 0.5 * avgVis);
+            let pageFrac = 1.0 - sceneCov;
+            // The DOM page cannot be refraction-sampled, so a straight
+            // scalar pass-through renders the page rigidly undistorted
+            // — jarring next to the properly refracted in-scene
+            // backdrop. Approximate the glassy read with the two
+            // signals refraction produces on the scene side:
+            //   - Schlick Fresnel: grazing fragments transmit less and
+            //     reflect more, so rims go spec/body instead of page;
+            //   - bend fade: where the screen-space refraction offset
+            //     is large, the straight-through page is not what the
+            //     transmitted ray would actually see — fade it out and
+            //     let the medium glow / specular take over, mirroring
+            //     the "busy" look of strongly bent regions over cloth.
+            let pageNoV = clamp(dot(normalWS, viewDir), 0.0, 1.0);
+            let pageF0 = pow((materialUniform.ior - 1.0) / (materialUniform.ior + 1.0), 2.0);
+            let pageFresnelT = 1.0 - (pageF0 + (1.0 - pageF0) * pow(1.0 - pageNoV, 5.0));
+            let pageBend = length(refractedUV - screenUV);
+            let pageBendFade = 1.0 - smoothstep(0.02, 0.25, pageBend);
+            let pageVis = pageFresnelT * pageBendFade;
+            let pageThrough = effectiveTf * pageFrac * tPass * pageVis;
+            // Clamped at 0 — with the floor active a channel can sit
+            // below tPass and must not subtract from the body light.
+            // Note glow <= 1 - tPass = alpha, so the premultiplied
+            // output stays spec-valid without relying on the present
+            // pass's alpha lift. Scaled by pageVis like the
+            // pass-through itself: the glow models the chromatic part
+            // of page light crossing the medium, and light that
+            // Fresnel-reflects away or bends off-path never crosses.
+            let pageTintGlow = max(mediumVis - vec3f(tPass), vec3f(0.0)) * pageFrac * pageVis;
+            // Own transmitted light in cutout mode: refracted scene
+            // sample where available, else the straight-through
+            // backdrop attenuated by the medium, else the tint glow —
+            // the page itself supplies the remaining light through
+            // alpha, so keeping the opaque path's white-light fallback
+            // here would count the backdrop light twice.
+            let transmittedCutout = mix(backdropDirect.rgb * transmittance * tint, transmittedTinted, refractCoverage) + pageTintGlow;
+            let bodyCutoutRGB = mix(diffuseLike, transmittedCutout, effectiveTf);
+            // canvasAlpha semantics:
+            //   scene-backed pixels (sceneCov = 1) -> 1, cloth blocks HTML;
+            //   page-backed glass at opacity 1 -> 1 - tf * tPass, HTML
+            //   shows through proportionally to the transmission;
+            //   opacity < 1 fades the body itself toward directCov.
+            let cutoutAlpha = mix(directCov, 1.0 - pageThrough, bodySrcA);
             // Diffuse / transmission part: opacity blends dragon body
             // with the cloth (or whatever else has depth at this
             // pixel). Specular is added unconditionally on top so a
             // glass surface in front of an alpha:true canvas region
             // (HTML cells) still casts bright highlights / reflection
             // halos onto the visible page background.
-            let cutoutBodyRGB = bodySrcA * bodyRGB + (1.0 - bodySrcA) * backdropDirect.a * backdropDirect.rgb;
+            let cutoutBodyRGB = bodySrcA * bodyCutoutRGB + (1.0 - bodySrcA) * backdropDirect.a * backdropDirect.rgb;
             let cutoutRGB = cutoutBodyRGB + preservedSpec;
             // Opaque-branch alpha was hardcoded to 1.0, which made the
             // sphere fully visible regardless of the user's opacity
