@@ -42,7 +42,7 @@
         "build:types": "tsc --emitDeclarationOnly -p tsconfig.build.json && find src -name \"*.d.ts\" | while read file; do mkdir -p dist/$(dirname \"$file\"); cp \"$file\" dist/\"$file\"; done && mv dist/src dist/types",
         "minify": "node scripts/minify.mjs",
         "test": "electron test/ci/main.js",
-        "test:manual": "electron test/ci/main_manual.js",
+        "test:manual": "xvfb-maybe -- electron --enable-unsafe-webgpu --enable-features=Vulkan --use-vulkan=swiftshader --use-webgpu-adapter=swiftshader --no-sandbox test/ci/main_manual.js",
         "test:ci": "xvfb-maybe -- electron --enable-unsafe-webgpu --enable-features=Vulkan --use-vulkan=swiftshader --use-webgpu-adapter=swiftshader --no-sandbox test/ci/main.js",
         "docs": "npm run docs:core && npm run docs:physics && npm run docs:physics-rapier && npm run docs:media && npm run docs:stats && npm run docs:particle && npm run docs:graphic",
         "docs:typedoc": "npx typedoc --plugin typedoc-plugin-markdown --tsconfig tsconfig.build.json --gitRevision main --hideBreadcrumbs --router member --readme none --excludeInternal --excludePrivate --excludeProtected --excludeExternals --sort source-order --out",
