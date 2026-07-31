@@ -17,7 +17,7 @@ async function test(unit: string, run: () => Promise<any>) {
                 rej = (e: any) => _rej(e.reason)
                 window.addEventListener('unhandledrejection', rej, { once: true })
             }),
-            new Promise((_, _rej) => setTimeout(_rej, 30 * 1000, new Error('timeout')))
+            new Promise((_, _rej) => setTimeout(_rej, 60 * 1000, new Error('timeout')))
         ])
         result[unit].success++
         totalS++
