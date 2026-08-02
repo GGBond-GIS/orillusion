@@ -1,5 +1,4 @@
-import { FloatArray } from '@orillusion/wasm-matrix/WasmMatrix';
-import { webGPUContext } from '../../Context3D';
+import { FloatArray } from '../../../../../components/matrix/WasmMatrix';
 import { ArrayBufferData } from './ArrayBufferData';
 import { GPUBufferBase } from './GPUBufferBase';
 import { GPUBufferType } from './GPUBufferType';
@@ -30,7 +29,9 @@ export class MatrixGPUBuffer extends GPUBufferBase {
         }
         // Upload data using mapAsync and a queue of staging buffers.
         let bytesLen = len;
-        let device = webGPUContext.device;
+        // Touch .buffer to trigger lazy bind on first call
+        void this.buffer;
+        let device = this._boundCtx!.device;
         if (mapAsyncArray.length > 0) {
             let tBuffer: GPUBuffer = null;
             while (this.mapAsyncReady.length) {
@@ -63,7 +64,13 @@ export class MatrixGPUBuffer extends GPUBufferBase {
             // TODO: combine this submit with the main one, but we'll have to delay calling mapAsync until after the submit.
             device.queue.submit([commandEncoder.finish()]);
             // TODO: use this data during rendering.
-            tBuffer.mapAsync(GPUMapMode.WRITE).then(() => this.mapAsyncReady.push(tBuffer));
+            tBuffer.mapAsync(GPUMapMode.WRITE).then(
+                () => this.mapAsyncReady.push(tBuffer),
+                (err) => {
+                    // device.destroy() during dispose rejects pending mapAsync with AbortError.
+                    if (err?.name !== 'AbortError') throw err;
+                },
+            );
         }
     }
 }

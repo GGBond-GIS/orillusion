@@ -3,6 +3,7 @@ import { CameraUtil } from '../util/CameraUtil';
 import { Camera3D } from './Camera3D';
 import { CameraType } from './CameraType';
 import { Object3D } from './entities/Object3D';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 
 /**
  * A cubic camera containing 6 perspective cameras.
@@ -50,16 +51,14 @@ export class PointShadowCubeCamera extends Object3D {
         this.front_camera.isShadowCamera = isShadow;
         this.back_camera.isShadowCamera = isShadow;
 
-        let aspect = 1.0; // webGPUContext.aspect;
+        let aspect = 1.0;
         this.up_camera.perspective(fov, aspect, near, far);
-        this.up_camera.lookAt(Vector3.ZERO, Vector3.UP, Vector3.DOWN);
+        this.up_camera.lookAt(Vector3.ZERO, Vector3.UP, Vector3.BACK);
         this.up_camera.object3D.scaleX = -1;
-        this.up_camera.object3D.rotationY = 180;
 
         this.down_camera.perspective(fov, aspect, near, far);
-        this.down_camera.lookAt(Vector3.ZERO, Vector3.DOWN, Vector3.DOWN);
+        this.down_camera.lookAt(Vector3.ZERO, Vector3.DOWN, Vector3.FORWARD);
         this.down_camera.object3D.scaleX = -1;
-        this.down_camera.object3D.rotationY = 180;
 
         this.left_camera.perspective(fov, aspect, near, far);
         this.left_camera.lookAt(Vector3.ZERO, Vector3.LEFT);
@@ -86,4 +85,15 @@ export class PointShadowCubeCamera extends Object3D {
 
     }
 
+    /** Bind all 6 face cameras to a specific Context3D. Needed when the
+     *  cube camera never joins a scene graph. */
+    public bindCtx(ctx: Context3D): this {
+        this.up_camera._boundCtx ||= ctx;
+        this.down_camera._boundCtx ||= ctx;
+        this.left_camera._boundCtx ||= ctx;
+        this.right_camera._boundCtx ||= ctx;
+        this.front_camera._boundCtx ||= ctx;
+        this.back_camera._boundCtx ||= ctx;
+        return this;
+    }
 }

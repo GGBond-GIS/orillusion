@@ -1,17 +1,35 @@
 import { Preprocessor } from "./Preprocessor";
 
+/**
+ * Parsed result of a multi-pass shader source: a name and its passes grouped by pass type.
+ * @group GFX
+ */
 export class MorePassShader {
+    /** Shader name declared in the source. */
     public name: string = '';
+    /** Passes grouped by their pass type. */
     public passMap: Map<string, PassShader[]> = new Map<string, PassShader[]>();
 }
 
+/**
+ * A single parsed shader pass, holding its pass type, render state and shader sources.
+ * @group GFX
+ */
 export class PassShader {
+    /** Pass type identifier (e.g. COLOR, SHADOW). */
     public passType: string = '';
+    /** Render state key/value pairs declared for this pass. */
     public shaderState: Map<string, any> = new Map<string, any>();
+    /** Vertex shader source code. */
     public vertexShader: string = '';
+    /** Fragment shader source code. */
     public fragmentShader: string = '';
 }
 
+/**
+ * Parser that splits a multi-pass shader source into a {@link MorePassShader}.
+ * @group GFX
+ */
 export class MorePassParser {
     protected static passKeyword = 'pass';
     protected static shaderKeyword = 'Shader';
@@ -19,6 +37,11 @@ export class MorePassParser {
     protected static fragmentKeyword = 'fragment';
     protected static passTypeKeyword = 'PassType';
 
+    /**
+     * Parse a multi-pass shader source into a {@link MorePassShader}.
+     * @param code the raw shader source code
+     * @param defineValue preprocessor define values applied to each pass
+     */
     public static parser(code: string, defineValue: { [name: string]: any }): MorePassShader {
         code = Preprocessor.filterComment(code);
         let result = new MorePassShader();

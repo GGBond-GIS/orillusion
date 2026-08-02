@@ -80,11 +80,14 @@ export class GLTFSubParserMaterial {
                         dmaterial.baseMapOffsetSize = offsetSize;
                     }
                 }
-                const texture = await this.parseTexture(baseColorTexture.index);
+                // glTF baseColorTexture is the only color channel that
+                // stores sRGB-encoded bytes; the rest (normal, mr, ao,
+                // transmission scalar, thickness) are linear data.
+                const texture = await this.parseTexture(baseColorTexture.index, 'srgb');
                 if (texture) {
                     dmaterial.baseColorTexture = texture;
                 } else {
-                    dmaterial.baseColorTexture = Engine3D.res.redTexture;
+                    dmaterial.baseColorTexture = Engine3D.resFor(this.subParser.ctx).redTexture;
                 }
             }
 
@@ -107,7 +110,7 @@ export class GLTFSubParserMaterial {
                 if (texture) {
                     dmaterial.normalTexture = texture;
                 } else {
-                    dmaterial.normalTexture = Engine3D.res.normalTexture;
+                    dmaterial.normalTexture = Engine3D.resFor(this.subParser.ctx).normalTexture;
                 }
             }
 
@@ -130,7 +133,7 @@ export class GLTFSubParserMaterial {
                 if (texture) {
                     dmaterial.metallicRoughnessTexture = texture;
                 } else {
-                    dmaterial.metallicRoughnessTexture = Engine3D.res.blackTexture;
+                    dmaterial.metallicRoughnessTexture = Engine3D.resFor(this.subParser.ctx).blackTexture;
                 }
             }
         } else {
@@ -139,6 +142,22 @@ export class GLTFSubParserMaterial {
                 metallicFactor: 0,
                 roughnessFactor: 0.5,
             });
+        }
+
+        // KHR_materials_transmission textures live on `material.extensions`
+        // — resolve them here in the async path so the synchronous
+        // extension applier (KHR_materials_transmission.apply, run from
+        // GLTFSubParserConverter) can just bind the already-loaded
+        // Texture via setter.
+        if (extensions && extensions.KHR_materials_transmission && extensions.KHR_materials_transmission.transmissionTexture) {
+            const texInfo = extensions.KHR_materials_transmission.transmissionTexture;
+            const tex = await this.parseTexture(texInfo.index);
+            if (tex) (dmaterial as any).transmissionTextureResolved = tex;
+        }
+        if (extensions && extensions.KHR_materials_volume && extensions.KHR_materials_volume.thicknessTexture) {
+            const texInfo = extensions.KHR_materials_volume.thicknessTexture;
+            const tex = await this.parseTexture(texInfo.index);
+            if (tex) (dmaterial as any).thicknessTextureResolved = tex;
         }
 
         if (dmaterial.baseColorFactor && dmaterial.baseColorFactor[3] < 1.0) {
@@ -162,7 +181,7 @@ export class GLTFSubParserMaterial {
             if (texture) {
                 dmaterial.normalTexture = texture;
             } else {
-                dmaterial.normalTexture = Engine3D.res.normalTexture;
+                dmaterial.normalTexture = Engine3D.resFor(this.subParser.ctx).normalTexture;
             }
         }
 
@@ -178,11 +197,13 @@ export class GLTFSubParserMaterial {
         }
 
         if (emissiveTexture) {
-            const texture = await this.parseTexture(emissiveTexture.index);
+            // emissiveTexture is sRGB-encoded color (KHR + glTF spec
+            // 2.0 §3.9.3) — same hardware decode as baseColor.
+            const texture = await this.parseTexture(emissiveTexture.index, 'srgb');
             if (texture) {
                 dmaterial.emissiveTexture = texture;
             } else {
-                dmaterial.emissiveTexture = Engine3D.res.blackTexture;
+                dmaterial.emissiveTexture = Engine3D.resFor(this.subParser.ctx).blackTexture;
             }
         }
 
@@ -195,8 +216,8 @@ export class GLTFSubParserMaterial {
         return dmaterial;
     }
 
-    private async parseTexture(index: number) {
-        return this.subParser.parseTexture(index);
+    private async parseTexture(index: number, colorSpace: 'srgb' | 'linear' = 'linear') {
+        return this.subParser.parseTexture(index, colorSpace);
     }
 
     private errorMiss(e, info?) {

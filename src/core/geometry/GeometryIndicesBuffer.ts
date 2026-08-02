@@ -3,6 +3,10 @@ import { IndicesGPUBuffer } from "../../gfx/graphics/webGpu/core/buffer/IndicesG
 import { VertexAttributeData } from "./VertexAttributeData";
 
 
+/**
+ * Holds the index data of a geometry and manages its backing GPU index buffer.
+ * @group Geometry
+ */
 export class GeometryIndicesBuffer {
 
     public uuid: string = '';
@@ -24,7 +28,7 @@ export class GeometryIndicesBuffer {
     }
 
     public upload(data: ArrayBufferData) {
-        this.indicesGPUBuffer.indicesNode.setArrayBuffer(0, data as ArrayBuffer);
+        this.indicesGPUBuffer.indicesNode.setArrayBuffer(0, data as unknown as ArrayBuffer);
         this.indicesGPUBuffer.apply();
     }
 

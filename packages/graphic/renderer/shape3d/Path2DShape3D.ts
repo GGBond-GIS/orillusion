@@ -25,8 +25,8 @@ export class Path2DShape3D extends LineShape3D implements CanvasPath {
         return this._isClosed;
     }
     public set isClosed(value: boolean) {
+        if (value) console.warn('Path2DShape3D: isClosed=true is not supported');
         this._isClosed = false;
-        console.warn('Not Supported');
     }
 
     public reset() {
@@ -71,13 +71,13 @@ export class Path2DShape3D extends LineShape3D implements CanvasPath {
         radius = Math.max(0.00001, radius);
 
         let from = Vector3.HELP_0.set(ctrlX - this._currentCoord.x, 0, ctrlY - this._currentCoord.y).normalize();
-        let fRight = from.crossProduct(Vector3.UP).normalize();
+        let fRight = from.clone().cross(Vector3.UP).normalize();
         let to = Vector3.HELP_1.set(toX - ctrlX, 0, toY - ctrlY).normalize();
-        let tRight = to.crossProduct(Vector3.UP).normalize();
-        let isPositive = to.crossProduct(from).y >= 0.0;
+        let tRight = to.clone().cross(Vector3.UP).normalize();
+        let isPositive = to.clone().cross(from).y >= 0.0;
         let halfAngle = Math.acos(from.dotProduct(to)) * 0.5;
         let bevelEdge = radius / Math.cos(halfAngle);
-        let dirCenter = to.subtract(from).normalize();
+        let dirCenter = to.clone().sub(from).normalize();
         let centerPoint = new Vector3(ctrlX + dirCenter.x * bevelEdge, 0, ctrlY + dirCenter.z * bevelEdge);
 
         let rotateLocalPos: Vector3 = fRight.clone().multiplyScalar(radius);
@@ -92,7 +92,7 @@ export class Path2DShape3D extends LineShape3D implements CanvasPath {
         this.appendPoint(point.x, point.z);
 
         for (let i = 0; i < segment; i++) {
-            rotateLocalPos = matrix.transformVector(rotateLocalPos, rotateLocalPos);
+            rotateLocalPos = Matrix4.transformVector(matrix, rotateLocalPos, rotateLocalPos);
             point = rotateLocalPos.add(centerPoint);
             this.appendPoint(point.x, point.z);
         }
@@ -159,7 +159,7 @@ export class Path2DShape3D extends LineShape3D implements CanvasPath {
                 this.appendPoint(radiusX * Math.cos(angle) + x, radiusY * Math.sin(angle) + y);
             } else {
                 let vec3 = Vector3.HELP_0.set(radiusX * Math.cos(angle), 0, radiusY * Math.sin(angle));
-                rotateMatrix.transformPoint(vec3, vec3);
+                Matrix4.transformPoint(rotateMatrix, vec3, vec3);
                 this.appendPoint(vec3.x + x, vec3.z + y);
             }
         }
@@ -229,8 +229,8 @@ export class Path2DShape3D extends LineShape3D implements CanvasPath {
             offset.y += y;
             for (let j = 0; j <= segment; j++) {
                 tempAngle = angle + Math.PI * 0.5 * j / segment;
-                point = new Vector2(Math.cos(tempAngle), Math.sin(tempAngle)).multiplyScaler(radii);
-                point.add(offset, point);
+                point = new Vector2(Math.cos(tempAngle), Math.sin(tempAngle)).multiplyScalar(radii);
+                Vector2.add(point, offset, point);
                 firstPosition ||= point;
                 roundRectList.push(point);
             }
@@ -261,7 +261,7 @@ export class Path2DShape3D extends LineShape3D implements CanvasPath {
     private appendPoint(x: number, y: number) {
         let pt = new Point3D(x, y);
         this._points3D.push(pt);
-        this._currentCoord.copyFrom(pt);
+        this._currentCoord.copy(pt);
         this._isChange = true;
         return this;
     }

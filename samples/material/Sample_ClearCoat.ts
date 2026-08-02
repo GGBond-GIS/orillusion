@@ -3,23 +3,25 @@ import { Object3D, Scene3D, Engine3D, CameraUtil, HoverCameraController, View3D,
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 class Sample_ClearCoat {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
 
     async run() {
-        Engine3D.setting.pick.enable = true;
-        // Engine3D.setting.pick.mode = `pixel`;
-        Engine3D.setting.render.debug = true;
         GUIHelp.init();
 
-        await Engine3D.init();
-
-        //config settings
-        Engine3D.setting.shadow.shadowBound = 300;
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                pick: { enable: true /*, mode: `pixel` */ },
+                render: { debug: true },
+                //config settings
+                shadow: { },
+            },
+        });
 
         this.scene = new Scene3D();
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
 
         camera.object3D.addComponent(HoverCameraController).setCamera(-25, -5, 300);
@@ -28,7 +30,7 @@ class Sample_ClearCoat {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
         await this.initScene();
 
     }
@@ -36,12 +38,12 @@ class Sample_ClearCoat {
     async initScene() {
         /******** sky *******/
         {
-            // let tex = await Engine3D.res.loadHDRTextureCube("hdri/T_Panorama05_HDRI.HDR");
+            // let tex = await this.engine.res.loadHDRTextureCube("hdri/T_Panorama05_HDRI.HDR");
             // let sky = this.scene.addComponent(SkyRenderer);
             // sky.map = tex;
             // sky.enable = true;
             let sky = this.scene.getOrAddComponent(SkyRenderer);
-            sky.map = await Engine3D.res.loadHDRTextureCube('/hdri/sunset.hdr');
+            sky.map = await this.engine.res.loadHDRTextureCube('/hdri/sunset.hdr');
             this.scene.envMap = sky.map;
         }
         /******** light *******/
@@ -59,7 +61,7 @@ class Sample_ClearCoat {
         }
 
         {
-            // let model = (await Engine3D.res.loadGltf('gltfs/apple_vision_pro/scene.gltf', {})) as Object3D;
+            // let model = (await this.engine.res.loadGltf('gltfs/apple_vision_pro/scene.gltf', {})) as Object3D;
             // let renderList = model.getComponentsInChild(MeshRenderer);
             // for (const item of renderList) {
             //     let material = item.material;
@@ -72,7 +74,7 @@ class Sample_ClearCoat {
             // model.transform.scaleZ = 10;
             // model.transform.y = -5;
 
-            let clearCoatRoughnessTex = await Engine3D.res.loadTexture("materials/T_Imperfections_FingerPrints_Mask2.jpg");
+            let clearCoatRoughnessTex = await this.engine.res.loadTexture("materials/T_Imperfections_FingerPrints_Mask2.jpg");
 
             // this.scene.addChild(model);
             let space = 50;

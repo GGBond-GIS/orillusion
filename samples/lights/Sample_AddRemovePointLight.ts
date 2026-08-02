@@ -10,7 +10,7 @@ class Sample_AddRemovePointLight {
 
     async run() {
 
-        await Engine3D.init({});
+        const engine = await Engine3D.init({});
 
         GUIHelp.init();
 
@@ -18,7 +18,7 @@ class Sample_AddRemovePointLight {
         let sky = this.scene.addComponent(AtmosphericComponent);
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
         //set camera data
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(0, -25, 500);
 
@@ -28,7 +28,7 @@ class Sample_AddRemovePointLight {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderViews([view]);
+        engine.startRenderViews([view]);
     }
 
     initScene(scene: Scene3D) {

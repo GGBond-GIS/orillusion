@@ -6,17 +6,24 @@ import { AnimationCurve, BytesArray, KeyframeT, Quaternion, Vector2, Vector3, Ve
 
 export type CurveValueT = number | Vector2 | Vector3 | Vector4 | Quaternion;
 /**
- * Animation Cureve 
+ * Animation Curve 
  * has frame list data 
  * @group Math
  */
 export class AnimationCurveT {
+    /** Target node path this curve animates. */
     public path: string;
+    /** Animated attribute name. */
     public attribute: string;
+    /** Attribute split into its component property names. */
     public propertys: string[];
+    /** Wrap mode applied for times before the first keyframe. */
     public preInfinity: number;
+    /** Wrap mode applied for times after the last keyframe. */
     public postInfinity: number;
+    /** Euler rotation order associated with this curve. */
     public rotationOrder: number;
+    /** Per-channel scalar animation curves. */
     public m_curves: AnimationCurve[];
     private k: number = 0;
 
@@ -98,11 +105,6 @@ export class AnimationCurveT {
                 this._cacheValue.z = this.m_curves[2].getValue(time);
                 break;
             case 4:
-                // this._cacheValue.x = this.m_curves[0].getValue(time);
-                // this._cacheValue.y = this.m_curves[1].getValue(time);
-                // this._cacheValue.z = this.m_curves[2].getValue(time);
-                // this._cacheValue.w = this.m_curves[3].getValue(time);
-
                 const extent = this.m_curves[0].getCurveFramesExtent(time);
                 const lhsIndex = extent.lhsIndex;
                 const rhsIndex = extent.rhsIndex;
@@ -110,8 +112,36 @@ export class AnimationCurveT {
 
                 let kL = this.m_curves[0].getKey(lhsIndex);
                 let kR = this.m_curves[0].getKey(rhsIndex);
-                time %= this.m_curves[0].totalTime;
+
+                // Same-frame case (single keyframe / time clamped to a
+                // keyframe / lhs===rhs from findCurve): just take the lhs
+                // sample. Without this guard the divide below is 0 / 0 →
+                // NaN quaternion → downstream `multiply` and `slerp` all
+                // propagate NaN, blowing up the animation/layer stack.
+                if (lhsIndex === rhsIndex || kR.time === kL.time) {
+                    this._cacheValue.x = this.m_curves[0].getKey(lhsIndex).value;
+                    this._cacheValue.y = this.m_curves[1].getKey(lhsIndex).value;
+                    this._cacheValue.z = this.m_curves[2].getKey(lhsIndex).value;
+                    this._cacheValue.w = this.m_curves[3].getKey(lhsIndex).value;
+                    break;
+                }
+
+                // NOTE: do NOT modulo `time` by `totalTime` here.
+                // `extent.time` already came out of `wrapTime` so it's
+                // inside the curve's [first, last] range. The modulo
+                // would map `time === lastKey.time` (== totalTime when
+                // firstKey is 0; or even when not — `calcTotalTime` uses
+                // max key time) back to 0, which then computes
+                // `t = (0 - kL.time) / span` as a NEGATIVE number.
+                // slerp(t<0) extrapolates beyond kL, producing the
+                // INVERSE rotation (e.g. sad_pose's forward bend
+                // becomes a backward arch — the regression that struck
+                // when the static-pose path pinned `layer.time =
+                // layer._lastKeyTime`). `findCurve` already clamped
+                // lhs/rhs at the lastKey boundary, so just compute t
+                // straight from the wrapped time.
                 let t = (time - kL.time) / (kR.time - kL.time);
+                if (t < 0) t = 0; else if (t > 1) t = 1;
 
                 Quaternion.HELP_0.set(
                     this.m_curves[0].getKey(lhsIndex).value,
@@ -160,6 +190,10 @@ export class AnimationCurveT {
         return list;
     }
 
+    /**
+     * Read this multi-channel curve from a binary byte stream.
+     * @param bytes source byte array
+     */
     public formBytes(bytes: BytesArray) {
         this.path = bytes.readUTF();
         this.k = bytes.readInt32();

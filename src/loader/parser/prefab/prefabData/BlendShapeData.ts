@@ -1,6 +1,11 @@
 import { BytesArray } from "../../../../util/BytesArray";
 import { BlendShapePropertyData } from "./BlendShapePropertyData";
 
+/**
+ * Internal data carrier for a mesh's blend shapes (morph targets), decoded
+ * from the prefab stream. Holds per-shape names, indices and property data.
+ * @internal
+ */
 export class BlendShapeData {
     public vertexCount: number;
     public shapeNames: string[];

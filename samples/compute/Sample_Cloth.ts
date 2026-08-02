@@ -1,17 +1,21 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
-import { AtmosphericComponent, BoxGeometry, CameraUtil, DirectLight, Engine3D, HoverCameraController, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, View3D, webGPUContext } from '@orillusion/core';
+import { AtmosphericComponent, BoxGeometry, CameraUtil, DirectLight, Engine3D, HoverCameraController, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, View3D } from '@orillusion/core';
 import { ClothSimulator } from "./cloth/ClothSimulator";
+import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Demo_Cloth {
+    engine: Engine3D;
     constructor() {
     }
 
     async run() {
-        Engine3D.setting.shadow.shadowBound = 5;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        Engine3D.setting.shadow.shadowBias = 0.0002;
-
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    shadowSize: 2048,
+                },
+            },
+        });
 
         GUIHelp.init();
 
@@ -21,7 +25,7 @@ export class Demo_Cloth {
 
         let camera = CameraUtil.createCamera3DObject(scene);
 
-        camera.perspective(60, webGPUContext.aspect, 0.01, 10000.0);
+        camera.perspective(60, engine.context3D.aspect, 0.01, 10000.0);
         let ctl = camera.object3D.addComponent(HoverCameraController);
         ctl.setCamera(30, -28, 2);
 
@@ -29,12 +33,12 @@ export class Demo_Cloth {
         view.scene = scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async initScene(scene: Scene3D) {
         let mat = new LitMaterial();
-        mat.baseMap = Engine3D.res.grayTexture;
+        mat.baseMap = this.engine.res.grayTexture;
         mat.roughness = 0.8;
         mat.metallic = 0.1;
 
@@ -54,7 +58,7 @@ export class Demo_Cloth {
 
         {
             let mat = new LitMaterial();
-            mat.baseMap = Engine3D.res.grayTexture;
+            mat.baseMap = this.engine.res.grayTexture;
             mat.roughness = 0.8;
             let plane = new Object3D();
             plane.transform.y = -1;
@@ -68,7 +72,7 @@ export class Demo_Cloth {
         {
             var lightObj = new Object3D();
             lightObj.x = 0;
-            lightObj.y = 0;
+            lightObj.y = 0.8;
             lightObj.z = 0;
             lightObj.rotationX = 45;
             lightObj.rotationY = 0;
@@ -76,6 +80,7 @@ export class Demo_Cloth {
             let lc = lightObj.addComponent(DirectLight);
             lc.intensity = 3;
             lc.castShadow = true;
+            lc.enableCSM = true;
             scene.addChild(lightObj);
         }
 

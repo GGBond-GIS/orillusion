@@ -1,5 +1,5 @@
 import {
-    AtmosphericComponent, BoxGeometry, CameraUtil, Color, Engine3D, HoverCameraController, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, PointLight, Scene3D, SphereGeometry, Vector3, View3D, webGPUContext, Camera3D, Time, DEGREES_TO_RADIANS
+    AtmosphericComponent, BoxGeometry, CameraUtil, Color, Engine3D, HoverCameraController, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, PointLight, Scene3D, SphereGeometry, Vector3, View3D, Camera3D, Time, DEGREES_TO_RADIANS
 } from '@orillusion/core';
 
 import {
@@ -7,18 +7,23 @@ import {
 } from '@orillusion/particle';
 
 export class Sample_CandleFlame {
+    engine: Engine3D;
     lightObj: Object3D;
     async run() {
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.pointShadowBias = 0.001;
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    enable: true,
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                },
+            },
+        });
 
         let scene = new Scene3D();
         let sky = scene.addComponent(AtmosphericComponent);
         let camera = CameraUtil.createCamera3DObject(scene);
-        camera.perspective(60, webGPUContext.aspect, 0.1, 5000.0);
+        camera.perspective(60, engine.context3D.aspect, 0.1, 5000.0);
 
         let ctrl = camera.object3D.addComponent(HoverCameraController);
         ctrl.setCamera(45, -20, 65, new Vector3(0, 15, 51));
@@ -30,7 +35,7 @@ export class Sample_CandleFlame {
         view.scene = scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async addParticleTo(scene: Scene3D) {
@@ -56,7 +61,7 @@ export class Sample_CandleFlame {
         }
 
         let material = new ParticleMaterial();
-        material.baseMap = await Engine3D.res.loadTexture('particle/fx_a_glow_003.png');
+        material.baseMap = await this.engine.res.loadTexture('particle/fx_a_glow_003.png');
 
         particleSystem.geometry = new PlaneGeometry(5, 5, 1, 1, Vector3.Z_AXIS);
         particleSystem.material = material;
@@ -87,12 +92,12 @@ export class Sample_CandleFlame {
     async initScene(scene: Scene3D) {
         await this.addParticleTo(scene);
 
-        let chair = await Engine3D.res.loadGltf('PBR/SheenChair/SheenChair.gltf');
+        let chair = await this.engine.res.loadGltf('PBR/SheenChair/SheenChair.gltf');
         chair.scaleX = chair.scaleY = chair.scaleZ = 60;
         chair.transform.y = 0;
         scene.addChild(chair);
 
-        let Duck = await Engine3D.res.loadGltf('PBR/Duck/Duck.gltf');
+        let Duck = await this.engine.res.loadGltf('PBR/Duck/Duck.gltf');
         Duck.scaleX = Duck.scaleY = Duck.scaleZ = 0.15;
         Duck.transform.y = 0;
         Duck.transform.x = -16;
@@ -101,10 +106,10 @@ export class Sample_CandleFlame {
 
         if (true) {
             let mat = new LitMaterial();
-            mat.baseMap = Engine3D.res.whiteTexture;
-            mat.normalMap = Engine3D.res.normalTexture;
-            mat.aoMap = Engine3D.res.whiteTexture;
-            mat.emissiveMap = Engine3D.res.whiteTexture;
+            mat.baseMap = this.engine.res.whiteTexture;
+            mat.normalMap = this.engine.res.normalTexture;
+            mat.aoMap = this.engine.res.whiteTexture;
+            mat.emissiveMap = this.engine.res.whiteTexture;
             mat.roughness = 0.5;
             mat.metallic = 0.2;
 

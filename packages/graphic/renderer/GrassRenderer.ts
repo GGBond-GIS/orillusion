@@ -28,9 +28,6 @@ export class GrassRenderer extends DynamicFaceRenderer {
     }
 
     protected createComputeKernel(): void {
-        console.log("createComputeKernel");
-
-
         this.grassGeometryCompute = new ComputeShader(graphicDynamicCompute(GrassGeometryCompute_cs));
         this.grassGeometryCompute.workerSizeX = Math.floor(this.maxNodeCount / 256) + 1;
         // this._onStartKernel.push(this.grassGeometryCompute);

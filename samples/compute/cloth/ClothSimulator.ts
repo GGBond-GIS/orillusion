@@ -1,4 +1,4 @@
-import { Engine3D, LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, PlaneGeometry, Time, Vector3, VertexAttributeName, View3D } from '@orillusion/core';
+import { LitMaterial, KeyCode, KeyEvent, MeshRenderer, Object3D, PlaneGeometry, Time, Vector3, VertexAttributeName, View3D, GeometryVertexType } from '@orillusion/core';
 import { ClothSimulatorConfig } from "./ClothSimulatorConfig";
 import { ClothSimulatorPipeline } from "./ClothSimulatorPipeline";
 
@@ -30,6 +30,7 @@ export class ClothSimulator extends MeshRenderer {
             clothVertexBuffer: null,
         };
         this.mClothGeometry = new PlaneGeometry(1, 1, 20, 20, Vector3.Z_AXIS);
+        this.mClothGeometry.geometryType = GeometryVertexType.compose;
         this.mConfig.clothVertex = this.mClothGeometry.getAttribute(VertexAttributeName.position).data as Float32Array;
         this.mConfig.clothFaceTriIds = this.mClothGeometry.getAttribute(VertexAttributeName.indices).data as Uint16Array;
         this.mConfig.NUMPARTICLES = this.mConfig.clothVertex.length / 3;
@@ -59,14 +60,16 @@ export class ClothSimulator extends MeshRenderer {
         this.geometry = this.mClothGeometry;
         var mat = new LitMaterial();
         mat.roughness = 0.8;
-        mat.baseMap = Engine3D.res.redTexture;
-        mat.cullMode = 'none'
+        mat.doubleSide = true;
         this.material = mat;
     }
 
     public start() {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
+        const engine = (this.transform as any)?.view3D?.engine3D;
+        (this.material as LitMaterial).baseMap = engine.res.redTexture;
+        const input = engine?.inputSystem;
+        input.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
+        input.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
     }
 
     public SetInteractionSphere(sphere: Object3D) {
@@ -76,9 +79,21 @@ export class ClothSimulator extends MeshRenderer {
     private _tickTime = 0;
 
     public onCompute(view: View3D, command?: GPUCommandEncoder) {
+        // The renderer (GeometryBase.generate) allocates/replaces the geometry's
+        // GPU vertex buffer lazily at draw time, so the instance captured when the
+        // pipeline was built can become stale — the compute would then keep writing
+        // into an orphaned buffer while the renderer draws an untouched one. Re-read
+        // the live buffer every frame and re-bind the final stage whenever it changes.
+        const vertexBuffer = this.mClothGeometry.vertexBuffer.vertexGPUBuffer;
+        if (!vertexBuffer)
+            return; // geometry GPU buffer not built yet
+
         if (!this.mClothComputePipeline) {
-            this.mConfig.clothVertexBuffer = this.mClothGeometry.vertexBuffer.vertexGPUBuffer;
+            this.mConfig.clothVertexBuffer = vertexBuffer;
             this.mClothComputePipeline = new ClothSimulatorPipeline(this.mConfig);
+        } else if (this.mConfig.clothVertexBuffer !== vertexBuffer) {
+            this.mConfig.clothVertexBuffer = vertexBuffer;
+            this.mClothComputePipeline.rebindVertexBuffer(vertexBuffer);
         }
 
         this._tickTime += Time.delta / 1000.0;
@@ -101,7 +116,7 @@ export class ClothSimulator extends MeshRenderer {
                 } else if (this.mKeyState[3]) {
                     transform.x += speed
                 }
-                pos.copyFrom(this.mInteractionSphere.transform.worldPosition);
+                pos.copy(this.mInteractionSphere.transform.worldPosition);
             }
 
             this.mClothComputePipeline.compute(command, pos);

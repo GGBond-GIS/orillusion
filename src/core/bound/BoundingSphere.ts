@@ -11,23 +11,38 @@ import { Vector3 } from '../../math/Vector3';
  */
 export class BoundingSphere implements IBound {
 
+    /** The center of the sphere. */
     public center = new Vector3();
+    /** Half-size extents (provided for {@link IBound} compatibility). */
     public extents!: Vector3; //= new Vector3();
+    /** Maximum corner of the enclosing box (for {@link IBound} compatibility). */
     public max!: Vector3; //= new Vector3();
+    /** Minimum corner of the enclosing box (for {@link IBound} compatibility). */
     public min!: Vector3; // = new Vector3();
+    /** Full size of the enclosing box (for {@link IBound} compatibility). */
     public size!: Vector3; //= new Vector3();
 
+    /** Scratch vector A used by intersection tests. */
     public tmpVecA = new Vector3();
+    /** Scratch vector B used by intersection tests. */
     public tmpVecB = new Vector3();
+    /** Scratch vector C used by intersection tests. */
     public tmpVecC = new Vector3();
+    /** Scratch vector D used by intersection tests. */
     public tmpVecD = new Vector3();
 
+    /** Radius of the sphere. */
     public radius: number = 0;
+    /** Scratch vector holding the difference between two points. */
     public diffBetweenPoints = new Vector3();
+    /** The object that owns this bound. */
     public owner: any;
+    /** The owner's forward direction in world space. */
     public forward: Vector3 = new Vector3(0, 0, 1);
 
+    /** The sphere center in world space. */
     public worldCenter: Vector3;
+    /** The sphere size in world space. */
     public worldSize: Vector3;
 
     /**
@@ -39,12 +54,20 @@ export class BoundingSphere implements IBound {
         this.radius = radius === undefined ? 0.5 : radius;
     }
 
+    /**
+     * Recompute the bound from the source data. Not implemented for spheres.
+     */
     updateBound() {
         throw new Error('Method not implemented.');
     }
 
+    /**
+     * Whether the given point lies inside the sphere.
+     * @param point the point to test
+     */
     public containsPoint(point: Vector3) {
-        var lenSq = this.tmpVecA.subtract(point, this.center).lengthSquared;
+        Vector3.sub(this.tmpVecA, point, this.center);
+        var lenSq = this.center.lengthSquared;
         var r = this.radius;
         return lenSq < r * r;
     }
@@ -58,8 +81,8 @@ export class BoundingSphere implements IBound {
      * @returns {Boolean} True if there is an intersection.
      */
     public intersectsRay(ray: Ray, point: Vector3) {
-        var m = this.tmpVecA.copyFrom(ray.origin).subtract(this.center);
-        var b = m.dotProduct(this.tmpVecB.copyFrom(ray.direction).normalize());
+        var m = this.tmpVecA.copy(ray.origin).sub(this.center);
+        var b = m.dotProduct(this.tmpVecB.copy(ray.direction).normalize());
         var c = m.dotProduct(m) - this.radius * this.radius;
 
         // exit if ray's origin outside of sphere (c > 0) and ray pointing away from s (b > 0)
@@ -73,7 +96,7 @@ export class BoundingSphere implements IBound {
         var t = Math.abs(-b - Math.sqrt(discr));
 
         // if t is negative, ray started inside sphere so clamp t to zero
-        if (point) point.copyFrom(ray.direction).scaleBy(t).add(ray.origin);
+        if (point) point.copy(ray.direction).multiplyScalar(t).add(ray.origin);
 
         return true;
     }
@@ -86,7 +109,7 @@ export class BoundingSphere implements IBound {
      * @returns {Boolean} true if the Bounding Sphere is overlapping, enveloping, or inside this Bounding Sphere and false otherwise.
      */
     public intersectsBoundingSphere(sphere: BoundingSphere) {
-        this.tmpVecA.subtract(sphere.center, this.center);
+        Vector3.sub(this.tmpVecA, sphere.center, this.center);
         var totalRadius = sphere.radius + this.radius;
         if (this.tmpVecA.lengthSquared <= totalRadius * totalRadius) {
             return true;
@@ -94,22 +117,39 @@ export class BoundingSphere implements IBound {
         return false;
     }
 
+    /**
+     * Recompute the sphere from the given object's transform.
+     * @param obj the owning object
+     */
     public calculateTransform(obj: Object3D) {
         this.update(obj);
     }
 
 
+    /**
+     * Whether the object's sphere bound is inside the given frustum.
+     * @param obj the object whose bound is tested
+     * @param frustum the frustum to test against
+     */
     public inFrustum(obj: Object3D, frustum: Frustum) {
         return frustum.containsSphere(obj);
     }
 
+    /**
+     * Create a copy of this bounding sphere.
+     * @returns a new sphere with the same center and radius
+     */
     public clone(): IBound {
         return new BoundingSphere(this.center.clone(), this.radius);
     }
 
+    /**
+     * Update the world-space center and forward direction from the object's transform.
+     * @param obj the owning object
+     */
     public update(obj: Object3D) {
         this.owner = obj;
-        this._center.add(obj.transform.worldMatrix.position, this.center);
+        Vector3.add(this._center, obj.transform.worldMatrix.position, this.center);
         this.forward = obj.transform.forward;
     }
     /**
@@ -119,6 +159,11 @@ export class BoundingSphere implements IBound {
         throw new Error('BoundingSphere merge is not ready!');
     }
 
+    /**
+     * Set the sphere from a center and radius.
+     * @param center the center of the sphere
+     * @param size the radius of the sphere
+     */
     public setFromCenterAndSize(center: Vector3, size: number) {
         this.center.copy(center);
         this.radius = size;

@@ -12,15 +12,15 @@ class Sample_BoundingBox {
     graphic3D: Graphic3D
     async run() {
         // init engine
-        await Engine3D.init({ renderLoop: () => { this.loop() } });
+        const engine = await Engine3D.init({ renderLoop: () => { this.loop() } });
         GUIHelp.init();
         let param = createSceneParam();
         param.camera.near = 0.01;
         param.camera.far = 1000;
         param.camera.distance = 20;
-        let exampleScene = createExampleScene(param);
-        Engine3D.startRenderViews([exampleScene.view]);
-        Engine3D.getRenderJob(exampleScene.view);
+        let exampleScene = createExampleScene(engine, param);
+        engine.startRenderViews([exampleScene.view]);
+        engine.renderJobs.get(exampleScene.view);
 
         let box = Object3DUtil.GetSingleCube(5, 3, 8, 1, 1, 1);
         box.transform.eventDispatcher.addEventListener(Transform.LOCAL_ONCHANGE, this.logChange, this);

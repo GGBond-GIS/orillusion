@@ -1,5 +1,6 @@
 import { Texture } from '../core/texture/Texture';
-import { webGPUContext } from '../Context3D';
+import { bindCtx } from '../Context3D';
+import { Engine3D } from '../../../../Engine3D';
 import { ShaderPassBase } from './ShaderPassBase';
 import { ShaderReflection, ShaderReflectionVarInfo } from './value/ShaderReflectionInfo';
 import { Preprocessor } from './util/Preprocessor';
@@ -10,7 +11,6 @@ import { UniformGPUBuffer } from '../core/buffer/UniformGPUBuffer';
 
 /**
  * @internal
- * @author sirxu
  * compute shader kernel
  */
 export class ComputeShader extends ShaderPassBase {
@@ -34,7 +34,8 @@ export class ComputeShader extends ShaderPassBase {
      */
     public workerSizeZ: number = 0;
 
-    protected _computePipeline: GPUComputePipeline;
+    // Plan B: single compute pipeline bound to one Context3D.
+    protected _computePipeline: GPUComputePipeline = null;
     protected _csShaderModule: GPUShaderModule;
     protected _destCS: string;
     protected _sourceCS: string;
@@ -61,9 +62,11 @@ export class ComputeShader extends ShaderPassBase {
      * @param texture
      */
     public setStorageTexture(name: string, texture: Texture) {
-        if (!this._storageTextureDic.has(name)) {
-            this._storageTextureDic.set(name, texture);
-        }
+        // Overwriting is correct here — same semantics as setSamplerTexture.
+        // Previously this was set-once (silently ignored repeat binds), which
+        // broke any caller that wanted to re-point an output binding (e.g.
+        // when the upstream chain changes and a post needs to rebind).
+        this._storageTextureDic.set(name, texture);
     }
 
     /**
@@ -80,8 +83,40 @@ export class ComputeShader extends ShaderPassBase {
      * @param computePass Compute pass encoder
      */
     public compute(computePass: GPUComputePassEncoder) {
+        if (!this._boundCtx) {
+            // Derive ctx from any attached buffer or texture's bound context.
+            for (const buf of this._bufferDic.values()) {
+                if (buf._boundCtx) { bindCtx(this, buf._boundCtx); break; }
+            }
+            if (!this._boundCtx) {
+                for (const tex of this._storageTextureDic.values()) {
+                    if (tex._boundCtx) { bindCtx(this, tex._boundCtx); break; }
+                }
+            }
+            if (!this._boundCtx) {
+                for (const tex of this._sampleTextureDic.values()) {
+                    if (tex._boundCtx) { bindCtx(this, tex._boundCtx); break; }
+                }
+            }
+            // Fall back to the single-engine default when nothing attached has
+            // been materialized yet (common for compute samples where buffers
+            // are apply()'d with deferred upload).
+            if (!this._boundCtx) bindCtx(this, Engine3D._defaultContext());
+        }
+        if (this._boundCtx) this._propagateCtx(this._boundCtx);
         if (!this._computePipeline) {
             this.genComputePipeline();
+        }
+
+        // Rebuild any bind groups that were invalidated since the last dispatch.
+        // Callers (e.g. PostBase.bindUpstream) signal "re-bind needed" by
+        // setting `this.bindGroups[i] = null` after updating the sampler /
+        // storage texture dict. Without this rebuild loop, setBindGroup(null)
+        // would crash the dispatch.
+        for (let i = 0; i < this._groupsShaderReflectionVarInfos.length; ++i) {
+            if (!this.bindGroups[i] && this._groupsShaderReflectionVarInfos[i]) {
+                this.genGroups(i, this._groupsShaderReflectionVarInfos, true);
+            }
         }
 
         computePass.setPipeline(this._computePipeline);
@@ -95,6 +130,22 @@ export class ComputeShader extends ShaderPassBase {
             computePass.dispatchWorkgroups(this.workerSizeX, this.workerSizeY);
         } else {
             computePass.dispatchWorkgroups(this.workerSizeX);
+        }
+    }
+
+    /**
+     * Bind all attached buffers/textures to the ComputeShader's Context3D so
+     * their `.buffer` / `.gpuTexture` getters materialize on the correct device.
+     */
+    private _propagateCtx(ctx: import('../Context3D').Context3D) {
+        for (const buf of this._bufferDic.values()) {
+            if (!buf._boundCtx) bindCtx(buf, ctx);
+        }
+        for (const tex of this._storageTextureDic.values()) {
+            if (!tex._boundCtx) bindCtx(tex, ctx);
+        }
+        for (const tex of this._sampleTextureDic.values()) {
+            if (!tex._boundCtx) bindCtx(tex, ctx);
         }
     }
 
@@ -199,7 +250,8 @@ export class ComputeShader extends ShaderPassBase {
                 }
             }
 
-            let gpubindGroup = webGPUContext.device.createBindGroup({
+            const device = this._boundCtx!.device;
+            let gpubindGroup = device.createBindGroup({
                 layout: this._computePipeline.getBindGroupLayout(groupIndex),
                 entries: entries
             });
@@ -212,7 +264,8 @@ export class ComputeShader extends ShaderPassBase {
         this.preCompileShader(this._sourceCS);
         this.genReflection();
 
-        this._computePipeline = webGPUContext.device.createComputePipeline({
+        const device = this._boundCtx!.device;
+        this._computePipeline = device.createComputePipeline({
             layout: `auto`,
             compute: {
                 module: this.compileShader(),
@@ -230,7 +283,7 @@ export class ComputeShader extends ShaderPassBase {
             this.genGroups(i, this._groupsShaderReflectionVarInfos);
         }
 
-        webGPUContext.addEventListener(CResizeEvent.RESIZE, (e) => {
+        this._boundCtx!.addEventListener(CResizeEvent.RESIZE, (e) => {
             for (let i = 0; i < shaderReflection.groups.length; ++i) {
                 let srvs = shaderReflection.groups[i];
                 this._groupsShaderReflectionVarInfos[i] = srvs;
@@ -250,7 +303,8 @@ export class ComputeShader extends ShaderPassBase {
     }
 
     protected compileShader(): GPUShaderModule {
-        let shaderModule = webGPUContext.device.createShaderModule({
+        const device = this._boundCtx!.device;
+        let shaderModule = device.createShaderModule({
             label: `ComputeShader(${this.instanceID})`,
             code: this._destCS,
         });

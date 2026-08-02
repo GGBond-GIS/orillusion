@@ -3,7 +3,6 @@ import { Texture } from './Texture';
 /**
  * Texture Cube
  * @internal
- * @group Texture
  */
 export class TextureCube extends Texture {
     /**

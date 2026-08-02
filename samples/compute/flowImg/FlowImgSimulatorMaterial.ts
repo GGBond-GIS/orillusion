@@ -1,4 +1,4 @@
-import { Color, Engine3D, Material, RenderShaderPass, Shader, ShaderLib, Texture, Vector4 } from '@orillusion/core';
+import { Color, Material, RenderShaderPass, Shader, ShaderLib, Texture, Vector4 } from '@orillusion/core';
 import { FlowImgRenderShader } from './FlowImgRenderShader';
 
 export class FlowImgSimulatorMaterial extends Material {
@@ -23,8 +23,6 @@ export class FlowImgSimulatorMaterial extends Material {
         shaderState.acceptGI = false;
         shaderState.useLight = false;
 
-        // default value
-        this.baseMap = Engine3D.res.whiteTexture;
         this.shader = shader;
 
         // this.transparent = true ;

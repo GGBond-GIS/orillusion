@@ -18,7 +18,8 @@ export default defineConfig({
             output: {
                 globals: {
                     '@orillusion/core': 'Orillusion'
-                }
+                },
+                name: 'Orillusion.Post'
             }
         }
     }

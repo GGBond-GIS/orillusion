@@ -1,5 +1,5 @@
 
-import { BitmapTexture2DArray, ComputeShader, Ctor, Object3D, OrderMap, StorageGPUBuffer, UniformGPUBuffer, Vector3, Vector4, View3D } from "@orillusion/core";
+import { BitmapTexture2DArray, ComputeShader, Ctor, Matrix4, Object3D, OrderMap, StorageGPUBuffer, UniformGPUBuffer, Vector3, Vector4, View3D } from "@orillusion/core";
 import { Shape3DVertexCompute_cs } from "../compute/shape3d/Shape3DVertexCompute_cs";
 import { Shape3DKeyPointCompute_cs } from "../compute/shape3d/Shape3DKeyPointCompute_cs";
 import { Shape3D } from "./shape3d/Shape3D";
@@ -193,10 +193,10 @@ export class Shape3DRenderer extends DynamicFaceRenderer {
             let transform = view.camera.transform;
 
             let up = this._cameraUp.set(0, 0, 1, 0) as any as Vector3;
-            transform.worldMatrix.transformVector(up, up);
+            Matrix4.transformVector(transform.worldMatrix, up, up);
             this._rendererData.setVector4('cameraUp', this._cameraUp);
 
-            this._cameraPos.copyFrom(transform.worldPosition as any);
+            this._cameraPos.copy(transform.worldPosition as any);
             this._rendererData.setVector4('cameraPos', this._cameraPos);
 
             this._rendererData.setFloat('maxNodeCount', this.maxNodeCount);

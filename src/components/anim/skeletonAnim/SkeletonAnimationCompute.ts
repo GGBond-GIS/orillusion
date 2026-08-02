@@ -1,4 +1,4 @@
-import { webGPUContext } from '../../../gfx/graphics/webGpu/Context3D';
+import { bindCtx, Context3D } from '../../../gfx/graphics/webGpu/Context3D';
 
 /**
  * Skeletal animation
@@ -8,9 +8,11 @@ import { webGPUContext } from '../../../gfx/graphics/webGpu/Context3D';
 export class SkeletonAnimationCompute {
     private _computePipeline: GPUComputePipeline;
     private _computeBindGroup: GPUBindGroup;
+    public _boundCtx: Context3D | null = null;
 
-    constructor(computeShader: string, entries: GPUBindGroupEntry[]) {
-        let device = webGPUContext.device;
+    constructor(ctx: Context3D, computeShader: string, entries: GPUBindGroupEntry[]) {
+        bindCtx(this, ctx);
+        let device = ctx.device;
         this._computePipeline = device.createComputePipeline({
             layout: `auto`,
             compute: {

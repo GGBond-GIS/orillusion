@@ -4,24 +4,40 @@ import { GUIUtil } from "@samples/utils/GUIUtil";
 
 // sample of point light shadow
 export class Sample_PointLightShadow {
+    engine: Engine3D;
     scene: Scene3D;
     lightObj: Object3D;
     async run() {
 
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.debug = true;
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.material.materialChannelDebug = true;
-        Engine3D.setting.material.materialDebug = true;
+        // Read the persisted shadow sampling type (if any) so the GUI dropdown
+        // survives the required reload — see GUIUtil.renderShadowSetting.
+        const storedType = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('shadowType') : null;
+        const shadowType: 'HARD' | 'PCF' | 'SOFT' =
+            storedType === 'PCF' || storedType === 'SOFT' ? storedType : 'HARD';
 
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    type: shadowType,
+                    enable: true,
+                    debug: true,
+                },
+                render: {
+                    debug: true,
+                },
+                material: {
+                    materialChannelDebug: true,
+                    materialDebug: true,
+                },
+            },
+        });
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
         //set camera data
         mainCamera.object3D.addComponent(HoverCameraController).setCamera(0, -45, 500);
 
@@ -32,13 +48,13 @@ export class Sample_PointLightShadow {
         view.scene = this.scene;
         view.camera = mainCamera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         let post = this.scene.addComponent(PostProcessingComponent);
         post.addPost(FXAAPost);
 
         setTimeout(() => {
-            GUIUtil.renderDebug();
+            GUIUtil.renderDebug(view);
         }, 1000);
     }
 
@@ -55,6 +71,7 @@ export class Sample_PointLightShadow {
 
         //show gui
         GUIHelp.init()
+        GUIUtil.renderShadowSetting(this.engine);
         GUIUtil.showPointLightGUI(pointLight);
 
         let cubeGeometry = new BoxGeometry(10, 10, 10);

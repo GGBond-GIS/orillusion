@@ -5,7 +5,7 @@ import { TempPhyMath } from '../utils/TempPhyMath';
 import { Rigidbody } from '../rigidbody/Rigidbody';
 
 /**
- * 软体布料平面的各个角
+ * The corners of a soft body cloth plane
  */
 export type CornerType = 'leftTop' | 'rightTop' | 'leftBottom' | 'rightBottom' | 'left' | 'right' | 'top' | 'bottom' | 'center';
 
@@ -14,35 +14,35 @@ export class ClothSoftbody extends SoftbodyBase {
     private _segmentW: number;
     private _segmentH: number;
     private _offset: Vector3 = new Vector3();
-    private _btRigidbody: Ammo.btRigidBody; // 通过锚点附加的 Ammo 刚体实例
+    private _btRigidbody: Ammo.btRigidBody; // The Ammo rigid body instance attached via anchors
 
     /**
-     * 布料的四个角，默认以平面法向量计算各角。
+     * The four corners of the cloth; by default, each corner is calculated from the plane's normal vector.
      */
     public clothCorners: [Vector3, Vector3, Vector3, Vector3];
 
     /**
-     * 固定节点索引。
+     * Indices of fixed nodes.
      */
     public fixNodeIndices: CornerType[] | number[] = [];
 
     /**
-     * 添加锚点时需要的刚体。
+     * The rigid body required when adding anchors.
      */
     public anchorRigidbody: Rigidbody;
 
     /**
-     * 布料的锚点。
+     * The anchors of the cloth.
      */
     public anchorIndices: CornerType[] | number[] = [];
 
     /**
-     * 仅在设置 `anchorRigidbody` 后有效，表示布料软体相对刚体的位置。
+     * Only effective after `anchorRigidbody` is set; represents the position of the cloth soft body relative to the rigid body.
      */
     public anchorPosition: Vector3 = new Vector3();
 
     /**
-     * 仅在设置 `anchorRigidbody` 后有效，表示布料软体相对刚体的旋转。
+     * Only effective after `anchorRigidbody` is set; represents the rotation of the cloth soft body relative to the rigid body.
      */
     public anchorRotation: Vector3 = new Vector3();
 
@@ -71,18 +71,18 @@ export class ClothSoftbody extends SoftbodyBase {
 
         if (!this.clothCorners) {
             const up = this._geometry.up;
-            let right = up.equals(Vector3.X_AXIS) ? Vector3.BACK : Vector3.X_AXIS;
+            const rightSeed = up.equals(Vector3.X_AXIS) ? Vector3.BACK : Vector3.X_AXIS;
 
-            right = up.crossProduct(right).normalize();
-            const forward = right.crossProduct(up).normalize();
+            const right = up.clone().cross(rightSeed).normalize();
+            const forward = right.clone().cross(up).normalize();
 
             const halfWidth = this._geometry.width / 2;
             const halfHeight = this._geometry.height / 2;
 
-            const corner00 = right.mul(halfWidth).add(forward.mul(-halfHeight)); // leftTop
-            const corner01 = right.mul(halfWidth).add(forward.mul(halfHeight)); // rightTop
-            const corner10 = right.mul(-halfWidth).add(forward.mul(-halfHeight)); // leftBottom
-            const corner11 = right.mul(-halfWidth).add(forward.mul(halfHeight)); // rightBottom
+            const corner00 = right.clone().multiplyScalar(halfWidth).add(forward.clone().multiplyScalar(-halfHeight)); // leftTop
+            const corner01 = right.clone().multiplyScalar(halfWidth).add(forward.clone().multiplyScalar(halfHeight)); // rightTop
+            const corner10 = right.clone().multiplyScalar(-halfWidth).add(forward.clone().multiplyScalar(-halfHeight)); // leftBottom
+            const corner11 = right.clone().multiplyScalar(-halfWidth).add(forward.clone().multiplyScalar(halfHeight)); // rightBottom
 
             clothCorner00 = TempPhyMath.toBtVec(corner00, TempPhyMath.tmpVecA);
             clothCorner01 = TempPhyMath.toBtVec(corner01, TempPhyMath.tmpVecB);
@@ -113,17 +113,17 @@ export class ClothSoftbody extends SoftbodyBase {
 
     protected configureSoftBody(clothSoftbody: Ammo.btSoftBody): void {
 
-        // 软体配置
+        // Soft body configuration
         const sbConfig = clothSoftbody.get_m_cfg();
-        sbConfig.set_viterations(10); // 位置迭代次数
-        sbConfig.set_piterations(10); // 位置求解器迭代次数
+        sbConfig.set_viterations(10); // Number of velocity iterations
+        sbConfig.set_piterations(10); // Number of position solver iterations
 
         clothSoftbody.generateBendingConstraints(2, clothSoftbody.get_m_materials().at(0));
 
-        // 固定节点
+        // Fixed nodes
         if (this.fixNodeIndices.length > 0) this.applyFixedNodes(this.fixNodeIndices);
 
-        // 添加锚点
+        // Add anchors
         if (this.anchorIndices.length > 0) {
             if (!this._btRigidbody) throw new Error('Needs a rigid body');
             this.applyAnchor(clothSoftbody);
@@ -138,10 +138,10 @@ export class ClothSoftbody extends SoftbodyBase {
 
         let tm = this._btRigidbody.getWorldTransform();
         TempPhyMath.fromBtVec(tm.getOrigin(), Vector3.HELP_0);
-        Vector3.HELP_0.add(this.anchorPosition, Vector3.HELP_1);
+        Vector3.add(Vector3.HELP_0, this.anchorPosition, Vector3.HELP_1);
 
         TempPhyMath.fromBtQua(tm.getRotation(), Quaternion.HELP_0);
-        Quaternion.HELP_1.fromEulerAngles(this.anchorRotation.x, this.anchorRotation.y, this.anchorRotation.z);
+        Quaternion.HELP_1.setFromEuler(this.anchorRotation.x, this.anchorRotation.y, this.anchorRotation.z);
         Quaternion.HELP_1.multiply(Quaternion.HELP_0, Quaternion.HELP_1);
 
         clothSoftbody.rotate(TempPhyMath.toBtQua(Quaternion.HELP_1));
@@ -154,9 +154,9 @@ export class ClothSoftbody extends SoftbodyBase {
     }
 
     /**
-     * 将 CornerType 数组转换成节点索引数组。
-     * @param cornerList 需要转换的 CornerType 数组。
-     * @returns 节点索引数组
+     * Converts a CornerType array into an array of node indices.
+     * @param cornerList The CornerType array to convert.
+     * @returns An array of node indices.
      */
     private getCornerIndices(cornerList: CornerType[] | number[]): number[] {
 
@@ -186,8 +186,8 @@ export class ClothSoftbody extends SoftbodyBase {
     }
 
     /**
-     * 固定软体节点。
-     * @param fixedNodeIndices 表示需要固定的节点索引或 CornerType 数组。
+     * Fixes soft body nodes.
+     * @param fixedNodeIndices An array of node indices or CornerType values that should be fixed.
      */
     public applyFixedNodes(fixedNodeIndices: CornerType[] | number[]): void {
         this.wait().then(() => {
@@ -197,7 +197,7 @@ export class ClothSoftbody extends SoftbodyBase {
     }
 
     /**
-     * 清除锚点，软体将会从附加的刚体上脱落
+     * Clears anchors; the soft body will detach from the attached rigid body.
      */
     public clearAnchors(): void {
         this._btSoftbody.get_m_anchors().clear();
@@ -209,7 +209,7 @@ export class ClothSoftbody extends SoftbodyBase {
     onUpdate(): void {
         if (!this._btBodyInited) return;
 
-        // 根据锚点刚体的插值坐标平滑软体运动
+        // Smooth the soft body motion based on the interpolated coordinates of the anchor rigid body
         if (this._btRigidbody) {
             this._btRigidbody.getMotionState().getWorldTransform(Physics.TEMP_TRANSFORM);
             const nowPos = this._btRigidbody.getWorldTransform().getOrigin();

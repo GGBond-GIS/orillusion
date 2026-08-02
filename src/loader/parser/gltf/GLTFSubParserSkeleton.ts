@@ -5,6 +5,13 @@ import { SkeletonAnimationClip } from "../../../components/anim/skeletonAnim/Ske
 import { GLTF_Info } from "./GLTFInfo";
 import { GLTFSubParser } from "./GLTFSubParser";
 
+/**
+ * Internal glTF sub-parser stage that builds the avatar/bone hierarchy
+ * (`PrefabAvatarData`) from a glTF skeleton and converts glTF animation
+ * channels into engine `PropertyAnimationClip` skeletal animations.
+ *
+ * @internal
+ */
 export class GLTFSubParserSkeleton {
     protected gltf: GLTF_Info;
     protected subParser: GLTFSubParser;

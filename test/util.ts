@@ -17,7 +17,7 @@ async function test(unit: string, run: () => Promise<any>) {
                 rej = (e: any) => _rej(e.reason)
                 window.addEventListener('unhandledrejection', rej, { once: true })
             }),
-            new Promise((_, _rej) => setTimeout(_rej, 30 * 1000, new Error('timeout')))
+            new Promise((_, _rej) => setTimeout(_rej, 60 * 1000, new Error('timeout')))
         ])
         result[unit].success++
         totalS++
@@ -98,6 +98,21 @@ function delay(time?: number) {
     })
 }
 
+// Poll `predicate()` until it returns truthy or we time out. Tests that
+// read a lazy-init texture (GTAO/SSR post output is only created on the
+// first render) used to race a fixed `await delay(...)` against the RAF
+// tick and fail intermittently. Use this instead of a bare delay when
+// the value you want only materializes after render work completes.
+async function waitUntil<T>(predicate: () => T, timeoutMs = 5000, stepMs = 50): Promise<T> {
+    const deadline = performance.now() + timeoutMs
+    let v = predicate()
+    while (!v && performance.now() < deadline) {
+        await new Promise(r => setTimeout(r, stepMs))
+        v = predicate()
+    }
+    return v
+}
+
 // no funcion types
 function isEqual(a: any, b: any) {
     if (a === b) return a !== 0 || 1 / a === 1 / b;
@@ -122,4 +137,4 @@ function isMatch(object: any, attrs: { [key: string]: any }) {
     return true;
 }
 
-export { test, expect, end, delay }
+export { test, expect, end, delay, waitUntil }

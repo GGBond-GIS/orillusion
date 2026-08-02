@@ -1,7 +1,7 @@
 import { MemoryDO } from '../../../../../../core/pool/memory/MemoryDO';
 import { MemoryInfo } from '../../../../../../core/pool/memory/MemoryInfo';
 import { Probe } from '../../../../../renderJob/passRenderer/ddgi/Probe';
-import { webGPUContext } from '../../../Context3D';
+import { bindCtx, Context3D } from '../../../Context3D';
 /**
  * @internal
  * @group GFX
@@ -11,8 +11,11 @@ export class ProbeEntries {
     public probes: Probe[];
     public memoryDo: MemoryDO;
     private _probeInfoList: MemoryInfo[];
+    public _boundCtx: Context3D | null = null;
 
-    public initDataUniform(probes: Probe[]) {
+    public initDataUniform(ctx: Context3D, probes: Probe[]) {
+        bindCtx(this, ctx);
+        let device = this._boundCtx!.device;
         this.memoryDo = new MemoryDO();
         this.probes = probes;
         this._probeInfoList = [];
@@ -32,7 +35,7 @@ export class ProbeEntries {
 
         len = Math.max(64, len);
 
-        this.gpuBuffer = webGPUContext.device.createBuffer({
+        this.gpuBuffer = device.createBuffer({
             size: this.memoryDo.shareDataBuffer.byteLength,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
             label: 'ProbeBuffer',
@@ -41,12 +44,13 @@ export class ProbeEntries {
     }
 
     private updateGPUBuffer() {
+        let device = this._boundCtx!.device;
         const bufferData = this.memoryDo.shareDataBuffer;
         let totalBytes = this.memoryDo.shareDataBuffer.byteLength;
         let offsetBytes = 0;//this.memoryDo.shareDataBuffer.byteOffset;
         const space = 5000 * 64;
         while (offsetBytes < totalBytes) {
-            webGPUContext.device.queue.writeBuffer(this.gpuBuffer, offsetBytes, bufferData, offsetBytes, Math.floor(Math.min(space, totalBytes - offsetBytes)));
+            device.queue.writeBuffer(this.gpuBuffer, offsetBytes, bufferData, offsetBytes, Math.floor(Math.min(space, totalBytes - offsetBytes)));
             offsetBytes += space;
         }
     }

@@ -1,25 +1,29 @@
-import { DepthOfFieldPost, DirectLight, Engine3D, PostProcessingComponent, View3D, LitMaterial, HoverCameraController, KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, SSR_IS_Kernel, CameraUtil, webGPUContext, AtmosphericComponent } from '@orillusion/core'
+import { DepthOfFieldPost, DirectLight, Engine3D, PostProcessingComponent, View3D, LitMaterial, HoverCameraController, KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, SSR_IS_Kernel, CameraUtil, AtmosphericComponent } from '@orillusion/core'
 import * as dat from '@orillusion/debug/dat.gui.module'
 
 class Sample_DepthOfView {
+    engine: Engine3D;
     lightObj: Object3D
     scene: Scene3D
     constructor() { }
 
     async run() {
-        Engine3D.setting.shadow.enable = true
-        Engine3D.setting.shadow.shadowBound = 100
-        await Engine3D.init({
+        const engine = this.engine = await Engine3D.init({
             canvasConfig: {
                 devicePixelRatio: 1
-            }
+            },
+            setting: {
+                shadow: {
+                    enable: true,
+                },
+            },
         })
 
         this.scene = new Scene3D()
         this.scene.addComponent(AtmosphericComponent).sunY = 0.6
 
         let camera = CameraUtil.createCamera3DObject(this.scene)
-        camera.perspective(60, webGPUContext.aspect, 1, 5000.0)
+        camera.perspective(60, engine.context3D.aspect, 1, 5000.0)
         let ctrl = camera.object3D.addComponent(HoverCameraController)
         ctrl.setCamera(100, -15, 150)
 
@@ -28,7 +32,7 @@ class Sample_DepthOfView {
         let view = new View3D()
         view.scene = this.scene
         view.camera = camera
-        Engine3D.startRenderView(view)
+        engine.startRenderView(view)
 
         let postProcessing = this.scene.addComponent(PostProcessingComponent)
         let DOFPost = postProcessing.addPost(DepthOfFieldPost)
@@ -56,11 +60,12 @@ class Sample_DepthOfView {
             lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355)
             lc.castShadow = true
             lc.intensity = 5
+            lc.enableCSM = true;
             scene.addChild(this.lightObj)
         }
 
         // load a test gltf model
-        let minimalObj = await Engine3D.res.loadGltf('/PBR/ToyCar/ToyCar.gltf')
+        let minimalObj = await this.engine.res.loadGltf('/PBR/ToyCar/ToyCar.gltf')
         minimalObj.scaleX = minimalObj.scaleY = minimalObj.scaleZ = 800
         scene.addChild(minimalObj)
 

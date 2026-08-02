@@ -1,0 +1,30 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@dimforge/rapier3d-compat':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@orillusion/core':
+        specifier: '>=0.8.0'
+        version: 0.8.4
+
+packages:
+
+  '@dimforge/rapier3d-compat@0.14.0':
+    resolution: {integrity: sha512-/uHrUzS+CRQ+NQrrJCEDUkhwHlNsAAexbNXgbN9sHY+GwR+SFFAFrxRr8Llf5/AJZzqiLANdQIfJ63Cw4gJVqw==}
+
+  '@orillusion/core@0.8.4':
+    resolution: {integrity: sha512-Ql0Eh8iX0dgwpeuipAOZOOLEfEDuwVhvUhIJjF3khRpQ8075tehi1vImqvxLYFQsqXA1Vxw1VK5qe+/IzD4AMw==}
+
+snapshots:
+
+  '@dimforge/rapier3d-compat@0.14.0': {}
+
+  '@orillusion/core@0.8.4': {}

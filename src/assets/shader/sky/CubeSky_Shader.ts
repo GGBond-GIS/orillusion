@@ -6,6 +6,13 @@ export class CubeSky_Shader {
     #include "WorldMatrixUniform"
     #include "GlobalUniform"
 
+    struct uniformData {
+      fixOrthProj: mat4x4<f32>,
+      enableFixOrthProj: f32,
+      exposure: f32,
+      roughness: f32
+  };
+
     struct VertexOutput {
       @location(auto) fragUV: vec2<f32>,
       @location(auto) vClipPos: vec4<f32>,
@@ -15,6 +22,9 @@ export class CubeSky_Shader {
     };
 
     var<private> ORI_VertexOut: VertexOutput ;
+
+    @group(2) @binding(0)
+    var<uniform> global: uniformData;
 
     @vertex
     fn main( 
@@ -31,6 +41,9 @@ export class CubeSky_Shader {
       ORI_VertexOut.vWorldPos = modelMat * vec4<f32>(position.xyz,1.0) ;
       
       var fixProjMat = globalUniform.projMat ;
+      if(global.enableFixOrthProj > 0.5){
+        fixProjMat = global.fixOrthProj;
+      }
       fixProjMat[2].z = 1.0 ;//99999.0 / (99999.0 - 1.0) ;
       fixProjMat[3].z = -1.0 ;//(-1.0 * 99999.0) / (99999.0 - 1.0) ;
 
@@ -40,6 +53,7 @@ export class CubeSky_Shader {
       fixViewMat[3].z = 0.0 ;
 
       var clipPos = fixProjMat * fixViewMat * ORI_VertexOut.vWorldPos;
+      clipPos.z = clipPos.w;
       ORI_VertexOut.vClipPos = clipPos ;
       ORI_VertexOut.member = clipPos;
       return ORI_VertexOut;
@@ -54,6 +68,8 @@ export class CubeSky_Shader {
     #include "FragmentOutput"
 
     struct uniformData {
+        fixOrthProj: mat4x4<f32>,
+        enableFixOrthProj: f32,
         exposure: f32,
         roughness: f32
     };
@@ -71,13 +87,21 @@ export class CubeSky_Shader {
         let maxLevel: u32 = textureNumLevels(baseMap);
         let dir = normalize(vWorldPos.xyz);
         var textureColor:vec3<f32> = textureSampleLevel(baseMap, baseMapSampler, normalize(dir.xyz), global.roughness * f32(maxLevel) ).xyz;
-        #if IS_HDR_SKY
-          textureColor = LinearToGammaSpace(textureColor);
-        #endif
+        // HDR sky stored as linear; emit as linear so the sRGB
+        // swapchain encode produces matching display values to the
+        // legacy non-srgb-swapchain + LinearToGammaSpace pairing.
 
         // let o_Target: vec4<f32> = globalUniform.hdrExposure * vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure ;
-        let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure;
-        let finalMatrix = globalUniform.projMat * globalUniform.viewMat ;
+        // global.exposure is the per-sky-material control (SkyMaterial.exposure /
+        // AtmosphericComponent.exposure GUI slider) — previously unused here, so
+        // the slider had no visible effect. globalUniform.skyExposure is the
+        // separate scene-wide multiplier; both apply.
+        let o_Target: vec4<f32> = vec4<f32>(textureColor, 1.0) * globalUniform.skyExposure * global.exposure;
+        var fixProjMat = globalUniform.projMat ;
+        if(global.enableFixOrthProj > 0.5){
+          fixProjMat = global.fixOrthProj;
+        }
+        let finalMatrix = fixProjMat * globalUniform.viewMat ;
         let nMat = mat3x3<f32>(finalMatrix[0].xyz,finalMatrix[1].xyz,finalMatrix[2].xyz) ;
         let ORI_NORMALMATRIX = transpose(inverse( nMat ));
        
@@ -95,6 +119,10 @@ export class CubeSky_Shader {
       #else
         fragmentOutput.color = o_Target ;
         fragmentOutput.gBuffer = gBuffer ;
+      #endif
+
+      #if USE_OUTDEPTH
+        fragmentOutput.out_depth = fragCoord.z ;
       #endif
       return fragmentOutput;
     }

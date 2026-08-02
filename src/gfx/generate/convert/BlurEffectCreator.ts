@@ -1,14 +1,13 @@
 import { BlurEffectCreatorBlur_cs, BlurEffectCreatorSample_cs } from '../../../assets/shader/compute/BlurEffectCreator_cs';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
-import { GPUContext } from '../../renderJob/GPUContext';
+import { Context3D } from '../../graphics/webGpu/Context3D';
 /**
  * @internal
- * @group GFX
  */
 export class BlurTexture2DBufferCreator {
     //Image is the texture of converting from rgba8unorm to rgba8unorm
-    public static blurImageFromTexture(image: { width: number; height: number; gpuTexture: GPUTexture }, dstWidth: number, dstHeight: number, blur: boolean): GPUTexture {
-        const device = webGPUContext.device;
+    public static blurImageFromTexture(image: { width: number; height: number; gpuTexture: GPUTexture }, dstWidth: number, dstHeight: number, blur: boolean, ctx: Context3D): GPUTexture {
+        const device = ctx.device;
+        const gpu = ctx.gpuContext;
         let code: string = blur ? BlurEffectCreatorBlur_cs : BlurEffectCreatorSample_cs;
         const computePipeline = device.createComputePipeline({
             layout: `auto`,
@@ -70,7 +69,7 @@ export class BlurTexture2DBufferCreator {
             entries: entries0,
         });
 
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = gpu.beginCommandEncoder();
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup0);
@@ -78,7 +77,7 @@ export class BlurTexture2DBufferCreator {
 
         computePass.end();
 
-        GPUContext.endCommandEncoder(commandEncoder);
+        gpu.endCommandEncoder(commandEncoder);
 
         configBuffer.destroy();
 

@@ -65,8 +65,8 @@ export class ExtrudeGeometry extends GeometryBase {
 
         let anchorPoint: Vector3 = options.anchorPoint !== undefined ? options.anchorPoint : new Vector3(0, 0, 0.5);
         const result = this.getExtractPointsAndBoundingSize(this.shapes, options);
-        const offsetSize = result.BoundingSize.min.subtract(result.BoundingSize.max);
-        offsetSize.multiply(anchorPoint, offsetSize);
+        const offsetSize = result.BoundingSize.min.clone().sub(result.BoundingSize.max);
+        Vector3.multiply(offsetSize, anchorPoint, offsetSize);
 
         for (let shape of this.shapes) {
             this.addShape(shape, options, offsetSize);
@@ -267,7 +267,7 @@ export class ExtrudeGeometry extends GeometryBase {
                 }
 
                 // Top faces
-                for (let i = 0; i < flen; i++) {
+                if (depth > 0)for (let i = 0; i < flen; i++) {
                     const face = faces[i];
                     f3(face[0] + vlen * steps, face[1] + vlen * steps, face[2] + vlen * steps);
                 }
@@ -380,7 +380,9 @@ export class ExtrudeGeometry extends GeometryBase {
 
         buildLidFaces();
 
-        buildSideFaces();
+        if (depth > 0) {
+            buildSideFaces();
+        }
     }
 
     protected scalePoint2(pt: Vector2, vec: Vector2, size: number) {

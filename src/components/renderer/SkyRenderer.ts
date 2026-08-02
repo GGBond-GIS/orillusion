@@ -1,5 +1,4 @@
 
-import { Engine3D } from '../../Engine3D';
 import { View3D } from '../../core/View3D';
 import { MeshRenderer } from './MeshRenderer';
 import { BoundingBox } from '../../core/bound/BoundingBox';
@@ -14,6 +13,7 @@ import { Vector3 } from '../../math/Vector3';
 import { SphereGeometry } from '../../shape/SphereGeometry';
 import { Object3D } from '../../core/entities/Object3D';
 import { SphereReflection } from './SphereReflection';
+import { CameraType } from '../../core/CameraType';
 
 /**
  *
@@ -34,18 +34,21 @@ export class SkyRenderer extends MeshRenderer {
         this.alwaysRender = true;
 
         this.object3D.bound = new BoundingBox(Vector3.ZERO.clone(), Vector3.MAX);
-        this.geometry = new SphereGeometry(Engine3D.setting.sky.defaultFar, 20, 20);
         this.skyMaterial ||= new SkyMaterial();
     }
 
     public onEnable(): void {
+        if (!this.geometry) {
+            const defaultFar = this.transform.view3D?.engine3D?.setting.sky.defaultFar ?? 5000;
+            this.geometry = new SphereGeometry(defaultFar, 20, 20);
+        }
         if (!this._readyPipeline) {
             this.initPipeline();
         } else {
             this.castNeedPass();
 
             if (!this._inRenderer && this.transform.scene3D) {
-                EntityCollect.instance.sky = this;
+                EntityCollect.instance.setSky(this.transform.scene3D, this);
                 this._inRenderer = true;
             }
         }
@@ -54,13 +57,15 @@ export class SkyRenderer extends MeshRenderer {
     public onDisable(): void {
         if (this._inRenderer && this.transform.scene3D) {
             this._inRenderer = false;
-            EntityCollect.instance.sky = null;
+            EntityCollect.instance.setSky(this.transform.scene3D, null);
         }
         super.onDisable();
     }
 
     public nodeUpdate(view: View3D, passType: PassType, renderPassState: RendererPassState, clusterLightingBuffer?: ClusterLightingBuffer) {
         super.nodeUpdate(view, passType, renderPassState, clusterLightingBuffer);
+        const { type, aspect, near, far } = view.camera;
+        this.skyMaterial.fixOrthProj(type == CameraType.ortho, aspect, near, far);
     }
 
     public renderPass2(view: View3D, passType: PassType, rendererPassState: RendererPassState, clusterLightingBuffer: ClusterLightingBuffer, encoder: GPURenderPassEncoder, useBundle: boolean = false) {

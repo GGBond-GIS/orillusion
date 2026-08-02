@@ -1,18 +1,21 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
-import { AtmosphericComponent, BoxGeometry, CameraUtil, DirectLight, Engine3D, ForwardRenderJob, HoverCameraController, LitMaterial, MeshRenderer, Object3D, Scene3D, View3D, webGPUContext } from '@orillusion/core';
+import { AtmosphericComponent, BoxGeometry, CameraUtil, DirectLight, Engine3D, HoverCameraController, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, Scene3D, View3D } from '@orillusion/core';
 import { BunnySimulator } from "./softbody/BunnySimulator";
 
 export class Demo_Softbody {
+    engine: Engine3D;
     constructor() { }
 
     async run() {
 
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowBound = 8;
-        //Engine3D.setting.shadow.shadowBias = 0.000001;
-
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                },
+            },
+        });
 
         GUIHelp.init();
 
@@ -22,20 +25,20 @@ export class Demo_Softbody {
 
         let camera = CameraUtil.createCamera3DObject(scene);
 
-        camera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+        camera.perspective(60, engine.context3D.aspect, 1, 5000.0);
         let ctl = camera.object3D.addComponent(HoverCameraController);
-        ctl.setCamera(30, -28, 15);
+        ctl.setCamera(30, -28, 10);
 
         let view = new View3D();
         view.scene = scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async initScene(scene: Scene3D) {
         let mat = new LitMaterial();
-        mat.baseMap = Engine3D.res.grayTexture;
+        mat.baseMap = this.engine.res.grayTexture;
         mat.roughness = 0.8;
         mat.metallic = 0.1;
 
@@ -49,11 +52,7 @@ export class Demo_Softbody {
         boxMat.roughness = 0.8;
         boxMat.metallic = 0.1
         boxMat.cullMode = `front`
-        //boxMat.depthCompare = `greater`
-
         mr.material = boxMat;
-        // mr.material.doubleSide = true; 
-        mr.castShadow = true;
         scene.addChild(box);
 
         let bunny = new Object3D();
@@ -62,34 +61,17 @@ export class Demo_Softbody {
         simulator.SetInteractionBox(box);
         scene.addChild(bunny);
 
-        // {
-        //     let mat = new HDRLitMaterial();
-        //     mat.baseMap = defaultTexture.createTexture(32, 32, 72, 126, 2, 255);
-        //     mat.roughness = 0.8;
-        //     let plane = new Object3D();
-        //     plane.transform.y = -1;
-        //     let planeMesh = plane.addComponent(MeshRenderer);
-        //     planeMesh.geometry = new PlaneGeometry(100, 100);
-        //     planeMesh.material = mat;
-        //     planeMesh.receiveShadow = true;
-        //     scene.addChild(plane);
-        // }
-
-        {
-            var lightObj = new Object3D();
-            lightObj.x = 0;
-            lightObj.y = 0;
-            lightObj.z = 0;
-            lightObj.rotationX = 45;
-            lightObj.rotationY = 0;
-            lightObj.rotationZ = 0;
-            let lc = lightObj.addComponent(DirectLight);
-            lc.castShadow = true;
-            lc.intensity = 3;
-            scene.addChild(lightObj);
-        }
-
+        var lightObj = new Object3D();
+        lightObj.x = 0;
+        lightObj.y = 100;
+        lightObj.z = 0;
+        lightObj.rotationX = 45;
+        lightObj.rotationY = 217;
+        lightObj.rotationZ = 0;
+        let lc = lightObj.addComponent(DirectLight);
+        lc.intensity = 3;
+        lc.castShadow = true;
+        lc.enableCSM = true;
+        scene.addChild(lightObj);
     }
-
-    // async initComputeBuffer() {}
 }

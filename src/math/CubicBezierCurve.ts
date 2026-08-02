@@ -42,7 +42,10 @@ export class CubicBezierCurve {
         let bb2 = 3 * t * t * c;
         let bb3 = t * t * t;
 
-        let point = this.controlVertices[0].mul(bb0).add(this.controlVertices[1].mul(bb1)).add(this.controlVertices[2].mul(bb2)).add(this.controlVertices[3].mul(bb3));
+        let point = this.controlVertices[0].clone().multiplyScalar(bb0)
+            .add(this.controlVertices[1].clone().multiplyScalar(bb1))
+            .add(this.controlVertices[2].clone().multiplyScalar(bb2))
+            .add(this.controlVertices[3].clone().multiplyScalar(bb3));
 
         return point;
     }
@@ -51,20 +54,19 @@ export class CubicBezierCurve {
      * get tagent by calc from curve
      * @param t a position in range [0-1]
      * @returns tagent direction
-     * See: http://bimixual.org/AnimationLibrary/beziertangents.html
      */
     public getTangent(t: number): Vector3 {
         if (!(t >= 0.0 && t <= 1.0)) {
             return Vector3.ZERO
         }
         let controlVerts = this.controlVertices;
-        let q0 = controlVerts[0].add(controlVerts[1].add(controlVerts[0]).mul(t));
-        let q1 = controlVerts[1].add(controlVerts[2].add(controlVerts[1]).mul(t));
-        let q2 = controlVerts[2].add(controlVerts[3].add(controlVerts[2]).mul(t));
+        let q0 = controlVerts[0].clone().add(controlVerts[1].clone().add(controlVerts[0]).multiplyScalar(t));
+        let q1 = controlVerts[1].clone().add(controlVerts[2].clone().add(controlVerts[1]).multiplyScalar(t));
+        let q2 = controlVerts[2].clone().add(controlVerts[3].clone().add(controlVerts[2]).multiplyScalar(t));
 
-        let r0 = q0.add(q1.subtract(q0).mul(t));
-        let r1 = q1.add(q2.subtract(q1).mul(t));
-        let tangent = r1.subtract(r0);
+        let r0 = q0.clone().add(q1.clone().sub(q0).multiplyScalar(t));
+        let r1 = q1.clone().add(q2.clone().sub(q1).multiplyScalar(t));
+        let tangent = r1.sub(r0);
         return tangent;
     }
 
@@ -98,8 +100,8 @@ export class CubicBezierCurve {
 
         let posA = this.getPoint(paramA);
         let posB = this.getPoint(paramB);
-        let distASq = posA.subtract(pos).lengthSquared;
-        let distBSq = posB.subtract(pos).lengthSquared;
+        let distASq = posA.sub(pos).lengthSquared;
+        let distBSq = posB.sub(pos).lengthSquared;
 
         if (distASq < distBSq) {
             endT = mid;

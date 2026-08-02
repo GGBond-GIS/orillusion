@@ -1,15 +1,25 @@
 import { Engine3D, PassType } from "../../../../..";
+import { Context3D } from "../../../../../gfx/graphics/webGpu/Context3D";
 import { Texture } from "../../../../../gfx/graphics/webGpu/core/texture/Texture";
 import { RenderShaderPass } from "../../../../../gfx/graphics/webGpu/shader/RenderShaderPass";
+import { RTResourceMap } from "../../../../../gfx/renderJob/frame/RTResourceMap";
 import { Color } from "../../../../../math/Color";
 import { Vector4 } from "../../../../../math/Vector4";
 import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 
 
+/**
+ * Internal PBR shader used by the prefab material pipeline. Wraps a single
+ * PBR color pass and exposes typed getters/setters for its uniforms and maps.
+ * @internal
+ */
 export class StandShader extends Shader {
 
-    constructor() {
+    private _ctx: Context3D | undefined;
+
+    constructor(ctx?: Context3D) {
         super();
+        this._ctx = ctx;
 
         let colorShader = new RenderShaderPass('PBRLItShader', 'PBRLItShader');
         colorShader.setShaderEntry(`VertMain`, `FragMain`)
@@ -37,7 +47,13 @@ export class StandShader extends Shader {
         this.setUniformColor(`baseColor`, new Color(0.75, 0.75, 0.75, 1.0));
         this.setUniformColor(`emissiveColor`, new Color(0, 0, 0));
         this.setUniformVector4(`materialF0`, new Vector4(0.04, 0.04, 0.04, 1));
-        this.setUniformColor(`specularColor`, new Color(0.04, 0.04, 0.04));
+        // .rgb = F0 modulator (KHR_materials_specular). The base
+        // dielectric F0 is the canonical 0.04 — multiplied by this
+        // color to tint grazing-angle reflection. Default (1,1,1)
+        // keeps F0 at 0.04 (standard polished glass).
+        // .a = specularIntensity — scales the preserved specular term
+        // in the transmission shader path. 1.0 = no attenuation.
+        this.setUniformColor(`specularColor`, new Color(1.0, 1.0, 1.0, 1.0));
         this.setUniformFloat(`envIntensity`, 1);
         this.setUniformFloat(`normalScale`, 1);
         this.setUniformFloat(`roughness`, 1.0);
@@ -56,6 +72,15 @@ export class StandShader extends Shader {
         this.setUniformFloat(`clearcoatWeight`, 0.0);
         this.setUniformFloat(`clearcoatIor`, 1.5);
 
+        // Transmission (KHR_materials_transmission / _volume). Defaults
+        // are "no transmission" so enabling only costs one branch in
+        // the shader when the material actually needs it.
+        this.setUniformFloat(`transmissionFactor`, 0.0);
+        this.setUniformFloat(`thicknessFactor`, 0.0);
+        this.setUniformFloat(`attenuationDistance`, 1.0e20);
+        this.setUniformFloat(`transmissionAlphaMode`, 0.0);
+        this.setUniformColor(`attenuationColor`, new Color(1, 1, 1, 1));
+
         this.setUniformVector4(`baseMapOffsetSize`, new Vector4(0, 0, 1, 1));
         this.setUniformVector4(`normalMapOffsetSize`, new Vector4(0, 0, 1, 1));
         this.setUniformVector4(`emissiveMapOffsetSize`, new Vector4(0, 0, 1, 1));
@@ -63,63 +88,115 @@ export class StandShader extends Shader {
         this.setUniformVector4(`metallicMapOffsetSize`, new Vector4(0, 0, 1, 1));
         this.setUniformVector4(`aoMapOffsetSize`, new Vector4(0, 0, 1, 1));
 
-        this.baseMap = Engine3D.res.whiteTexture;
-        this.normalMap = Engine3D.res.normalTexture;
-        this.maskMap = Engine3D.res.maskTexture;
+        const res = Engine3D.resFor(this._ctx);
+        this.baseMap = res.whiteTexture;
+        this.normalMap = res.normalTexture;
+        this.maskMap = res.maskTexture;
+
+        // SceneColorPyramid placeholder. The texture slot is only
+        // consumed when `USE_TRANSMISSION` is defined (see PBRLItShader),
+        // so binding the white texture here is a harmless default for
+        // opaque materials. When transmission is enabled the material
+        // setter resolves the real pyramid from RTResourceMap.
+        const pyramid = this._ctx ? RTResourceMap.getTexture(this._ctx, '_SceneColorPyramid') : null;
+        this.setTexture('sceneColorPyramid', pyramid ?? res.whiteTexture);
     }
 
+    /**
+     * The base (albedo) color map.
+     */
     public get baseMap(): Texture {
         return this.getDefaultColorShader().getTexture(`baseMap`);
     }
 
+    /**
+     * The base (albedo) color map.
+     */
     public set baseMap(value: Texture) {
         this.getDefaultColorShader().setTexture(`baseMap`, value);
     }
 
+    /**
+     * The base (albedo) color tint.
+     */
     public get baseColor(): Color {
         return this.getDefaultColorShader().getUniform(`baseColor`);
     }
 
+    /**
+     * The base (albedo) color tint.
+     */
     public set baseColor(value: Color) {
         this.getDefaultColorShader().setUniformColor(`baseColor`, value);
     }
 
+    /**
+     * The tangent-space normal map.
+     */
     public get normalMap(): Texture {
         return this.getDefaultColorShader().getTexture(`normalMap`);
     }
 
+    /**
+     * The tangent-space normal map.
+     */
     public set normalMap(value: Texture) {
         this.getDefaultColorShader().setTexture(`normalMap`, value);
     }
 
+    /**
+     * Whether the surface is rendered double-sided.
+     */
     public get doubleSide(): boolean {
         return this.getDefaultColorShader().doubleSide;
     }
+    /**
+     * Whether the surface is rendered double-sided.
+     */
     public set doubleSide(value: boolean) {
         this.getDefaultColorShader().doubleSide = value;
     }
 
+    /**
+     * The alpha cutoff threshold used for alpha-clip rendering.
+     */
     public get alphaCutoff(): any {
         return this.getDefaultColorShader().shaderState.alphaCutoff;
     }
+    /**
+     * The alpha cutoff threshold used for alpha-clip rendering. Setting this
+     * also enables the `USE_ALPHACUT` shader define.
+     */
     public set alphaCutoff(value: any) {
         this.getDefaultColorShader().setDefine("USE_ALPHACUT", true);
         this.getDefaultColorShader().shaderState.alphaCutoff = value;
         this.getDefaultColorShader().setUniform(`alphaCutoff`, value);
     }
 
+    /**
+     * The emissive color.
+     */
     public get emissiveColor(): Color {
         return this.getDefaultColorShader().getUniform(`emissiveColor`);
     }
 
+    /**
+     * The emissive color.
+     */
     public set emissiveColor(value: Color) {
         this.getDefaultColorShader().setUniform(`emissiveColor`, value);
     }
 
+    /**
+     * The emissive intensity multiplier.
+     */
     public get emissiveIntensity(): number {
         return this.getDefaultColorShader().getUniform(`emissiveIntensity`);
     }
 
+    /**
+     * The emissive intensity multiplier.
+     */
     public set emissiveIntensity(value: number) {
         this.getDefaultColorShader().setUniform(`emissiveIntensity`, value);
     }
@@ -154,9 +231,15 @@ export class StandShader extends Shader {
         this.getDefaultColorShader().setUniform(`transformUV2`, value);
     }
 
+    /**
+     * Whether depth writes are enabled for the color pass.
+     */
     public get depthWriteEnabled(): boolean {
         return this.getDefaultColorShader().shaderState.depthWriteEnabled;
     }
+    /**
+     * Whether depth writes are enabled for the color pass.
+     */
     public set depthWriteEnabled(value: boolean) {
         this.getDefaultColorShader().shaderState.depthWriteEnabled = value;
     }
@@ -176,14 +259,14 @@ export class StandShader extends Shader {
     }
 
     /**
- * get specularColor
- */
+     * The specular color / reflectivity tint.
+     */
     public get specularColor(): Color {
         return this.getDefaultColorShader().uniforms[`specularColor`].color;
     }
 
-    /**specularColor
-     * set reflectivity
+    /**
+     * The specular color / reflectivity tint.
      */
     public set specularColor(value: Color) {
         this.getDefaultColorShader().setUniform(`specularColor`, value);
@@ -334,7 +417,7 @@ export class StandShader extends Shader {
     public set aoMap(value: Texture) {
         if (!value) return;
         this.getDefaultColorShader().setTexture(`aoMap`, value);
-        if (value != Engine3D.res.whiteTexture) {
+        if (value != Engine3D.resFor(this._ctx).whiteTexture) {
             this.getDefaultColorShader().setDefine(`USE_AOTEX`, true);
         }
     }
@@ -351,8 +434,6 @@ export class StandShader extends Shader {
      */
     public set clearCoatRoughnessMap(value: Texture) {
         if (!value) return;
-        console.log("USE_CLEARCOAT_ROUGHNESS");
-
         this.getDefaultColorShader().setTexture(`clearCoatRoughnessMap`, value);
         this.getDefaultColorShader().setDefine(`USE_CLEARCOAT_ROUGHNESS`, true);
     }

@@ -7,6 +7,11 @@ import { GeometryBase } from "../geometry/GeometryBase";
 import { Object3D } from "./Object3D";
 
 
+/**
+ * An entity that renders many copies of the same geometry and material,
+ * each as a child {@link Object3D} with its own transform.
+ * @group Entity
+ */
 export class InstancedMesh extends Object3D {
     private _geometry: GeometryBase;
     private _material: Material;
@@ -28,18 +33,24 @@ export class InstancedMesh extends Object3D {
         }
     }
 
+    /**
+     * Set the local transform of the instance at the given index from a matrix.
+     * @param index the instance index
+     * @param matrix the transform matrix to decompose and apply
+     * @returns this instance for chaining
+     */
     public setMatrixAt(index: number, matrix: Matrix4): this {
         let instance = this._instanceList[index];
         let prs: Vector3[] = matrix.decompose(Orientation3D.QUATERNION);
         let transform = instance.transform;
 
-        transform.localRotQuat.copyFrom(prs[1]);
+        transform.localRotQuat.copy(prs[1]);
         transform.localRotQuat = transform.localRotQuat;
 
-        transform.localPosition.copyFrom(prs[0]);
+        transform.localPosition.copy(prs[0]);
         transform.localPosition = transform.localPosition;
 
-        transform.localScale.copyFrom(prs[2]);
+        transform.localScale.copy(prs[2]);
         transform.localScale = transform.localScale;
         return this;
     }

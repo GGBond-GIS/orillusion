@@ -1,5 +1,5 @@
 import Ammo from '@orillusion/ammo';
-import { Vector3, Time, BoundingBox, Object3D, Quaternion } from '@orillusion/core';
+import { Vector3, Time, BoundingBox, Object3D, Quaternion, View3D } from '@orillusion/core';
 import { ContactProcessedUtil } from './utils/ContactProcessedUtil';
 import { RigidBodyUtil } from './utils/RigidBodyUtil';
 import { TempPhyMath } from './utils/TempPhyMath';
@@ -26,7 +26,7 @@ class _Physics {
     public fixedTimeStep: number = 1 / 60;
 
     /**
-     * 物理调试绘制器
+     * Physics debug drawer
      */
     public get debugDrawer() {
         if (!this._debugDrawer) {
@@ -36,11 +36,11 @@ class _Physics {
     }
 
     /**
-     * 物理拖拽器
+     * Physics dragger
      */
     public get physicsDragger() {
         if (!this._physicsDragger) {
-            console.warn('To enable the dragger, set useDrag: true in Physics.init() during initialization.');
+            console.warn('To enable the dragger, call Physics.enableDragger(view) after Physics.init().');
         }
         return this._physicsDragger;
     }
@@ -48,15 +48,15 @@ class _Physics {
     public TEMP_TRANSFORM: Ammo.btTransform; // Temp cache, save results from body.getWorldTransform()
 
     /**
-     * 初始化物理引擎和相关配置。
+     * Initialize the physics engine and related configuration.
      *
-     * @param options - 初始化选项参数对象。
-     * @param options.useSoftBody - 是否启用软体模拟。
-     * @param options.useDrag - 是否启用刚体拖拽功能。
-     * @param options.physicBound - 物理边界，默认范围：2000 2000 2000，超出边界时将会销毁该刚体。
-     * @param options.destroyObjectBeyondBounds - 是否在超出边界时销毁3D对象。默认 `false` 仅销毁刚体。
+     * @param options - Initialization options object.
+     * @param options.useSoftBody - Whether to enable soft body simulation.
+     * @param options.useDrag - Whether to enable rigid body dragging.
+     * @param options.physicBound - Physics bounds, default range: 2000 2000 2000. Rigid bodies that exit the bounds will be destroyed.
+     * @param options.destroyObjectBeyondBounds - Whether to destroy the 3D object when it exits the bounds. Defaults to `false`, which only destroys the rigid body.
      */
-    public async init(options: { useSoftBody?: boolean, useDrag?: boolean, physicBound?: Vector3, destroyObjectBeyondBounds?: boolean } = {}) {
+    public async init(options: { useSoftBody?: boolean, physicBound?: Vector3, destroyObjectBeyondBounds?: boolean } = {}) {
         await Ammo.bind(window)(Ammo);
 
         TempPhyMath.init();
@@ -64,18 +64,23 @@ class _Physics {
         this.TEMP_TRANSFORM = new Ammo.btTransform();
         this.initWorld(options.useSoftBody);
 
-        if (options.useDrag) this._physicsDragger = new PhysicsDragger();
-
         this._isInited = true;
         this._destroyObjectBeyondBounds = options.destroyObjectBeyondBounds;
         this._physicBound = new BoundingBox(new Vector3(), options.physicBound || new Vector3(2000, 2000, 2000));
     }
 
     /**
-     * 初始化物理调试绘制器
+     * Enable the rigid body dragger and bind it to the given View. Must be called after Physics.init and before rendering starts.
+     */
+    public enableDragger(view: View3D) {
+        this._physicsDragger = new PhysicsDragger(view);
+    }
+
+    /**
+     * Initialize the physics debug drawer
      *
-     * @param {Graphic3D} graphic3D - Type: `Graphic3D` A graphic object used to draw lines. 
-     * @param {DebugDrawerOptions} [options] - 调试绘制选项，用于配置物理调试绘制器。 {@link DebugDrawerOptions}
+     * @param {Graphic3D} graphic3D - Type: `Graphic3D` A graphic object used to draw lines.
+     * @param {DebugDrawerOptions} [options] - Debug draw options used to configure the physics debug drawer. {@link DebugDrawerOptions}
      */
     public initDebugDrawer(graphic3D: Object3D, options?: DebugDrawerOptions) {
         this._debugDrawer = new PhysicsDebugDrawer(this.world, graphic3D, options);
@@ -109,8 +114,8 @@ class _Physics {
     }
 
     /**
-     * 物理模拟更新
-     * @param timeStep - 时间步长
+     * Physics simulation update
+     * @param timeStep - Time step
      * @default Time.delta * 0.001
      */
     public update(timeStep: number = Time.delta * 0.001) {
@@ -138,9 +143,9 @@ class _Physics {
     }
 
     public set gravity(value: Vector3) {
-        this._gravity.copyFrom(value);
-        this._world?.setGravity(TempPhyMath.toBtVec(value)); // 设置刚体物理重力
-        this._worldInfo?.set_m_gravity(TempPhyMath.toBtVec(value)); // 设置软体物理重力
+        this._gravity.copy(value);
+        this._world?.setGravity(TempPhyMath.toBtVec(value)); // Set rigid body physics gravity
+        this._worldInfo?.set_m_gravity(TempPhyMath.toBtVec(value)); // Set soft body physics gravity
     }
 
     public get gravity(): Vector3 {
@@ -171,9 +176,9 @@ class _Physics {
     }
 
     /**
-     * 将物理对象的位置和旋转同步至三维对象
-     * @param object3D - 三维对象
-     * @param tm - 物理对象变换
+     * Sync the position and rotation of the physics object to the 3D object
+     * @param object3D - 3D object
+     * @param tm - Physics object transform
      */
     public syncGraphic(object3D: Object3D, tm: Ammo.btTransform): void {
         object3D.localPosition = TempPhyMath.fromBtVec(tm.getOrigin(), Vector3.HELP_0);

@@ -10,10 +10,16 @@ import { StructStorageGPUBuffer } from "../core/buffer/StructStorageGPUBuffer";
 import { UniformGPUBuffer } from "../core/buffer/UniformGPUBuffer";
 import { UniformNode } from "../core/uniforms/UniformNode";
 import { ShaderReflection } from "./value/ShaderReflectionInfo";
-import { UniformValue } from "./value/UniformValue";
+import { UniformType, UniformValue } from "./value/UniformValue";
 import { MaterialDataUniformGPUBuffer } from "../core/buffer/MaterialDataUniformGPUBuffer";
+import { Context3D } from "../Context3D";
 
-
+/**
+ * Base class for a single shader pass. Holds the pass's uniforms, GPU buffers,
+ * shader reflection data, precompile defines/constants and bind groups, and
+ * exposes helpers to set and read uniform values and to track shader/value changes.
+ * @group GFX
+ */
 export class ShaderPassBase {
     /**
      * Shader Unique instance id
@@ -36,9 +42,15 @@ export class ShaderPassBase {
     public fsEntryPoint: string = `main`;
 
     /**
-     * BindGroup collection 
+     * The Context3D this pass is bound to. Set on first GPU use via bindCtx.
+     * Plan B: a ShaderPass may only be used by one Engine3D.
      */
-    public bindGroups: GPUBindGroup[];
+    public _boundCtx: Context3D | null = null;
+
+    /**
+     * BindGroups — single array owned by the bound Context3D.
+     */
+    public bindGroups: GPUBindGroup[] = [];
 
     /**
      * Shader reflection info
@@ -65,8 +77,17 @@ export class ShaderPassBase {
        */
     public materialDataUniformBuffer: MaterialDataUniformGPUBuffer;
 
+    /**
+     * Internal registry mapping buffer names to their GPU buffer instances.
+     */
     protected _bufferDic: Map<string, GPUBufferBase>;
+    /**
+     * Flag indicating the shader needs to be recompiled.
+     */
     protected _shaderChange: boolean = true;
+    /**
+     * Flag indicating uniform values changed and need to be reapplied.
+     */
     protected _valueChange: boolean = false;
 
     constructor() {
@@ -75,6 +96,7 @@ export class ShaderPassBase {
         this.constValues = {};
         this.uniforms = {};
         this._bufferDic = new Map<string, GPUBufferBase>();
+        // bindGroups routes through per-context Map; no eager init needed.
     };
 
     /**
@@ -97,12 +119,27 @@ export class ShaderPassBase {
     * @param buffer storage useAge gpu buffer
     */
     public setStorageBuffer(name: string, buffer: StorageGPUBuffer) {
-        if (!this._bufferDic.has(name)) {
-            this._bufferDic.set(name, buffer);
+        // Rebuild the bind group whenever the buffer instance actually
+        // changes (including the first bind, where noticeBufferChange is a
+        // no-op because no group is cached yet). Re-binding a different
+        // buffer to an existing name used to be silently dropped, leaving
+        // the old GPUBuffer bound — e.g. a compute pipeline kept writing
+        // into a vertex buffer the geometry had since re-allocated. Matches
+        // the rebuild-on-replace semantics of setStructStorageBuffer /
+        // setUniformBuffer.
+        const prev = this._bufferDic.get(name);
+        this._bufferDic.set(name, buffer);
+        if (prev !== buffer) {
             this.noticeBufferChange(name);
-        } else {
-            this._bufferDic.set(name, buffer);
         }
+    }
+
+    /**
+     * Get a previously set storage gpu buffer by name.
+     * @param name buffer name
+     */
+    public getStorageBuffer(name: string): StorageGPUBuffer {
+        return this._bufferDic.get(name) as StorageGPUBuffer;
     }
 
     /**
@@ -131,6 +168,14 @@ export class ShaderPassBase {
         } else {
             this._bufferDic.set(name, buffer);
         }
+    }
+
+    /**
+     * Get a previously set uniform gpu buffer by name.
+     * @param name buffer name
+     */
+    public getUniformBuffer(name: string): UniformGPUBuffer {
+        return this._bufferDic.get(name) as UniformGPUBuffer;
     }
 
     /**
@@ -173,6 +218,20 @@ export class ShaderPassBase {
     public setUniformFloat(name: string, value: number) {
         if (!this.uniforms[name]) {
             this.uniforms[name] = new UniformNode(value);
+            this.noticeValueChange();
+        } else {
+            this.uniforms[name].value = value;
+        }
+    }
+
+    /**
+     * set uniform int32 value
+     * @param name 
+     * @param value 
+     */
+    public setUniformInt32(name: string, value: number) {
+        if (!this.uniforms[name]) {
+            this.uniforms[name] = new UniformNode(value, UniformType.Int32);
             this.noticeValueChange();
         } else {
             this.uniforms[name].value = value;
@@ -245,6 +304,11 @@ export class ShaderPassBase {
         }
     }
 
+    /**
+     * Set a uniform value of an arbitrary supported type.
+     * @param name uniform name
+     * @param value uniform value
+     */
     public setUniform(name: string, value: UniformValue) {
         if (!this.uniforms[name]) {
             this.uniforms[name] = new UniformNode(value);
@@ -253,38 +317,73 @@ export class ShaderPassBase {
         }
     }
 
+    /**
+     * Get a uniform value by name.
+     * @param name uniform name
+     */
     public getUniform(name: string): UniformValue {
         return this.uniforms[name].data;
     }
 
+    /**
+     * Get a uniform float value by name.
+     * @param name uniform name
+     */
     public getUniformFloat(name: string): number {
         return this.uniforms[name].data;
     }
 
+    /**
+     * Get a uniform vector2 value by name.
+     * @param name uniform name
+     */
     public getUniformVector2(name: string): Vector2 {
         return this.uniforms[name].data;
     }
 
+    /**
+     * Get a uniform vector3 value by name.
+     * @param name uniform name
+     */
     public getUniformVector3(name: string): Vector3 {
         return this.uniforms[name].data;
     }
 
+    /**
+     * Get a uniform vector4 value by name.
+     * @param name uniform name
+     */
     public getUniformVector4(name: string): Vector4 {
         return this.uniforms[name].data;
     }
 
+    /**
+     * Get a uniform color value by name.
+     * @param name uniform name
+     */
     public getUniformColor(name: string): Color {
         return this.uniforms[name].color;
     }
 
+    /**
+     * Get a registered gpu buffer by name.
+     * @param name buffer name
+     */
     public getBuffer(name: string): GPUBufferBase {
         return this._bufferDic[name].data;
     }
 
+    /**
+     * Hook invoked when a buffer is added or replaced. Subclasses may override.
+     * @param name buffer name
+     */
     protected noticeBufferChange(name: string) {
 
     }
 
+    /**
+     * Apply pending material uniform data to the GPU when values have changed.
+     */
     public applyUniform() {
         if (this.materialDataUniformBuffer && this._valueChange) {
             this.materialDataUniformBuffer.apply();

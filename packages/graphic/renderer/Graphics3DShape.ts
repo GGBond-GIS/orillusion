@@ -71,7 +71,7 @@ export class Graphics3DShape {
         this.fillShapeData(points, color);
     }
 
-    public fillShapeData(points: Vector3[], colors: Color | Color[], forceUpdate: boolean = false) {
+    public fillShapeData(points: Vector3[], colors: Color | Color[], forceUpdate: boolean = true) {
         if (!this.pointData) {
             this.pointData = new Float32Array(4 * points.length);
             this.colorData = new Float32Array(4 * points.length);
@@ -123,22 +123,22 @@ export class Graphics3DShape {
     private transformUp(points: Vector3[], up: Vector3, center: Vector3, x: number, y:number){
         switch (up) {
             case Vector3.X_AXIS:
-                points.push(center.add(new Vector3(0, x, y)));
+                points.push(center.clone().add(new Vector3(0, x, y)));
                 break;
             case Vector3.Y_AXIS:
-                points.push(center.add(new Vector3(x, 0, y)));
+                points.push(center.clone().add(new Vector3(x, 0, y)));
                 break;
             case Vector3.Z_AXIS:
-                points.push(center.add(new Vector3(x, y, 0)));
+                points.push(center.clone().add(new Vector3(x, y, 0)));
                 break;
             default:
                 // transform x/y based on UP/normal
                 let u = up.clone().normalize()
-                let v = u.crossProduct(Vector3.X_AXIS).normalize()
+                let v = u.clone().cross(Vector3.X_AXIS).normalize()
                 if(v.length === 0)
-                    v = u.crossProduct(Vector3.Y_AXIS).normalize()
-                let w = u.crossProduct(v)
-                points.push(center.add(u.scaleBy(0).add(v.scaleBy(x)).add(w.scaleBy(y))));
+                    v = u.clone().cross(Vector3.Y_AXIS).normalize()
+                let w = u.clone().cross(v)
+                points.push(center.clone().add(v.multiplyScalar(x).add(w.multiplyScalar(y))));
                 break;
         }
     }

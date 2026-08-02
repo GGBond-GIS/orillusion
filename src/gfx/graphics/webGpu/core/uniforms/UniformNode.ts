@@ -22,7 +22,8 @@ export class UniformNode {
     private _z: number = 0;
     private _w: number = 0;
 
-    constructor(value: UniformValue) {
+    constructor(value: UniformValue, type?: UniformType) {
+        this._type = type || UniformType.Number;
         this.data = value;
     }
 
@@ -32,7 +33,6 @@ export class UniformNode {
 
     public set data(value: UniformValue) {
         this._data = value;
-        this._type = UniformType.Number;
         if (value instanceof Vector2) {
             this.size = 2;
             this._x = value.x;
@@ -61,17 +61,20 @@ export class UniformNode {
         } else if (value instanceof Float32Array) {
             this.size = value.length;
             this._type = UniformType.Float32Array;
+        } else if (value instanceof Int32Array) {
+            this.size = value.length;
+            this._type = UniformType.Int32Array;
         } else {
             this.size = 1;
             this._x = value;
             this._data = value;
-            this._type = UniformType.Number;
+            this._type = this._type || UniformType.Number;
         }
     }
 
     public getColor(ret: Color) {
         if (ret) {
-            ret.copyFrom(this._data);
+            ret.copy(this._data);
         } else {
             ret = this._data;
         }
@@ -196,6 +199,9 @@ export class UniformNode {
             case UniformType.Number:
                 this.memoryInfo.dataBytes.setFloat32(0 * Float32Array.BYTES_PER_ELEMENT, this._data, true);
                 break;
+            case UniformType.Int32:
+                this.memoryInfo.dataBytes.setInt32(0 * Int32Array.BYTES_PER_ELEMENT, this._data, true);
+                break;
             case UniformType.Vector2:
                 this.memoryInfo.setVector2(0, this._data);
                 break;
@@ -210,6 +216,9 @@ export class UniformNode {
                 break;
             case UniformType.Float32Array:
                 this.memoryInfo.setFloat32Array(0, this._data);
+                break;
+            case UniformType.Int32Array:
+                this.memoryInfo.setInt32Array(0, this._data);
                 break;
         }
     }

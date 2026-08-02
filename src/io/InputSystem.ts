@@ -31,11 +31,6 @@ export class InputSystem extends CEventDispatcher {
     public isMouseDown: boolean = false;
 
     /**
-     * whether the mouse right key is down now
-     */
-    public isRightMouseDown: boolean = false;
-
-    /**
      * reference of canvas
      */
     public canvas: HTMLCanvasElement;
@@ -85,7 +80,13 @@ export class InputSystem extends CEventDispatcher {
     protected _keyEvent3d: KeyEvent;
     protected _pointerEvent3D: PointerEvent3D;
     protected _windowsEvent3d: CEvent;
+    /** Whether pointer lock is currently active. */
     mouseLock: boolean = false;
+
+    private _wheelHandler: ((e: WheelEvent) => void) | null = null;
+    private _keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+    private _keyUpHandler: ((e: KeyboardEvent) => void) | null = null;
+    private _mouseLockHandler: ((e: MouseEvent) => void) | null = null;
 
     /**
      * init the input system
@@ -101,25 +102,11 @@ export class InputSystem extends CEventDispatcher {
             _y = ev.clientY;
             _button = ev.button;
 
-            if (ev.button == 0) {
-                this.mouseStart(ev);
-            } else if (ev.button == 1) {
-                this.middleDown(ev);
-            } else if (ev.button == 2) {
-                this.isRightMouseDown = true
-                this.mouseStart(ev);
-            }
+            this.mouseStart(ev);
             canvas.setPointerCapture(ev.pointerId)
         }
         canvas.onpointerup = (ev: PointerEvent) => {
-            if (ev.button == 0) {
-                this.mouseEnd(ev);
-            } else if (ev.button == 1) {
-                this.middleUp(ev);
-            } else if (ev.button == 2) {
-                this.isRightMouseDown = false
-                this.mouseEnd(ev);
-            }
+            this.mouseEnd(ev);
             if(ev.button === _button && performance.now() - _t < 300 && Math.abs(_x - ev.clientX) < 20 && Math.abs(_y - ev.clientY) < 20){
                 ev.button === 0 ? this.mouseClick(ev) : this.rightClick(ev);
             }
@@ -133,10 +120,7 @@ export class InputSystem extends CEventDispatcher {
         }
         canvas.onpointercancel = (ev: PointerEvent) => {
             canvas.releasePointerCapture(ev.pointerId)
-            if (ev.button == 1) 
-                this.middleUp(ev);
-            else 
-                this.mouseEnd(ev);
+            this.mouseEnd(ev);
         }
         // canvas.onpointerleave = (ev: PointerEvent) => {
         //     this.mouseEnd(ev);
@@ -145,20 +129,12 @@ export class InputSystem extends CEventDispatcher {
         //     this.mouseEnd(ev);
         // }
 
-        // let input = document.createElement(`input`);
-        // input.setSelectionRange(-1000, 1000);
-        // input.style.zIndex = `9999`
-        // input.style.width = `9999px`
-        // input.style.height = `9999px`
-        // input.style.position = `absolute`
-        // input.focus();
-        // document.body.append(input);
-
-        canvas.addEventListener(`wheel`, (e: WheelEvent) => this.mouseWheel(e), { passive: false });
-
-        window.addEventListener('keydown', (e: KeyboardEvent) => this.keyDown(e), true);
-
-        window.addEventListener('keyup', (e: KeyboardEvent) => this.keyUp(e), true);
+        this._wheelHandler = (e: WheelEvent) => this.mouseWheel(e);
+        this._keyDownHandler = (e: KeyboardEvent) => this.keyDown(e);
+        this._keyUpHandler = (e: KeyboardEvent) => this.keyUp(e);
+        canvas.addEventListener(`wheel`, this._wheelHandler, { passive: false });
+        window.addEventListener('keydown', this._keyDownHandler, true);
+        window.addEventListener('keyup', this._keyUpHandler, true);
 
         canvas.oncontextmenu = function () {
             return false;
@@ -178,17 +154,60 @@ export class InputSystem extends CEventDispatcher {
         this._windowsEvent3d = new CEvent();
     }
 
+    /**
+     * Detach every listener this InputSystem installed (window keyboard
+     * listeners + canvas pointer/wheel handlers). Idempotent. Called by
+     * `Engine3D.dispose()` — without it, every disposed engine leaks a
+     * pair of window-level keydown/keyup listeners that still reference
+     * the engine's scene graph.
+     */
+    public dispose() {
+        if (this._keyDownHandler) {
+            window.removeEventListener('keydown', this._keyDownHandler, true);
+            this._keyDownHandler = null;
+        }
+        if (this._keyUpHandler) {
+            window.removeEventListener('keyup', this._keyUpHandler, true);
+            this._keyUpHandler = null;
+        }
+        if (this._mouseLockHandler) {
+            document.removeEventListener('mousemove', this._mouseLockHandler, false);
+            this._mouseLockHandler = null;
+        }
+        if (this.canvas) {
+            if (this._wheelHandler) this.canvas.removeEventListener('wheel', this._wheelHandler);
+            this.canvas.onpointerdown = null;
+            this.canvas.onpointerup = null;
+            this.canvas.onpointerenter = null;
+            this.canvas.onpointermove = null;
+            this.canvas.onpointercancel = null;
+            this.canvas.oncontextmenu = null;
+        }
+        this._wheelHandler = null;
+        this.canvas = null;
+    }
+
+    /** Request pointer lock on the canvas and start tracking locked mouse movement. */
     public useMouseLock() {
         if (this.mouseLock) return;
         this.canvas.requestPointerLock();
         this.mouseLock = true;
-        document.addEventListener("mousemove", (e) => this.onMouseLockMove(e), false);
+        // Save the bound handler so releaseMouseLock can actually remove it.
+        // A fresh arrow in addEventListener/removeEventListener produces two
+        // distinct function identities, so removeEventListener would no-op
+        // and the InputSystem would leak via document's listener list.
+        this._mouseLockHandler = (e) => this.onMouseLockMove(e);
+        document.addEventListener("mousemove", this._mouseLockHandler, false);
     }
 
+    /** Exit pointer lock and stop tracking locked mouse movement. */
     public releaseMouseLock() {
         this.mouseLock = false;
         document.exitPointerLock();
-        document.removeEventListener("mousemove", (e) => this.onMouseLockMove(e), false);
+        if (this._mouseLockHandler) {
+            document.removeEventListener("mousemove", this._mouseLockHandler, false);
+            this._mouseLockHandler = null;
+        }
     }
 
     public onMouseLockMove(e: MouseEvent) {
@@ -253,40 +272,6 @@ export class InputSystem extends CEventDispatcher {
         this._pointerEvent3D.ctrlKey = e.ctrlKey;
         this._pointerEvent3D.altKey = e.altKey;
         this._pointerEvent3D.shiftKey = e.shiftKey;
-        this.dispatchEvent(this._pointerEvent3D);
-    }
-
-    private middleDown(e: PointerEvent | MouseEvent) {
-        this._pointerEvent3D.reset();
-        this._pointerEvent3D.mouseCode = e.button;
-        this._pointerEvent3D.mouseX = e.clientX - this.canvasX;
-        this._pointerEvent3D.mouseY = e.clientY - this.canvasY;
-        // this._pointerEvent3D.target = this;
-        this._pointerEvent3D.type = PointerEvent3D.POINTER_MID_DOWN;
-        this._pointerEvent3D.ctrlKey = e.ctrlKey;
-        this._pointerEvent3D.altKey = e.altKey;
-        this._pointerEvent3D.shiftKey = e.shiftKey;
-        this._pointerEvent3D.pointerId = e[`pointerId`] ? e[`pointerId`] : 0;
-        this._pointerEvent3D.pointerType = e[`pointerType`] ? e[`pointerType`] : 0;
-        this._pointerEvent3D.isPrimary = e[`isPrimary`] ? e[`isPrimary`] : 0;
-        this._pointerEvent3D.pressure = e[`pressure`] ? e[`pressure`] : 0;
-        this.dispatchEvent(this._pointerEvent3D);
-    }
-
-    private middleUp(e: PointerEvent) {
-        this._pointerEvent3D.reset();
-        this._pointerEvent3D.mouseCode = e.button;
-        this._pointerEvent3D.mouseX = e.clientX - this.canvasX;
-        this._pointerEvent3D.mouseY = e.clientY - this.canvasY;
-        this._pointerEvent3D.type = PointerEvent3D.POINTER_MID_UP;
-        this._pointerEvent3D.ctrlKey = e.ctrlKey;
-        this._pointerEvent3D.metaKey = e.metaKey;
-        this._pointerEvent3D.altKey = e.altKey;
-        this._pointerEvent3D.shiftKey = e.shiftKey;
-        this._pointerEvent3D.pointerId = e.pointerId;
-        this._pointerEvent3D.pointerType = e.pointerType;
-        this._pointerEvent3D.isPrimary = e.isPrimary;
-        this._pointerEvent3D.pressure = e.pressure;
         this.dispatchEvent(this._pointerEvent3D);
     }
 

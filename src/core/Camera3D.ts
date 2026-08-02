@@ -1,5 +1,4 @@
 import { ComponentBase } from '../components/ComponentBase';
-import { Engine3D } from '../Engine3D';
 import { HaltonSeq } from '../math/HaltonSeq';
 import { MathUtil } from '../math/MathUtil';
 import { Matrix4, matrixMultiply } from '../math/Matrix4';
@@ -10,17 +9,27 @@ import { Vector3 } from '../math/Vector3';
 import { CameraUtil } from '../util/CameraUtil';
 import { Frustum } from './bound/Frustum';
 import { CameraType } from './CameraType';
-import { CubeCamera } from './CubeCamera';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
-import { FrustumCSM } from './csm/FrustumCSM';
-import { CSM } from './csm/CSM';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { CResizeEvent } from '../event/CResizeEvent';
+import { ILight } from '../components/lights/ILight';
+import { VisibleLayer } from '../gfx/renderJob/config/VisibleLayer';
 
 /**
  * Camera components
- * @group Components
+ * @group Core
  */
 export class Camera3D extends ComponentBase {
+
+    /**
+     * The primary camera used for rendering the main view.
+     */
+    public static mainCamera: Camera3D;
+
+    /**
+     * The graphics context this camera is bound to. Used for multi-engine
+     * setups; `null` until the camera is bound to a {@link Context3D}.
+     */
+    public _boundCtx: Context3D | null = null;
 
     /**
      * camera Perspective
@@ -70,7 +79,12 @@ export class Camera3D extends ComponentBase {
     /**
      * orth view size
      */
-    public frustumSize: number = 100;
+    public frustumSize: number = 0;
+
+    /**
+     * orth view depth range
+     */
+    public frustumDepth: number = 0;
 
     /**
      * camera view port size
@@ -94,12 +108,38 @@ export class Camera3D extends ComponentBase {
     //     -0.1039777, -0.09676537, -0.07681116, -0.0004372867,
     // ]);
 
+    /**
+     * Spherical-harmonics coefficients of the ambient/diffuse environment lighting.
+     */
     public sh: Float32Array = new Float32Array(36);
 
     /**
      * this camera is shadow camera
      */
     public isShadowCamera: boolean = false;
+
+    /**
+     * The light this camera renders the shadow map for, when it is a shadow camera.
+     */
+    public shadowLight?: ILight;
+
+    /**
+     * Layer-mask of layers this camera should see. Combined at pass
+     * execute time with `node.visibleLayer` and the active pass's
+     * `layerMask` via bitwise AND:
+     *
+     *     (node.visibleLayer & pass.layerMask & camera.cullingMask) !== 0
+     *
+     * Defaults to {@link VisibleLayer.All} so untouched cameras keep
+     * the historical "see everything" behaviour. Sub-cameras
+     * (minimaps, reflection probes, picking-only views) can clear
+     * specific bits to suppress unwanted layers.
+     *
+     * Camera-side filtering is layered on top of pass-side filtering:
+     * a layer must clear both masks AND the node's own membership to
+     * be drawn.
+     */
+    public cullingMask: number = VisibleLayer.All;
 
     /**
    * @internal
@@ -114,8 +154,6 @@ export class Camera3D extends ComponentBase {
     private _halfw: number;
     private _halfh: number;
     private _ray: Ray;
-    private _enableCSM: boolean = false;
-    public mainCamera: Camera3D;
 
     /**
      * @internal
@@ -135,22 +173,6 @@ export class Camera3D extends ComponentBase {
      */
     public type: CameraType = CameraType.perspective;
 
-    public csm: FrustumCSM;
-
-    /**
-     * @internal
-     */
-    public cubeShadowCameras: CubeCamera[] = [];
-
-    public get enableCSM(): boolean {
-        return this._enableCSM;
-    }
-    public set enableCSM(value: boolean) {
-        if (value && !this.csm) {
-            this.csm = new FrustumCSM(CSM.Cascades);
-        }
-        this._enableCSM = value;
-    }
     constructor() {
         super();        
     }
@@ -161,63 +183,70 @@ export class Camera3D extends ComponentBase {
         this.frustum = new Frustum();
         this.lookTarget = new Vector3(0, 0, 0);
 
-        // TODO: set viewport based on View3D size
+        let ctx = this._deriveCtx();
+        if (ctx) {
+            this._bindToCtx(ctx);
+        }
+        this.updateProjection();
+    }
+
+    private _deriveCtx(): Context3D | null {
+        return this._boundCtx ?? this.transform?.view3D?.engine3D?.context3D ?? null;
+    }
+
+    private _resizeListenerAttached: boolean = false;
+    private _bindToCtx(ctx: Context3D) {
+        this._boundCtx = ctx;
         this.viewPort.x = 0;
         this.viewPort.y = 0;
-        this.viewPort.w = webGPUContext.presentationSize[0];
-        this.viewPort.h = webGPUContext.presentationSize[1];
-
-        this.updateProjection();        
-        webGPUContext.addEventListener(CResizeEvent.RESIZE, this.updateProjection, this)
+        this.viewPort.w = ctx.presentationSize[0];
+        this.viewPort.h = ctx.presentationSize[1];
+        if (!this._resizeListenerAttached) {
+            ctx.addEventListener(CResizeEvent.RESIZE, this.updateProjection, this);
+            this._resizeListenerAttached = true;
+        }
     }
 
     public updateProjection() {
-        this.aspect = webGPUContext.aspect;
+        let ctx = this._deriveCtx();
+        if (ctx) {
+            if (!this._resizeListenerAttached) this._bindToCtx(ctx);
+            this.aspect = ctx.aspect;
+        }
         if (this.type == CameraType.perspective) {
             this.perspective(this.fov, this.aspect, this.near, this.far);
         }else if(this.type == CameraType.ortho) {
-            if(this.frustumSize)
-                this.ortho(this.frustumSize, this.near, this.far);
+            if(this.frustumSize && this.frustumDepth)
+                this.ortho(this.frustumSize, this.frustumDepth);
+            else if(this.frustumSize)
+                this.ortho2(this.frustumSize, this.near, this.far);
             else
                 this.orthoOffCenter(this.left, this.right, this.bottom, this.top, this.near, this.far);
         }  
     }
 
+    /**
+     * Compute a legacy auto shadow-bias baseline for the given depth texture size.
+     *
+     * Legacy auto baseline used by DDGI / GodRay compute paths.
+     * Real-time shadow now derives bias per-light via ShadowBiasCalculator.
+     * @param depthTexSize the side length of the shadow depth texture
+     * @returns the computed shadow bias
+     */
     public getShadowBias(depthTexSize: number): number {
         let sizeOnePixel = 2.0 * this.getShadowWorldExtents() / depthTexSize;
-        let depth = this.far - this.near;
-        return sizeOnePixel / depth - Engine3D.setting.shadow.shadowBias * 0.01;
+        let depth = Math.max(this.far - this.near, 1e-6);
+        return (sizeOnePixel * 1.5) / depth;
     }
 
+    /**
+     * Get the rounded world-space extent of the camera frustum, used to scale shadow bias.
+     * @returns the world-space extent value
+     */
     public getShadowWorldExtents(): number {
-        let shadowBound = Engine3D.setting.shadow.shadowBound;
-        if (!shadowBound) {
-            shadowBound = Math.round(0.05 * this.frustum.boundingBox.extents.length);
-        } else {
-            shadowBound *= 0.5;
-        }
-        return shadowBound;
+        return Math.round(0.05 * this.frustum.boundingBox.extents.length);
     }
 
-    // public getCSMShadowBias(index: number, depthTexSize: number): number {
-    //     let sizeOnePixel = 2.0 * this.getCSMShadowWorldExtents(index) / depthTexSize;
-    //     let depth = this.far - this.near;
-    //     return sizeOnePixel / depth;
-    // }
-
-    public getCSMShadowBiasScale(shadowCamera: Camera3D): number {
-        if (shadowCamera == this)
-            return 1.0;
-
-        let currentSize = this.far - this.near;
-        let baseCamera = this.csm.children[0].shadowCamera;
-        let baseSize = baseCamera.far - baseCamera.near;
-        return baseSize / currentSize;
-    }
-
-    public getCSMShadowWorldExtents(index: number): number {
-        return Math.round(this.csm.children[index].bound.extents.length);
-    }
 
     /**
      * Create a perspective camera
@@ -233,25 +262,50 @@ export class Camera3D extends ComponentBase {
         this.far = far;
         this._projectionMatrix.perspective(this.fov, this.aspect, this.near, this.far);
         this.type = CameraType.perspective;
+
+        this._captureJitterBase();
     }
 
     /**
-     * set an orthographic camera with a frustumSize
-     * @param frustumSize the frustum size 
-     * @param near camera near plane
-     * @param far camera far plane
+     * set an orthographic camera with a frustumSize(viewHeight) and frustumSizeDepth
+     * @param frustumSize the frustum view height
+     * @param frustumSizeDepth the frustum view depth
      */
-    public ortho(frustumSize: number, near: number, far: number) {
+    public ortho(frustumSize: number, frustumDepth: number) {
         this.frustumSize = frustumSize;
-        let w = frustumSize * 0.5 * this.aspect;
-        let h = frustumSize * 0.5;
+        this.frustumDepth = frustumDepth;
+        
+        let w = frustumSize * this.aspect;
+        let h = frustumSize;
         let left = -w / 2;
         let right = w / 2;
         let top = h / 2;
         let bottom = -h / 2;
+
+        let dis = Vector3.distance(this.object3D.localPosition, this.lookTarget)
+        let near = dis - frustumDepth
+        let far = dis + frustumDepth
+
         this.orthoOffCenter(left, right, bottom, top, near, far);
     }
+    /**
+     * set an orthographic camera with a frustumSize(viewHeight) and specific near & far
+     * @param frustumSize the frustum view height
+     * @param near camera near plane
+     * @param far camera far plane
+     */
+    public ortho2(frustumSize: number, near: number, far: number) {
+        this.frustumSize = frustumSize;
+        let w = frustumSize * this.aspect;
+        let h = frustumSize;
+        let left = -w / 2;
+        let right = w / 2;
+        let top = h / 2;
+        let bottom = -h / 2;
 
+        this.orthoOffCenter(left, right, bottom, top, near, far);
+    }
+    
     /**
      * set an orthographic camera with specified frustum space
      * @param left camera left plane
@@ -270,6 +324,8 @@ export class Camera3D extends ComponentBase {
         this.bottom = bottom;
         this.type = CameraType.ortho;
         this._projectionMatrix.orthoOffCenter(this.left, this.right, this.bottom, this.top, this.near, this.far);
+
+        this._captureJitterBase();
     }
 
     /**
@@ -277,7 +333,7 @@ export class Camera3D extends ComponentBase {
      * view invert matrix
      */
     public get viewMatrix(): Matrix4 {
-        this._viewMatrix.copyFrom(this.transform.worldMatrix);
+        this._viewMatrix.copy(this.transform.worldMatrix);
         this._viewMatrix.invert();
         return this._viewMatrix;
     }
@@ -287,7 +343,7 @@ export class Camera3D extends ComponentBase {
      * shadow camera view invert matrix
      */
     public get shadowViewMatrix(): Matrix4 {
-        this._viewMatrix.copyFrom(this.transform.worldMatrix);
+        this._viewMatrix.copy(this.transform.worldMatrix);
         this._viewMatrix.appendScale(1, 1.0, 1.0);
         this._viewMatrix.invert();
         return this._viewMatrix;
@@ -342,9 +398,12 @@ export class Camera3D extends ComponentBase {
         return this._pvMatrix;
     }
 
+    /**
+     * get the inverse of (projection * world) matrix
+     */
     public get pvMatrix2(): Matrix4 {
         matrixMultiply(this._projectionMatrix, this.transform.worldMatrix, this._pvMatrix);
-        let matrix = this._pvMatrixInv.copyFrom(this.pvMatrix);
+        let matrix = this._pvMatrixInv.copy(this.pvMatrix);
         matrix.invert();
         return matrix;
     }
@@ -353,29 +412,38 @@ export class Camera3D extends ComponentBase {
      * get (project * view) invert matrix
      */
     public get pvMatrixInv(): Matrix4 {
-        let matrix = this._pvMatrixInv.copyFrom(this.pvMatrix);
+        let matrix = this._pvMatrixInv.copy(this.pvMatrix);
         matrix.invert();
         return matrix;
     }
 
+    /**
+     * get the inverse of the view matrix
+     */
     public get vMatrixInv(): Matrix4 {
-        let matrix = this._viewMatrixInv.copyFrom(this.viewMatrix);
+        let matrix = this._viewMatrixInv.copy(this.viewMatrix);
         matrix.invert();
         return matrix;
     }
 
+    /**
+     * get the matrix transforming camera/clip space back to world space
+     */
     public get cameraToWorld(): Matrix4 {
         let cameraToWorld = Matrix4.helpMatrix;
         cameraToWorld.identity();
-        cameraToWorld.copyFrom(this.projectionMatrixInv);
+        cameraToWorld.copy(this.projectionMatrixInv);
         cameraToWorld.multiply(this.vMatrixInv);
         return cameraToWorld;
     }
 
+    /**
+     * get the matrix transforming NDC space to view space (inverse projection)
+     */
     public get ndcToView(): Matrix4 {
         let cameraToWorld = Matrix4.helpMatrix;
         cameraToWorld.identity();
-        cameraToWorld.copyFrom(this.projectionMatrixInv);
+        cameraToWorld.copy(this.projectionMatrixInv);
         return cameraToWorld;
     }
 
@@ -383,7 +451,7 @@ export class Camera3D extends ComponentBase {
      * get project invert matrix
      */
     public get projectionMatrixInv(): Matrix4 {
-        this._projectionMatrixInv.copyFrom(this._projectionMatrix);
+        this._projectionMatrixInv.copy(this._projectionMatrix);
         this._projectionMatrixInv.invert();
         return this._projectionMatrixInv;
     }
@@ -406,7 +474,7 @@ export class Camera3D extends ComponentBase {
         target.x *= sZ;
         target.y *= sZ;
 
-        this._unprojection.copyFrom(this._projectionMatrix);
+        this._unprojection.copy(this._projectionMatrix);
         this._unprojection.invert();
 
         MathUtil.transformVector(this._unprojection, target, target);
@@ -440,10 +508,10 @@ export class Camera3D extends ComponentBase {
 
         let start = CameraUtil.UnProjection(viewPortPosX, viewPortPosY, 0.01, this);
         let end = CameraUtil.UnProjection(viewPortPosX, viewPortPosY, 1.0, this);
-        end = end.subtract(start).normalize();
+        end = end.sub(start).normalize();
 
-        ray.origin.copyFrom(start);
-        // ray.dir.copyFrom(end);
+        ray.origin.copy(start);
+        // ray.dir.copy(end);
         ray.direction = end;
 
         return ray;
@@ -481,7 +549,7 @@ export class Camera3D extends ComponentBase {
      */
     public lookAt(pos: Vector3, target: Vector3, up: Vector3 = Vector3.Y_AXIS) {
         this.transform.lookAt(pos, target, up);
-        if (target) this.lookTarget.copyFrom(target);
+        if (target) this.lookTarget.copy(target);
     }
 
     /**
@@ -493,10 +561,10 @@ export class Camera3D extends ComponentBase {
         }
         this.frustum.update(this.pvMatrix);
         this.frustum.updateBoundBox(this.pvMatrixInv);
-        let shadow = Engine3D.setting.shadow;
-        this.enableCSM && this.csm?.update(this._projectionMatrix, this._pvMatrixInv, this.near, this.far, shadow);
+        // CSM update moved to DirectLight.onUpdate (see 0.9 refactor)
     }
 
+    // for jitter projection
     private _haltonSeq: HaltonSeq;
     private _jitterOffsetList: Vector2[];
     private _useJitterProjection: boolean = false;
@@ -504,19 +572,34 @@ export class Camera3D extends ComponentBase {
     private _sampleIndex: number = 0;
     private _jitterX: number = 0;
     private _jitterY: number = 0;
+    private _jitterOffsetX: number;
+    private _jitterOffsetY: number;
 
+    /**
+     * get the current TAA jitter frame index
+     */
     public get jitterFrameIndex() {
         return this._jitterFrameIndex;
     }
 
+    /**
+     * get the current frame's TAA jitter offset on the X axis (in NDC)
+     */
     public get jitterX(): number {
         return this._jitterX;
     }
 
+    /**
+     * get the current frame's TAA jitter offset on the Y axis (in NDC)
+     */
     public get jitterY(): number {
         return this._jitterY;
     }
 
+    /**
+     * Enable or disable TAA jitter on the projection matrix.
+     * @param value whether jitter projection should be applied each frame
+     */
     public enableJitterProjection(value: boolean) {
         this._jitterFrameIndex = 0;
         this._useJitterProjection = value;
@@ -527,6 +610,35 @@ export class Camera3D extends ComponentBase {
             this._jitterOffsetList.push(offset);
         }
         this._jitterOffsetList.reverse();
+        // Capture the un-jittered baseline of the projection-matrix slot
+        // we'll be writing into. TAAPost typically calls enable AFTER
+        // perspective()/ortho2() has built the matrix, so the captures
+        // inside those functions were a no-op (the flag was still
+        // false). Capturing here makes either call order work.
+        this._captureJitterBase();
+    }
+
+    /**
+     * Snapshot the projection-matrix slot we drive with TAA jitter, so
+     * each frame writes `base + this-frame-jitter` instead of adding
+     * onto the previously-jittered matrix (which would accumulate as
+     * an unbounded random walk).
+     *
+     * Slot depends on camera type:
+     *   - perspective: (row=0, col=2) and (row=1, col=2). After the
+     *     perspective divide (clip.w = -z), the z-coefficient term
+     *     produces a constant NDC offset.
+     *   - ortho: (row=0, col=3) and (row=1, col=3) — the translation
+     *     column. clip.w = 1 here, so any z-coefficient shift would
+     *     scale linearly with depth (different layers would jitter
+     *     different amounts, breaking TAA reprojection). Translation-
+     *     column shift gives a constant NDC offset like perspective.
+     */
+    private _captureJitterBase() {
+        if (!this._useJitterProjection) return;
+        const col = this.type === CameraType.ortho ? 3 : 2;
+        this._jitterOffsetX = this._projectionMatrix.get(0, col);
+        this._jitterOffsetY = this._projectionMatrix.get(1, col);
     }
 
     private generateRandomOffset(): Vector2 {
@@ -538,95 +650,61 @@ export class Camera3D extends ComponentBase {
     }
 
     private getJitteredProjectionMatrix() {
-        let setting = Engine3D.setting.render.postProcessing.taa;
-        let mat = this._projectionMatrix;
+        let setting = this._boundCtx!.engine!.setting.render.postProcessing.taa;
         let temporalJitterScale: number = setting.temporalJitterScale;
         let offsetIndex = this._jitterFrameIndex % setting.jitterSeedCount;
         let num1 = this._jitterOffsetList[offsetIndex].x * temporalJitterScale;
         let num2 = this._jitterOffsetList[offsetIndex].y * temporalJitterScale;
 
-        let jitX = mat.get(0, 2);
-        let jitY = mat.get(1, 2);
-
         this._jitterX = num1 / this.viewPort.width;
         this._jitterY = num2 / this.viewPort.height;
-        jitX += this._jitterX;
-        jitY += this._jitterY;
-        mat.set(0, 2, jitX);
-        mat.set(1, 2, jitY);
+
+        // Always overwrite the slot with `base + this-frame-jitter`,
+        // never `current_slot + this-frame-jitter`. The previous code
+        // re-captured `_jitterOffsetX/Y` whenever they were falsy
+        // (which is true for any centered camera, where the base is 0)
+        // — that re-capture pulled last frame's jittered value as the
+        // new "base", causing a random walk that grew unboundedly.
+        // Bases are now snapshot once in _captureJitterBase().
+        const baseX = this._jitterOffsetX ?? 0;
+        const baseY = this._jitterOffsetY ?? 0;
+        const col = this.type === CameraType.ortho ? 3 : 2;
+        this._projectionMatrix.set(0, col, baseX + this._jitterX);
+        this._projectionMatrix.set(1, col, baseY + this._jitterY);
 
         this._jitterFrameIndex++;
     }
 
-    // /**
-    //  *
-    //  * @param shadowCamera
-    //  * @param lightDir
-    //  */
-    // public getCastShadowLightSpaceMatrix(shadowCamera: Camera3D, lightDir: Vector3) {
-    //     let frustum: Frustum = this.frustum;
-
-    //     let proMat = this.projectionMatrixInv;
-    //     let wMat = this.transform.worldMatrix;
-    //     Matrix4.helpMatrix.copyFrom(proMat);
-    //     Matrix4.helpMatrix.multiply(wMat);
-
-    //     frustum.setFrustumCorners(Matrix4.helpMatrix);
-
-    //     let corners = frustum.corners;
-    //     let center = Vector3.HELP_6;
-    //     center.set(0, 0, 0);
-
-    //     for (const iterator of corners) {
-    //         center.add(iterator, center);
-    //     }
-
-    //     center.div(corners.length, center);
-
-    //     let lookTarget = Vector3.HELP_5;
-    //     lookTarget.copyFrom(center);
-    //     Vector3.HELP_0.copyFrom(lightDir);
-    //     lookTarget.add(Vector3.HELP_0, lookTarget);
-    //     shadowCamera.lookAt(lookTarget, center, Vector3.UP);
-
-    //     let minX = Number.MAX_VALUE;
-    //     let maxX = -Number.MAX_VALUE;
-    //     let minY = Number.MAX_VALUE;
-    //     let maxY = -Number.MAX_VALUE;
-    //     let minZ = Number.MAX_VALUE;
-    //     let maxZ = -Number.MAX_VALUE;
-
-    //     for (const iterator of corners) {
-    //         minX = Math.min(minX, iterator.x);
-    //         maxX = Math.max(maxX, iterator.x);
-    //         minY = Math.min(minY, iterator.y);
-    //         maxY = Math.max(maxY, iterator.y);
-    //         minZ = Math.min(minZ, iterator.z);
-    //         maxZ = Math.max(maxZ, iterator.z);
-    //     }
-
-    //     // Tune this parameter according to the scene
-    //     let zMult = Engine3D.setting.shadow.shadowQuality;
-
-    //     if (minZ < 0) {
-    //         minZ *= zMult;
-    //     } else {
-    //         minZ /= zMult;
-    //     }
-    //     if (maxZ < 0) {
-    //         maxZ /= zMult;
-    //     } else {
-    //         maxZ *= zMult;
-    //     }
-
-    //     shadowCamera.orthoOffCenter(minX, maxX, minY, maxY, minZ, maxZ);
-    // }
-
+    /**
+     * Get the camera's forward direction in world space.
+     * @param target optional vector to store the result
+     * @returns the normalized world-space forward direction
+     */
     public getWorldDirection(target?: Vector3) {
         target ||= new Vector3();
         // this.transform.updateWorldMatrix();
         const e = this.transform._worldMatrix.rawData;
         return target.set(-e[8], -e[9], -e[10]).normalize();
+    }
+
+    /**
+     * Release the matrix slots held by this camera and destroy the component.
+     * @param force whether to force-destroy
+     */
+    public destroy(force?: boolean): void {
+        // Release the 7 Matrix4 slots this camera holds in the static matrix table;
+        // ComponentBase.destroy() wouldn't know about these private fields.
+        for (const m of [this._projectionMatrix, this._projectionMatrixInv, this._viewMatrix, this._viewMatrixInv, this._unprojection, this._pvMatrix, this._pvMatrixInv]) {
+            if (m) Matrix4.freeIndex(m);
+        }
+        this._projectionMatrix = null;
+        this._projectionMatrixInv = null;
+        this._viewMatrix = null;
+        this._viewMatrixInv = null;
+        this._unprojection = null;
+        this._pvMatrix = null;
+        this._pvMatrixInv = null;
+        super.destroy(force);
     }
 
 }

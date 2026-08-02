@@ -1,3 +1,6 @@
+/**
+ * @internal
+ */
 export class DoubleArray {
 
     private _keys: Array<any> = new Array<any>();

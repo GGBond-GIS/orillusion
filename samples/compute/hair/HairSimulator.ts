@@ -1,4 +1,4 @@
-import { CylinderGeometry, Engine3D, Texture, KeyCode, KeyEvent, MeshRenderer, Object3D, RendererMask, RendererPassState, Time, Vector3, webGPUContext, View3D, ComputeGPUBuffer, ClusterLightingBuffer, PassType } from '@orillusion/core';
+import { CylinderGeometry, Texture, KeyCode, KeyEvent, MeshRenderer, Object3D, RendererMask, RendererPassState, Time, Vector3, View3D, ComputeGPUBuffer, ClusterLightingBuffer, PassType } from '@orillusion/core';
 import { HairSimulatorConfig } from "./HairSimulatorConfig";
 import { HairSimulatorMaterial } from "./HairSimulatorMaterial";
 import { HairSimulatorPipeline } from "./HairSimulatorPipeline";
@@ -60,7 +60,6 @@ export class HairSimulator extends MeshRenderer {
         this.geometry = new CylinderGeometry(0.001, 0.001, this.mConfig.LENGTHSEGMENT);
         this.material = new HairSimulatorMaterial();
         // this.material.baseMap = this.mHairTexture;
-        let device = webGPUContext.device;
         var globalArgsData = new Float32Array(4);
         this.mGlobalArgs = new ComputeGPUBuffer(globalArgsData.byteLength);
         globalArgsData[0] = this.transform.worldMatrix.index;
@@ -73,8 +72,9 @@ export class HairSimulator extends MeshRenderer {
     }
 
     public start() {
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
-        Engine3D.inputSystem.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
+        const input = (this.transform as any)?.view3D?.engine3D?.inputSystem;
+        input.addEventListener(KeyEvent.KEY_DOWN, (e: KeyEvent) => this.updateKeyState(e.keyCode, true), this);
+        input.addEventListener(KeyEvent.KEY_UP, (e: KeyEvent) => this.updateKeyState(e.keyCode, false), this);
     }
 
     public SetInteractionSphere(sphere: Object3D, HairTexture: Texture) {
@@ -92,7 +92,7 @@ export class HairSimulator extends MeshRenderer {
             var newpos = new Vector3();
             if (this.mInteractionSphere) {
                 var transform = this.mInteractionSphere.transform;
-                pos.copyFrom(this.mInteractionSphere.transform.worldPosition);
+                pos.copy(this.mInteractionSphere.transform.worldPosition);
                 let dt = Time.delta / 1000.0;
                 let speed = 0.5 * dt;
                 // console.log(speed);
@@ -108,7 +108,7 @@ export class HairSimulator extends MeshRenderer {
                 } else if (this.mKeyState[3]) {
                     transform.x += speed
                 }
-                newpos.copyFrom(this.mInteractionSphere.transform.worldPosition);
+                newpos.copy(this.mInteractionSphere.transform.worldPosition);
             }
             // console.log(pos, newpos);
             this.mComputePipeline.compute(command, pos, newpos);

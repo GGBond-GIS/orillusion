@@ -1,29 +1,35 @@
 import { AtmosphericComponent, BloomPost, Engine3D, GTAOPost, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, PostProcessingComponent, Scene3D, SkyRenderer, TAAPost } from "@orillusion/core";
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { createExampleScene } from "@samples/utils/ExampleScene";
+import { createExampleScene, createSceneParam } from "@samples/utils/ExampleScene";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 // Sample to load glb file
 export class Sample_LoadGLB {
+    engine: Engine3D;
     scene: Scene3D;
     model: Object3D;
 
     async run() {
         GUIHelp.init();
-        await Engine3D.init();
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.shadowBound = 150;
-        Engine3D.setting.shadow.shadowBias = 0.1;
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                },
+            },
+        });
 
-        let ex = createExampleScene();
+        let param = createSceneParam();
+        param.camera.near = 10;
+        let ex = createExampleScene(engine, param);
         this.scene = ex.scene;
         this.scene.removeComponent(AtmosphericComponent);
         let sky = this.scene.getOrAddComponent(SkyRenderer);
-        let skyMap = await Engine3D.res.loadLDRTextureCube('sky/LDR_sky.jpg')
+        let skyMap = await this.engine.res.loadLDRTextureCube('sky/LDR_sky.jpg')
         sky.map = skyMap;
         this.scene.envMap = skyMap;
 
-        Engine3D.startRenderView(this.scene.view);
+        engine.startRenderView(this.scene.view);
         GUIHelp.endFolder();
         await this.initScene();
 
@@ -37,8 +43,8 @@ export class Sample_LoadGLB {
     async initScene() {
         /******** floor *******/
         {
-            let mat = new LitMaterial();
-            mat.baseMap = Engine3D.res.whiteTexture;
+            let mat = new LitMaterial(this.engine.context3D);
+            mat.baseMap = this.engine.res.whiteTexture;
             mat.roughness = 0.85;
             mat.metallic = 0.1;
             let floor = new Object3D();
@@ -103,7 +109,7 @@ export class Sample_LoadGLB {
         if (this.model) {
             this.scene.removeChild(this.model);
         }
-        let model = this.model = (await Engine3D.res.loadGltf(url, { onProgress: (e) => this.onLoadProgress(e), onComplete: (e) => this.onComplete(e) })) as Object3D;
+        let model = this.model = (await this.engine.res.loadGltf(url, { onProgress: (e) => this.onLoadProgress(e), onComplete: (e) => this.onComplete(e) })) as Object3D;
         this.scene.addChild(model);
         model.x = offset[0];
         model.y = offset[1];

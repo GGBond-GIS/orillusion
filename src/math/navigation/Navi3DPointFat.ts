@@ -1,6 +1,9 @@
 ﻿import { Navi3DEdge } from "./Navi3DEdge";
 import { Navi3DPoint } from "./Navi3DPoint";
 
+/**
+ * @internal
+ */
 export class Navi3DPointFat extends Navi3DPoint {
 
     private _ownerPoint: Navi3DPoint;
@@ -24,9 +27,9 @@ export class Navi3DPointFat extends Navi3DPoint {
 
     public scalePoint(value: number = 0.7): Navi3DPointFat {
         var point: Navi3DPointFat = new Navi3DPointFat(this._ownerPoint, this._ownerEdge);
-        point.copyFrom(this);
+        point.copy(this);
         point.decrementBy(this._ownerPoint);
-        point.scaleBy(value);
+        point.multiplyScalar(value);
         point.radius = point.length;
         point.incrementBy(this._ownerPoint);
         return point;

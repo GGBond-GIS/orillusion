@@ -36,20 +36,21 @@ fn sampleLighting(light:LightData,direction:vec3f,iblSpecularResult:vec3f , inte
   var att = max(0.0,intensity);
   
   var lighting:vec3f = lightContribution(NdotH,NdotL,NdotV,HdotL,fragData.Roughness,fragData.Albedo.rgb / 3.14, metallic ,shadow,fragData.F0,lightColor.rgb);
-  // lighting = fragData.F0 / 3.1415926 * NdotL ;
-  lighting = ACESToneMapping(lighting,att);
-  // ret += lighting ;
+  // ACES is now applied as a final post-pass (TonemapPost) so the
+  // light contribution stays linear HDR here. Just modulate by
+  // attenuation. Direct premultiply matches the standard PBR
+  // totalDirect accumulation done before the final tonemap.
+  lighting = lighting * att;
   return lighting ;
 }
 
-fn directLighting( light:LightData , iblSpecularResult : vec3f) -> vec3<f32> {
-    var color = vec3<f32>(0.0) ;
+fn directLighting( light:LightData, iblSpecularResult: vec3f) -> vec3<f32> {
+    var color = vec3<f32>(0.0);
     #if USE_LIGHT
-      var L = normalize(light.direction.xyz) ;
+      var L = normalize(light.direction.xyz);
       #if USE_BRDF
-        var shadow = directShadowVisibility[(light.castShadow)] ;
-        var att = light.intensity;
-        color = sampleLighting(light,L,iblSpecularResult,att, shadow);
+        var shadow = directShadowVisibility[(light.castShadow)];
+        color = sampleLighting(light, L, iblSpecularResult, light.intensity, shadow);
       #endif 
     #endif 
     return color;

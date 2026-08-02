@@ -1,4 +1,4 @@
-import { ComputeGPUBuffer, webGPUContext } from '@orillusion/core';
+import { ComputeGPUBuffer } from '@orillusion/core';
 import { FlameSimulatorConfig } from './FlameSimulatorConfig';
 
 export class FlameSimulatorBuffer {
@@ -9,6 +9,7 @@ export class FlameSimulatorBuffer {
     protected mBoneWeightsBuffer: ComputeGPUBuffer;
     protected mBoneMatrixBuffer: ComputeGPUBuffer;
     protected mBoneMatricesBuffer: ComputeGPUBuffer;
+    protected mModelInverseMatrixBuffer: ComputeGPUBuffer;
     protected mInputBuffer: ComputeGPUBuffer;
     // protected mInputData: Float32Array;
 
@@ -17,8 +18,6 @@ export class FlameSimulatorBuffer {
     }
 
     protected initGPUBuffer(config: FlameSimulatorConfig) {
-        let device = webGPUContext.device;
-
         const { NUM, SPAWN_RADIUS, BASE_LIFETIME, MAX_ADDITIONAL_LIFETIME, NUMBER_OF_BONES } = config;
 
         const position = new Float32Array(4 * NUM);
@@ -46,6 +45,17 @@ export class FlameSimulatorBuffer {
         
         const initboneMatrices = new Float32Array(4 * NUMBER_OF_BONES * 3);
         this.mBoneMatricesBuffer = new ComputeGPUBuffer(initboneMatrices.length);
+
+        // Inverse of the FlameSimulator owner's worldMatrix. Used by the
+        // copyBoneMatrix compute shader to bring joint matrices into the
+        // owner-local frame, so simulated particles are emitted in local
+        // space and the render shader's `worldMatrix * particle` correctly
+        // restores world space without double-applying the owner transform.
+        const identity = new Float32Array(16);
+        identity[0] = identity[5] = identity[10] = identity[15] = 1;
+        this.mModelInverseMatrixBuffer = new ComputeGPUBuffer(16);
+        this.mModelInverseMatrixBuffer.setFloat32Array("", identity);
+        this.mModelInverseMatrixBuffer.apply();
 
         const { PRESIMULATION_DELTA_TIME, INITIAL_TURBULENCE, NOISE_OCTAVES, SCALE } = config;
         this.mInputBuffer = new ComputeGPUBuffer(8);

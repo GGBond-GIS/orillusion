@@ -6,9 +6,10 @@ import { UUID } from '../../util/Global';
 import { LightBase } from './LightBase';
 import { LightType } from './LightData';
 /**
- *Point light source.
- *A single point light source that illuminates all directions.
- *A common example is to simulate the light emitted by a light bulb, where a point light source cannot create shadows.
+ * Generic light component.
+ * Concrete light types (point, spot, directional) extend {@link LightBase};
+ * this component is configured as a point-style light by default and exposes
+ * range, attenuation and radius controls.
  * @group Lights
  */
 @RegisterComponent(Light, 'Light')
@@ -18,6 +19,7 @@ export class Light extends LightBase {
         super();
     }
 
+    /** Initialize the light data and assign a default name. */
     public init(): void {
         super.init();
         this.lightData.lightType = LightType.PointLight;
@@ -99,15 +101,18 @@ export class Light extends LightBase {
 
 
 
+    /** Orient the light downward and run base startup logic. */
     public start(): void {
         this.transform.rotationX = 90;
         super.start();
     }
 
+    /** Per-frame update hook. */
     public onUpdate(): void {
         // this.transform.updateWorldMatrix(true);
     }
 
+    /** Draw debug gizmos (axis and range circles) for this light. */
     public onGraphic(view?: View3D): void {
         let graphic3D = view.scene.getChildByName('graphic3D')
         if(!graphic3D)
@@ -128,6 +133,7 @@ export class Light extends LightBase {
     public debug() {
     }
 
+    /** Toggle the debug line visualization for this light. */
     public debugDraw(show: boolean) {
         // if (this.mShowDebugLine != show) {
         //     if (show) {

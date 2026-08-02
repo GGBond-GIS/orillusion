@@ -1,6 +1,16 @@
 import { CurveValueType, Quaternion, ValueEnumType, Vector2, Vector3, Vector4 } from "../../..";
 
+/**
+ * Generic arithmetic helpers for curve value types (number, Vector2/3/4, Quaternion).
+ * @group Math
+ */
 export class ValueOp<T extends CurveValueType> {
+    /**
+     * Subtract one curve value from another, dispatching on the runtime value type.
+     * @param v1 minuend
+     * @param v2 subtrahend
+     * @returns the component-wise difference of the same type
+     */
     public static sub<T extends CurveValueType>(v1: T, v2: T) {
         let t = v1.constructor.name;
         switch (t) {

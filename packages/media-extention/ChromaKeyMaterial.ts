@@ -1,4 +1,4 @@
-import { Engine3D, ShaderLib, Vector4, Color, BlendMode, registerMaterial, Material, RenderShaderPass, Texture, Shader, PassType } from "@orillusion/core";
+import { Engine3D, ShaderLib, Vector4, Color, BlendMode, registerMaterial, Material, RenderShaderPass, Texture, Shader, PassType, Context3D } from "@orillusion/core";
 import { ChromaKeyShader } from "./ChromaKeyShader";
 
 /**
@@ -10,7 +10,7 @@ export class ChromaKeyMaterial extends Material {
     /**
      * Create new ChromaKey material
      */
-    constructor() {
+    constructor(ctx?: Context3D) {
         super();
 
         ShaderLib.register("ChromaKeyShader", ChromaKeyShader);
@@ -47,7 +47,7 @@ export class ChromaKeyMaterial extends Material {
         this.shader = newShader;
 
         // default value
-        this.shader.setTexture(`baseMap`, Engine3D.res.whiteTexture);
+        this.shader.setTexture(`baseMap`, Engine3D.resFor(ctx).whiteTexture);
     }
 
     public set baseMap(value: Texture) {

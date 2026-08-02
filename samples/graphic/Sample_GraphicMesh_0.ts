@@ -1,10 +1,11 @@
-import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, HoverCameraController, View3D, DirectLight, KelvinUtil, UnLitTexArrayMaterial, BitmapTexture2DArray, BitmapTexture2D, PlaneGeometry, Vector3, Matrix4, Time, BlendMode } from "@orillusion/core";
+import { Object3D, Scene3D, Engine3D, AtmosphericComponent, CameraUtil, HoverCameraController, View3D, UnLitTexArrayMaterial, BitmapTexture2DArray, BitmapTexture2D, PlaneGeometry, Vector3, Matrix4, Time, BlendMode } from "@orillusion/core";
 import { Stats } from "@orillusion/stats";
 import { Graphic3D, Graphic3DMesh } from '@orillusion/graphic'
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 export class Sample_GraphicMesh_0 {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     parts: Object3D[];
@@ -22,10 +23,13 @@ export class Sample_GraphicMesh_0 {
         Matrix4.maxCount = 500000;
         Matrix4.allocCount = 500000;
 
-        await Engine3D.init({ beforeRender: () => this.update() });
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            beforeRender: () => this.update(),
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         GUIHelp.init();
 
@@ -34,7 +38,7 @@ export class Sample_GraphicMesh_0 {
         let sky = this.scene.addComponent(AtmosphericComponent);
         sky.enable = false;
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
         camera.object3D.addComponent(HoverCameraController).setCamera(30, 0, 120);
 
         let view = new View3D();
@@ -44,20 +48,20 @@ export class Sample_GraphicMesh_0 {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(view);
 
         await this.initScene();
     }
 
     async initScene() {
         let texts = [];
-        texts.push(await Engine3D.res.loadTexture("textures/128/glow_0002.png") as BitmapTexture2D);
-        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length);
+        texts.push(await this.engine.res.loadTexture("textures/128/glow_0002.png") as BitmapTexture2D);
+        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length, this.engine.context3D);
         bitmapTexture2DArray.setTextures(texts);
 
-        let mat = new UnLitTexArrayMaterial();
+        let mat = new UnLitTexArrayMaterial(this.engine.context3D);
         mat.baseMap = bitmapTexture2DArray;
         mat.name = "LitMaterial";
 
@@ -86,7 +90,7 @@ export class Sample_GraphicMesh_0 {
             for (let i = 0; i < this.parts.length; i++) {
                 const element = this.parts[i];
                 let tmp = this.sphericalFibonacci(i, this.parts.length);
-                tmp.scaleBy(Math.sin((i + Time.frame * 0.01)) * 50);
+                tmp.multiplyScalar(Math.sin((i + Time.frame * 0.01)) * 50);
                 element.transform.localPosition = tmp;
             }
         }

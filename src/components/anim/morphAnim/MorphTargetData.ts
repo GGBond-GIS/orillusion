@@ -2,10 +2,10 @@
 import { UniformGPUBuffer } from '../../../gfx/graphics/webGpu/core/buffer/UniformGPUBuffer';
 import { MorphTarget_shader } from '../../../components/anim/morphAnim/MorphTarget_shader';
 import { ComputeShader } from '../../../gfx/graphics/webGpu/shader/ComputeShader';
-import { GPUContext } from '../../../gfx/renderJob/GPUContext';
 import { RenderShaderPass } from '../../../gfx/graphics/webGpu/shader/RenderShaderPass';
 import { GeometryBase } from '../../../core/geometry/GeometryBase';
 import { VertexAttributeData } from '../../../core/geometry/VertexAttributeData';
+import { View3D } from '../../../core/View3D';
 
 type MorphTargetCollectData = {
     mtCount: number;
@@ -44,9 +44,19 @@ class MorphAttrDataGroup {
     }
 }
 
+/**
+ * GPU-side morph-target (blend-shape) state for a single geometry. Merges
+ * per-target position/normal deltas into storage buffers and runs a compute
+ * shader each frame to accumulate weighted deltas, then feeds the result
+ * into the render shader.
+ * @group Animation
+ */
 export class MorphTargetData {
+    /** Whether morph-target processing is active. */
     public enable: boolean;
+    /** When true, target deltas are applied relatively (added on top of the base). */
     public morphTargetsRelative: boolean;
+    /** Maximum number of morph targets supported per geometry. */
     public readonly MaxMorphTargetCount: number = 64;
 
     protected _computeConfigArray: Float32Array;
@@ -77,6 +87,7 @@ export class MorphTargetData {
         this._normalAttrDataGroup = new MorphAttrDataGroup();
     }
 
+    /** Collect a geometry's morph targets and build the compute shader + buffers. */
     public initMorphTarget(geometry: GeometryBase): void {
         this._collectMorphTargetData = this.collectMorphTargetList(geometry);
 
@@ -100,6 +111,7 @@ export class MorphTargetData {
         this._normalAttrDataGroup.reset(this._collectMorphTargetData.mergedNormal);
     }
 
+    /** Bind the morph-target config and output buffers onto a render shader pass. */
     public applyRenderShader(renderShader: RenderShaderPass) {
         this.uploadMorphTargetBuffer();
         this.uploadConfigGBuffer();
@@ -112,7 +124,8 @@ export class MorphTargetData {
         }
     }
 
-    public computeMorphTarget(command: GPUCommandEncoder): void {
+    /** Dispatch the compute shader that accumulates weighted morph deltas. */
+    public computeMorphTarget(view: View3D, command: GPUCommandEncoder): void {
         this.uploadConfigGBuffer();
         this.uploadMorphTargetBuffer();
 
@@ -128,16 +141,16 @@ export class MorphTargetData {
         this._computeShader.workerSizeY = this._computeWorkGroupXY;
         this._computeShader.workerSizeZ = 1;
 
-        // if (false) {
-        GPUContext.computeCommand(command, this._computeShaders);
-        // }
+        view.engine3D.context3D.gpuContext.computeCommand(command, this._computeShaders);
     }
 
+    /** Set the influence weight of the morph target at `index`. */
     public updateInfluence(index: number, value: number) {
         this._isInfluenceDirty = true;
         this._morphInfluenceArray[index] = value;
     }
 
+    /** Map of blend-shape name to its influence-setter function. */
     public get blendShape() {
         return this._blendTarget;
     }

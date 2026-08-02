@@ -11,7 +11,6 @@ export let UnLitTextureArray: string = /*wgsl*/ `
     #include "VertexAttributeIndexShader"
     #include "GlobalUniform"
     #include "Inline_vert"
-    #include "EnvMap_frag"
     #include "ColorUtil_frag"
 
     const DEGREES_TO_RADIANS : f32 = 3.1415926 / 180.0 ;
@@ -80,7 +79,13 @@ export let UnLitTextureArray: string = /*wgsl*/ `
             graphicTextureID = graphicNode.tex2Index;
             graphicNodeColor = graphicNode.lineColor;
         }
-        var color = textureSample(baseMap,baseMapSampler,uv, u32(round(graphicTextureID)) ) * materialUniform.baseColor * graphicNodeColor ;
+        var color = textureSample(baseMap,baseMapSampler,uv, u32(round(graphicTextureID)) );
+        // sRGB-encoded texture array → decode to linear (matches
+        // UnLit / Lambert / Sprite). Skip when hardware-decoded.
+        #if !USE_SRGB_ALBEDO
+            color = vec4f(gammaToLiner(color.rgb), color.a);
+        #endif
+        color = color * materialUniform.baseColor * graphicNodeColor ;
         // let color = textureSample(baseMap,baseMapSampler,uv, u32(round(ORI_VertexVarying.index)));
 
         // ORI_ViewDir = normalize( globalUniform.CameraPos.xyz - ORI_VertexVarying.vWorldPos.xyz);

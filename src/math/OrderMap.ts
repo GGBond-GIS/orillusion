@@ -1,7 +1,15 @@
+/**
+ * A map that additionally preserves insertion order of keys and/or values in parallel lists.
+ * @group Math
+ */
 export class OrderMap<K, V> extends Map<K, V>{
+    /** The values in insertion order; only populated when value recording is enabled. */
     public readonly valueList: V[];
+    /** The keys in insertion order; only populated when key recording is enabled. */
     public readonly keyList: K[];
+    /** Whether the map has changed since this flag was last reset. */
     public isChange: boolean = true;
+    /** Creates an order-preserving map, optionally recording keys and/or values in parallel lists. */
     constructor(iterable?: Iterable<readonly [K, V]> | null, recordKey?: boolean, recordValue?: boolean) {
         super(iterable);
         if (recordKey) this.keyList = [];
@@ -15,6 +23,7 @@ export class OrderMap<K, V> extends Map<K, V>{
         }
     }
 
+    /** Removes the entry for the given key, also updating the order lists; returns whether it existed. */
     delete(key: K): boolean {
         if (this.has(key)) {
             let value = this.get(key);
@@ -44,6 +53,7 @@ export class OrderMap<K, V> extends Map<K, V>{
         return this;
     }
 
+    /** Sets the value for the given key, appending it to the end of the order lists. */
     set(key: K, value: V): this {
         this.delete(key);
         this.keyList?.push(key);
@@ -53,6 +63,7 @@ export class OrderMap<K, V> extends Map<K, V>{
         return this;
     }
 
+    /** Removes all entries from the map and clears the order lists. */
     clear(): void {
         if (this.valueList) this.valueList.length = 0;
         if (this.keyList) this.keyList.length = 0;

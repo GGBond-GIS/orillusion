@@ -1,25 +1,25 @@
-import { BoundingBox, GeometryBase, VertexAttributeName, Vector3 } from '@orillusion/core';
+import { BoundingBox, GeometryBase, VertexAttributeName, Vector3, GeometryVertexType } from '@orillusion/core';
 
 export class BunnyGeometry extends GeometryBase {
     /**
-     * 宽度，x轴方向的长度。
+     * Width — the length along the x axis.
      */
     width: number;
     /**
-     * 高度，y轴方向的长度。
+     * Height — the length along the y axis.
      */
     height: number;
     /**
-     * 深度，z轴方向的长度。
+     * Depth — the length along the z axis.
      */
     depth: number;
-    vertexCount: number;
+    declare vertexCount: number;
     /**
      *
-     * 创建新的立方体对象。
-     * @param width {number} 立方体的宽度，默认值为1。
-     * @param height {number} 立方体的高度，默认值为1。
-     * @param depth {number} 立方体的深度，默认值为1。
+     * Create a new cube object.
+     * @param width {number} Cube width, default is 1.
+     * @param height {number} Cube height, default is 1.
+     * @param depth {number} Cube depth, default is 1.
      */
     constructor(width: number = 1, height: number = 1, depth: number = 1, vertexCount: number = 0) {
         super();
@@ -28,6 +28,7 @@ export class BunnyGeometry extends GeometryBase {
         this.depth = depth;
         this.vertexCount = vertexCount;
         this.name = 'BunnyGeometry';
+        this.geometryType = GeometryVertexType.compose;
         this.initVertex();
     }
 

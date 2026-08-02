@@ -11,7 +11,7 @@ class Smaple_VertexAnimation {
     lightObj: Object3D;
     async run() {
 
-        await Engine3D.init({ beforeRender: () => this.update() });
+        const engine = await Engine3D.init({ beforeRender: () => this.update() });
 
         let view = new View3D();
 
@@ -22,10 +22,10 @@ class Smaple_VertexAnimation {
         this.scene = view.scene;
 
         view.camera = CameraUtil.createCamera3DObject(view.scene, "camera");
-        view.camera.perspective(60, Engine3D.aspect, 1, 2000);
+        view.camera.perspective(60, engine.aspect, 1, 2000);
         view.camera.object3D.addComponent(HoverCameraController).setCamera(35, -20, 150);
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         this.createScene();
         sky.relativeTransform = this.lightObj.transform;
@@ -35,13 +35,14 @@ class Smaple_VertexAnimation {
         GUIHelp.init();
         // add light
         let lightObj3D = this.lightObj = new Object3D();
+        lightObj3D.y = 56;
+        lightObj3D.rotationX = 53.2;
+        lightObj3D.rotationY = 220;
+        lightObj3D.rotationZ = 5.58;
         let directLight = lightObj3D.addComponent(DirectLight);
         directLight.intensity = 3;
         directLight.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
         directLight.castShadow = true;
-        lightObj3D.rotationX = 53.2;
-        lightObj3D.rotationY = 220;
-        lightObj3D.rotationZ = 5.58;
         GUIUtil.renderDirLight(directLight);
 
         this.scene.addChild(lightObj3D);

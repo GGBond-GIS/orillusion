@@ -150,18 +150,27 @@ export let GrassShader = /* wgsl */`
         let reflectDir = reflect(sunDir, normal);  
         let NoV = max(dot(normal,viewDir),0.0);
 
-        var mainLightColor:vec3<f32> = sunLight.intensity / LUMEN * sunLight.lightColor.rgb ;
+        // The legacy lighting below is non-energy-conserving and pushes colors well above 1.0,
+        // which the ACES tonemap desaturates (washes out). Scale the light energy down into the
+        // ACES sweet spot (~0..1) so grass stays saturated under the default tonemap.
+        let grassEnergy = 0.65 ;
+        var mainLightColor:vec3<f32> = grassEnergy * sunLight.intensity / LUMEN * sunLight.lightColor.rgb ;
         let att = clamp(dot(-sunDir,normal) * 0.5 + 0.5 ,0.0,1.0) ;// + materialUniform.translucent ;
 
         let grassColor = mix(materialUniform.grassBottomColor,materialUniform.grassTopColor * att * vec4<f32>(mainLightColor,1.0) , 1.0 - uv.y );
 
         var roughness = materialUniform.roughness ;
         let MAX_REFLECTION_LOD  = f32(textureNumLevels(prefilterMap)) ;
-        var irradiance = LinearToGammaSpace(globalUniform.skyExposure * textureSampleLevel(prefilterMap, prefilterMapSampler, fragData.N.xyz, 0.8 * (MAX_REFLECTION_LOD) ).rgb);
+        // Keep IBL in linear space so it accumulates with direct lighting; the swapchain does the single linear->sRGB encode on present
+        var irradiance = grassEnergy * globalUniform.skyExposure * textureSampleLevel(prefilterMap, prefilterMapSampler, fragData.N.xyz, 0.8 * (MAX_REFLECTION_LOD) ).rgb;
         let specular = vec3<f32>( pow(max(dot(viewDir, reflectDir), 0.0), (1.0 - roughness + 0.001) * 200.0 ) ) * mainLightColor * materialUniform.specular;
 
         var diffuse = color.rgb / PI * grassColor.rgb * directShadowVisibility[0] ;
-        var finalColor = diffuse + specular + irradiance * grassColor.rgb * sunLight.quadratic;//+ backColor;
+        // Match the engine's standard diffuse-IBL normalization (BxDF_frag divides
+        // indirectionDiffuse by PI) — without it this ambient term is ~3.14x hotter
+        // than an equivalent PBR material, which pushes grass into ACES's
+        // highlight-desaturation range now that the sky feeds unclamped linear HDR.
+        var finalColor = diffuse + specular + (irradiance * grassColor.rgb * sunLight.quadratic) / PI;//+ backColor;
 
         ORI_ShadingInput.BaseColor = vec4<f32>(finalColor.rgb,1.0) ;
         UnLit();

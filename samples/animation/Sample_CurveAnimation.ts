@@ -3,6 +3,7 @@ import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 
 export class Sample_AnimCurve {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     Duck: Object3D;
@@ -12,20 +13,22 @@ export class Sample_AnimCurve {
     curve4: AnimationCurve;
 
     async run() {
-
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowBound = 150;
-        Engine3D.setting.shadow.shadowBias = 0.02;
-
         GUIHelp.init();
-        await Engine3D.init({ renderLoop: () => { this.renderUpdate() } });
+        const engine = this.engine = await Engine3D.init({
+            renderLoop: () => { this.renderUpdate() },
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                },
+            },
+        });
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
 
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 0.01, 5000.0);
+        camera.perspective(60, engine.aspect, 0.01, 5000.0);
 
         let ctrl = camera.object3D.addComponent(HoverCameraController);
         ctrl.setCamera(0, -45, 200);
@@ -35,7 +38,7 @@ export class Sample_AnimCurve {
         view.scene = this.scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         let postCom = this.scene.addComponent(PostProcessingComponent);
         postCom.addPost(FXAAPost);
@@ -50,6 +53,7 @@ export class Sample_AnimCurve {
         /******** light *******/
         {
             this.lightObj3D = new Object3D();
+            this.lightObj3D.y = 95;
             this.lightObj3D.rotationX = 35;
             this.lightObj3D.rotationY = 110;
             this.lightObj3D.rotationZ = 0;
@@ -94,7 +98,7 @@ export class Sample_AnimCurve {
 
         this.scene.addChild(Object3DUtil.GetSingleCube(300, 5, 300, 1, 1, 1));
         // load a gltf model
-        this.Duck = (await Engine3D.res.loadGltf('PBR/Duck/Duck.gltf')) as Object3D;
+        this.Duck = (await this.engine.res.loadGltf('PBR/Duck/Duck.gltf')) as Object3D;
         this.Duck.scaleX = this.Duck.scaleY = this.Duck.scaleZ = 0.3;
         this.Duck.name = "Duck"
         this.scene.addChild(this.Duck);

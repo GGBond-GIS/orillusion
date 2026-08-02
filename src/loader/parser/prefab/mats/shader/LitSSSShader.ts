@@ -1,6 +1,5 @@
 import { Color } from "../../../../../math/Color";
 import { Vector4 } from "../../../../../math/Vector4";
-// import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { RegisterShader } from "../../../../../util/SerializeDecoration";
 import { Shader } from "../../../../../gfx/graphics/webGpu/shader/Shader";
 import { PBRLitSSSShader } from "../../../../../assets/shader/materials/PBRLitSSSShader";
@@ -12,6 +11,12 @@ import { BlendMode } from "../../../../../materials/BlendMode";
 import { RenderShaderPass } from "../../../../../gfx/graphics/webGpu/shader/RenderShaderPass";
 
 
+/**
+ * Internal subsurface-scattering (SSS) lit shader used by the prefab material
+ * pipeline. Exposes Unity-style `_`-prefixed setters that the prefab parser
+ * writes decoded material properties into.
+ * @internal
+ */
 @RegisterShader
 export class LitSSSShader extends Shader {
 

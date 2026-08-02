@@ -95,7 +95,7 @@ export class SkeletonAnimationClipState {
           triggerFrame = Math.min(triggerFrame, this.clip.numFrame);
           triggerFrame = Math.max(triggerFrame, 0);
           if (triggerFrame == this.currFrame) {
-            event.skeletonAnimation = this.animation;
+            event.animator = this.animation;
             this.animation.eventDispatcher.dispatchEvent(event);
             break;
           }

@@ -1,3 +1,4 @@
+import { View3D } from '@orillusion/core';
 import { ParticleMassModule } from '../module/mass/ParticleMassModule';
 import { ParticleSimulator } from './ParticleSimulator';
 /**
@@ -62,7 +63,7 @@ export class ParticleMassSimulator extends ParticleSimulator {
 
     }
 
-    public compute(command: GPUCommandEncoder) {
+    public compute(view: View3D, command: GPUCommandEncoder) {
         // for (let i = 0; i < this.computes.length; i++) {
         //     const element = this.computes[i];
         //     element.compute(command, Math.ceil(this.maxParticle / 128), 1);

@@ -1,3 +1,6 @@
+/**
+ * @internal
+ */
 export class Navi3DPoint2D {
     public x: number;
 

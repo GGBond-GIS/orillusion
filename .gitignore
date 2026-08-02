@@ -24,3 +24,7 @@ dist
 
 /.vscode
 /.labe
+
+# probe artifacts
+/test/multi/_out
+/.claude/scheduled_tasks.lock

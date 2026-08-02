@@ -4,10 +4,21 @@ import { View3D } from "../../../core/View3D";
 
 export type RenderShaderList = Map<string, Map<string, RenderNode>>;
 
+/**
+ * Per-view registry of renderable nodes indexed by their shader passes.
+ * Groups {@link RenderNode}s by geometry+pass key so the renderer can
+ * batch draws that share the same pipeline, and keeps a flat per-view
+ * node lookup by instance id.
+ *
+ * @group GFX
+ */
 export class RenderShaderCollect {
+    /** Per-view map of `geometry+pass` key to the nodes drawn with that pass. */
     public renderShaderUpdateList: Map<View3D, RenderShaderList> = new Map<View3D, RenderShaderList>();
+    /** Per-view flat lookup of every render node by its instance id. */
     public renderNodeList: Map<View3D, Map<string, RenderNode>> = new Map<View3D, Map<string, RenderNode>>();
 
+    /** Register `node` (and all its material passes) into this view's render lists. */
     public collect_add(node: RenderNode) {
         let view = node.transform.view3D;
         if (view && node.materials) {
@@ -40,6 +51,7 @@ export class RenderShaderCollect {
         }
     }
 
+    /** Remove `node`'s per-pass entries from this view's render lists. */
     public collect_remove(node: RenderNode) {
         let view = node.transform.view3D;
         if (view && node.materials) {
@@ -55,5 +67,11 @@ export class RenderShaderCollect {
                 });
             }
         }
+    }
+
+    /** Drop all entries for `view` (called on view/engine teardown). */
+    public removeView(view: View3D) {
+        this.renderShaderUpdateList.delete(view);
+        this.renderNodeList.delete(view);
     }
 }

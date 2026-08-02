@@ -7,6 +7,8 @@ import { SkeletonAnimation_shader } from "../../anim/SkeletonAnimation_shader";
 export let ZPassShader_vs: string = /*wgsl*/ `
     #include "GlobalUniform"
     #include "MathShader"
+    #include "VertexAttributes"
+
     struct VertexOutput {
         @location(auto) vID: f32 ,
         @location(auto) vPos: vec3<f32> ,
@@ -32,64 +34,53 @@ export let ZPassShader_vs: string = /*wgsl*/ `
     #endif
 
     @vertex
-    fn main(
-        @builtin(instance_index) index : u32,
-        @location(auto) position: vec3<f32>,
-        @location(auto) normal: vec3<f32>,
-        @location(auto) uv: vec2<f32>,
-        @location(auto) TEXCOORD_1: vec2<f32>,
+    fn main(vertex: VertexAttributes) -> VertexOutput {
+        worldMatrix = models.matrix[vertex.index];
 
-    #if USE_TANGENT
-        @location(auto) TANGENT: vec4<f32>,
+        var vertexPosition = vertex.position;
+        var vertexNormal = vertex.normal;
+
+        #if USE_MORPHTARGETS
+            ${MorphTarget_shader.getMorphTargetCalcVertex()}
+        #endif
+
         #if USE_SKELETON
-            @location(auto) joints0: vec4<f32>,
-            @location(auto) weights0: vec4<f32>,
             #if USE_JOINT_VEC8
-                @location(auto) joints1: vec4<f32>,
-                @location(auto) weights1: vec4<f32>,
+                worldMatrix *= getSkeletonWorldMatrix_8(vertex.joints0, vertex.weights0, vertex.joints1, vertex.weights1);
+            #else
+                worldMatrix *= getSkeletonWorldMatrix_4(vertex.joints0, vertex.weights0);
             #endif
-        #elseif USE_MORPHTARGETS
-            @location(auto) vIndex: f32,
         #endif
-    #elseif USE_SKELETON
-        @location(auto) joints0: vec4<f32>,
-        @location(auto) weights0: vec4<f32>,
-        #if USE_JOINT_VEC8
-            @location(auto) joints1: vec4<f32>,
-            @location(auto) weights1: vec4<f32>,
-        #endif
-    #elseif USE_MORPHTARGETS
-        @location(auto) vIndex: f32,
-    #endif
-    ) -> VertexOutput {
-    worldMatrix = models.matrix[index];
 
-    var vertexPosition = position;
-    var vertexNormal = normal;
-    #if USE_MORPHTARGETS
-        ${MorphTarget_shader.getMorphTargetCalcVertex()}
-    #endif
-
-    #if USE_SKELETON
-        #if USE_JOINT_VEC8
-            worldMatrix *= getSkeletonWorldMatrix_8(joints0, weights0, joints1, weights1);
-        #else
-            worldMatrix *= getSkeletonWorldMatrix_4(joints0, weights0);
-        #endif
-    #endif
-
-        
         let wPos = worldMatrix * vec4<f32>(vertexPosition.xyz, 1.0);
         var fixProjMat = globalUniform.projMat ;
         var rzMatrix : mat4x4<f32> ;
-        rzMatrix[0] = vec4<f32>(1.0,0.0,0.0,0.0) ; 
-        rzMatrix[1] = vec4<f32>(0.0,1.0,0.0,0.0) ; 
-        rzMatrix[2] = vec4<f32>(0.0,0.0,1.0,0.0) ; 
-        rzMatrix[3] = vec4<f32>(0.0,0.0,0.0,1.0) ; 
+        rzMatrix[0] = vec4<f32>(1.0,0.0,0.0,0.0) ;
+        rzMatrix[1] = vec4<f32>(0.0,1.0,0.0,0.0) ;
+        rzMatrix[2] = vec4<f32>(0.0,0.0,1.0,0.0) ;
+        rzMatrix[3] = vec4<f32>(0.0,0.0,0.0,1.0) ;
         var clipPos:vec4<f32> = fixProjMat * globalUniform.viewMat * (wPos) ;
 
-        // let d = log2Depth(clipPos.z * (globalUniform.far - globalUniform.near),globalUniform.near,globalUniform.far) ;
-        return VertexOutput(f32(index) , wPos.xyz,clipPos, clipPos);
+        // Intentionally NOT applying log-z here even under USE_LOGDEPTH.
+        // The prepass needs to produce a depth value the color pass will
+        // less_equal-test against; the color FS writes log-encoded depth
+        // via log2DepthFixPersp (ndc.z = log2(1+w)/log2(far+1)), which is
+        // always strictly less than the standard linear ndc.z = (a*w+b)/w
+        // for w >= near, so leaving the prepass linear guarantees
+        // less_equal passes on every covered pixel.
+        //
+        // The seemingly natural fix — encode log-z here too — looks right
+        // at the vertex but fails at interior pixels: the rasterizer
+        // interpolates clip.z linearly in screen-space and the log curve
+        // is concave, so interpolated_L < exact_L between vertices. Under
+        // less_equal the color pass's per-pixel exact L incoming value is
+        // larger than the stored interpolated L → every interior fragment
+        // gets rejected and the scene goes blank. CDP-verified against
+        // Sample_DecalShadowVolume. The fix-for-the-fix would be running
+        // an FS in the prepass that recomputes per-pixel L the same way
+        // the color FS does, which means wiring up a real fragment stage
+        // to DepthMaterialPass — out of scope here.
+        return VertexOutput(f32(vertex.index) , wPos.xyz, clipPos, clipPos);
     }
 
     fn depthToLinear01(depth:f32) -> f32 {

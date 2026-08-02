@@ -1,32 +1,36 @@
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
-import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, webGPUContext, HoverCameraController, Object3D, DirectLight, KelvinUtil, PlaneGeometry, VertexAttributeName, LitMaterial, MeshRenderer, Vector4, Vector3, Matrix3, PostProcessingComponent, TAAPost, BitmapTexture2D, GlobalFog, Color, FXAAPost } from "@orillusion/core";
+import { Engine3D, View3D, Scene3D, CameraUtil, AtmosphericComponent, HoverCameraController, Object3D, DirectLight, KelvinUtil, PlaneGeometry, VertexAttributeName, LitMaterial, MeshRenderer, Vector4, Vector3, Matrix3, PostProcessingComponent, TAAPost, BitmapTexture2D, GlobalFog, Color, FXAAPost } from "@orillusion/core";
 import { GUIUtil } from "@samples/utils/GUIUtil";
 import { TerrainGeometry } from "@orillusion/geometry";
 
 // An sample of custom vertex attribute of geometry
 class Sample_Terrain {
+    engine: Engine3D;
     view: View3D;
     post: PostProcessingComponent;
     async run() {
-        Engine3D.setting.shadow.autoUpdate = true;
-        Engine3D.setting.shadow.updateFrameRate = 1;
-        Engine3D.setting.shadow.shadowBound = 500;
-        Engine3D.setting.shadow.shadowSize = 2048;
-        // Engine3D.setting.render.zPrePass = true;
-
         GUIHelp.init();
 
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    autoUpdate: true,
+                    updateFrameRate: 1,
+                    shadowSize: 2048,
+                },
+                // render: { zPrePass: true },
+            },
+        });
         this.view = new View3D();
         this.view.scene = new Scene3D();
         this.view.scene.addComponent(AtmosphericComponent);
 
         this.view.camera = CameraUtil.createCamera3DObject(this.view.scene);
-        this.view.camera.perspective(60, webGPUContext.aspect, 1, 50000.0);
+        this.view.camera.perspective(60, engine.context3D.aspect, 1, 50000.0);
         this.view.camera.object3D.z = -15;
         this.view.camera.object3D.addComponent(HoverCameraController).setCamera(35, -20, 10000);
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
         this.post = this.view.scene.addComponent(PostProcessingComponent);
         let fxaa = this.post.addPost(FXAAPost);
@@ -63,13 +67,13 @@ class Sample_Terrain {
         }
 
         //bitmap
-        let bitmapTexture = await Engine3D.res.loadTexture('terrain/test01/bitmap.png');
-        let heightTexture = await Engine3D.res.loadTexture('terrain/test01/height.png');
-        // let heightTexture = await Engine3D.res.loadTexture('terrain/test01/china.png');
+        let bitmapTexture = await this.engine.res.loadTexture('terrain/test01/bitmap.png');
+        let heightTexture = await this.engine.res.loadTexture('terrain/test01/height.png');
+        // let heightTexture = await this.engine.res.loadTexture('terrain/test01/china.png');
 
-        // let heightTexture = await Engine3D.res.loadTexture('terrain/grass/GustNoise.png');
-        let grassTexture = await Engine3D.res.loadTexture('terrain/grass/GrassThick.png');
-        let gustNoiseTexture = await Engine3D.res.loadTexture('terrain/grass/displ_noise_curl_1.png');
+        // let heightTexture = await this.engine.res.loadTexture('terrain/grass/GustNoise.png');
+        let grassTexture = await this.engine.res.loadTexture('terrain/grass/GrassThick.png');
+        let gustNoiseTexture = await this.engine.res.loadTexture('terrain/grass/displ_noise_curl_1.png');
         let terrainSizeW = 20488;
         let terrainSizeH = 20488;
         let terrainGeometry: TerrainGeometry;
@@ -84,10 +88,6 @@ class Sample_Terrain {
             mr.material = mat;
             scene.addChild(floor);
         }
-
-        GUIHelp.addFolder("shadow");
-        GUIHelp.add(Engine3D.setting.shadow, "shadowBound", 0.0, 3000, 0.0001);
-        GUIHelp.endFolder();
 
         let globalFog = this.post.getPost(GlobalFog);
         GUIUtil.renderGlobalFog(globalFog);

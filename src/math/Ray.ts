@@ -32,8 +32,8 @@ export class Ray {
      * @param dir Ray direction
      */
     constructor(origin?: Vector3, dir?: Vector3) {
-        this.origin.copyFrom(origin || new Vector3());
-        this._dir.copyFrom(dir || new Vector3());
+        this.origin.copy(origin || new Vector3());
+        this._dir.copy(dir || new Vector3());
         this._dir.normalize();
     }
 
@@ -44,8 +44,11 @@ export class Ray {
         return this._dir;
     }
 
+    /**
+     * Set the ray direction (normalized internally)
+     */
     public set direction(dir: Vector3) {
-        this._dir.copyFrom(dir);
+        this._dir.copy(dir);
         this._dir.normalize();
     }
 
@@ -66,6 +69,12 @@ export class Ray {
     //     return this.intersectBox(box, this._vector) !== null;
     // }
 
+    /**
+     * Compute the intersection point of this ray with a bounding box
+     * @param box bounding box
+     * @param target optional output point
+     * @returns the intersection point, or null if there is none
+     */
     public intersectBox(box: IBound, target?: Vector3): Vector3 {
         let direction = this.direction;
         let origin = this.origin;
@@ -121,7 +130,7 @@ export class Ray {
         target ||= new Vector3();
         target.copy(this.direction);
         target.multiplyScalar(t);
-        target.add(this.origin, target);
+        Vector3.add(target, this.origin, target);
         return target;
     }
 
@@ -151,7 +160,7 @@ export class Ray {
      * @param origin ray origin
      */
     public setOrigin(origin: Vector3) {
-        this.origin.copyFrom(origin);
+        this.origin.copy(origin);
     }
 
     /**
@@ -167,7 +176,7 @@ export class Ray {
      * @returns Returns a point at the specified location
      */
     public getPoint(t: number): Vector3 {
-        this._dir.scaleBy(t);
+        this._dir.multiplyScalar(t);
         return this.origin.add(this._dir); // + t * m_Direction;
     }
 
@@ -178,14 +187,14 @@ export class Ray {
      */
     public sqrDistToPoint(P: Vector3): number {
         let v = this._dir;
-        let w = P.subtract(this.origin);
+        let w = P.clone().sub(this.origin);
 
         let c1 = dot(w, v);
         let c2 = dot(v, v);
         let b = c1 / c2;
 
         let Pb = this.getPoint(b);
-        return sqrMagnitude(P.subtract(Pb));
+        return sqrMagnitude(P.clone().sub(Pb));
     }
 
     /**
@@ -214,9 +223,9 @@ export class Ray {
         let v1 = this._v1;
         let v2 = this._v2;
 
-        C.subtract(A, v0);
-        B.subtract(A, v1);
-        P.subtract(A, v2);
+        Vector3.sub(C, A, v0);
+        Vector3.sub(B, A, v1);
+        Vector3.sub(P, A, v2);
 
         // Compute dot products
         let dot00 = Vector3.dot(v0, v0);
@@ -260,22 +269,22 @@ export class Ray {
         let v2: Vector3 = face.v3;
 
         // E1s
-        v1.subtract(v0, this._E1);
+        Vector3.sub(v1, v0, this._E1);
 
         // E2
-        v2.subtract(v0, this._E2);
+        Vector3.sub(v2, v0, this._E2);
 
         // P
-        dir.crossProduct(this._E2, this._P);
+        Vector3.cross(dir, this._E2, this._P);
 
         // determinant
         let det = this._E1.dotProduct(this._P);
 
         // keep det > 0, modify T accordingly
         if (det > 0) {
-            orig.subtract(v0, this._T);
+            Vector3.sub(orig, v0, this._T);
         } else {
-            v0.subtract(orig, this._T);
+            Vector3.sub(v0, orig, this._T);
             det = -det;
         }
 
@@ -287,7 +296,7 @@ export class Ray {
         if (face.u < 0.0 || face.u > det) return null;
 
         // Q
-        this._T.crossProduct(this._E1, this._Q);
+        Vector3.cross(this._T, this._E1, this._Q);
 
         // Calculate v and make sure u + v <= 1
         face.v = dir.dotProduct(this._Q);
@@ -318,7 +327,7 @@ export class Ray {
      * @returns point of intersection
      */
     public intersectSphere(o: Vector3, dir: Vector3, center: Vector3, radius: number): Vector3 {
-        let oc = o.subtract(center);
+        let oc = o.clone().sub(center);
         let a = Vector3.dot(dir, dir);
         let b = 2 * Vector3.dot(oc, dir);
         let c = Vector3.dot(oc, oc) - radius * radius;
@@ -356,11 +365,11 @@ export class Ray {
         const v = Vector3.HELP_2;
         const w = Vector3.HELP_3;
 
-        segb.subtract(sega, u);
-        this._dir.scaleToRef(Ray._rayl, v);
-        o.add(v, rsegb);
+        Vector3.sub(segb, sega, u);
+        Vector3.multiplyScalar(this._dir, Ray._rayl, v);
+        Vector3.add(o, v, rsegb);
 
-        sega.subtract(o, w);
+        Vector3.sub(sega, o, w);
 
         var a = Vector3.dot(u, u); // always >= 0
         var b = Vector3.dot(u, v);
@@ -430,20 +439,20 @@ export class Ray {
 
         // get the difference of the two closest points
         const qtc = Vector3.HELP_4;
-        v.scaleToRef(tc, qtc);
+        Vector3.multiplyScalar(v, tc, qtc);
         const qsc = Vector3.HELP_5;
-        u.scaleToRef(sc, qsc);
-        qsc.add(w, qsc);
+        Vector3.multiplyScalar(u, sc, qsc);
+        Vector3.add(qsc, w, qsc);
         const dP = Vector3.HELP_6;
-        qsc.subtract(qtc, dP); // = S1(sc) - S2(tc)
+        Vector3.sub(qsc, qtc, dP); // = S1(sc) - S2(tc)
 
         var isIntersected = tc > 0 && tc <= this._dir.length && dP.lengthSquared < threshold * threshold; // return intersection result
 
         if (isIntersected) {
             let dd0 = new Vector3();
-            dd0.copyFrom(segb.subtract(sega));
-            dd0.scaleBy(sc);
-            dd0.add(sega, dd0);
+            Vector3.sub(segb, sega, dd0);
+            dd0.multiplyScalar(sc);
+            Vector3.add(dd0, sega, dd0);
             // let out = new Vector3(dx,dy,dz);
             return { out: dd0, length: qsc.length };
         }

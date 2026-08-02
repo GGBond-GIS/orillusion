@@ -1,4 +1,5 @@
 import { ShaderLib } from '../../../../../assets/shader/ShaderLib';
+import { evalCondition, expand } from './PreprocessorExpr';
 
 /**
  * @internal
@@ -6,19 +7,54 @@ import { ShaderLib } from '../../../../../assets/shader/ShaderLib';
  */
 export class Preprocessor {
 
+    // Parsing is a pure function of (source, defines, ShaderLib chunks), and
+    // every RenderShaderPass instance parses its own copy of the source — a
+    // scene with N materials sharing one shader would otherwise run the full
+    // regex pipeline N times over identical input. Memoize the result; the
+    // cache is dropped whenever ShaderLib._revision moves (HMR edit, engine
+    // re-init with different seed settings) so #include expansion never goes
+    // stale.
+    private static _parseCache: Map<string, string> = new Map();
+    private static _parseCacheRevision: number = -1;
+
     public static parse(code: string, defineValue: { [name: string]: any }): string {
-        code = this.filterComment(code);
-        code = this.parsePreprocess(new PreprocessorContext(), code, defineValue);
-        code = this.parseAutoBindingForAllGroup(code);
-        code = this.parseAutoLocationBlock(code);
-        return code;
+        return this.parseCached(`r`, code, defineValue, () => {
+            let out = this.filterComment(code);
+            out = this.parsePreprocess(new PreprocessorContext(), out, defineValue);
+            out = this.parseAutoBindingForAllGroup(out);
+            out = this.parseAutoLocationBlock(out);
+            return out;
+        });
     }
 
     public static parseComputeShader(code: string, defineValue: { [name: string]: any }): string {
-        code = this.filterComment(code);
-        code = this.parsePreprocess(new PreprocessorContext(), code, defineValue);
-        code = this.parseAutoBindingForAllGroup(code);
-        return code;
+        return this.parseCached(`c`, code, defineValue, () => {
+            let out = this.filterComment(code);
+            out = this.parsePreprocess(new PreprocessorContext(), out, defineValue);
+            out = this.parseAutoBindingForAllGroup(out);
+            return out;
+        });
+    }
+
+    protected static parseCached(kind: string, code: string, defineValue: { [name: string]: any }, build: () => string): string {
+        if (this._parseCacheRevision !== ShaderLib._revision) {
+            this._parseCache.clear();
+            this._parseCacheRevision = ShaderLib._revision;
+        }
+        // NUL separators cannot occur in shader source or define values,
+        // so distinct (code, defines) pairs cannot collapse onto one key
+        let key = kind + `\u0000` + code;
+        for (let name of Object.keys(defineValue).sort()) {
+            key += `\u0000` + name + `=` + defineValue[name];
+        }
+        let result = this._parseCache.get(key);
+        if (result === undefined) {
+            result = build();
+            // crude bound so a define-churning app cannot grow this forever
+            if (this._parseCache.size >= 512) this._parseCache.clear();
+            this._parseCache.set(key, result);
+        }
+        return result;
     }
 
     protected static parsePreprocess(context: PreprocessorContext, code: string, defineValue: { [name: string]: any }): string {
@@ -30,7 +66,8 @@ export class Preprocessor {
         let endIndex = code.indexOf('\n', code.lastIndexOf('#'));
         let codeBlock = code.substring(begIndex, endIndex);
         let tail = code.substring(endIndex);
-        return header + this.parsePreprocessCommand(context, codeBlock, defineValue) + tail;
+        let body = this.parsePreprocessCommand(context, codeBlock, defineValue);
+        return expand(header, defineValue) + body + expand(tail, defineValue);
     }
 
     protected static parseAutoBindingForAllGroup(code: string): string {
@@ -169,7 +206,8 @@ export class Preprocessor {
             let skip = stack[stack.length - 1];
             if (line.trim().indexOf('#') != 0) {
                 if (!skip) {
-                    result += line + '\n';
+                    // Expand `#define`d identifiers in emitted body lines.
+                    result += expand(line, defineValue) + '\n';
                 }
                 continue;
             }
@@ -257,11 +295,15 @@ export class Preprocessor {
     }
 
     protected static parseCondition(condition: string, defineValue: { [name: string]: any }): boolean {
-        let value = defineValue[condition];
-        if (value == undefined) {
+        try {
+            // Expand identifier references first so a chained `#define A B`
+            // (with `#define B 1`) resolves: `A` → `B`, then evalCondition's
+            // own lookup turns `B` into 1. Single-pass expand avoids loops.
+            return evalCondition(expand(condition, defineValue), defineValue);
+        } catch (e) {
+            console.error(`preprocess condition parse error: '${condition}'`, e);
             return false;
         }
-        return value == true || value != 0;
     }
 
     public static filterComment(code: string): string {

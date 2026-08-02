@@ -48,8 +48,8 @@ export class Line {
 
     public getCenter(): Vector3 {
         let help = Vector3.HELP_0;
-        this.start.subtract(this.end, help);
-        help.scaleBy(0.5);
+        Vector3.sub(this.start, this.end, help);
+        help.multiplyScalar(0.5);
         help.add(this.end);
         return help;
     }
@@ -135,16 +135,16 @@ export class Line {
      * @return
      */
     public getDirection(): Vector3 {
-        var pt: Vector3 = this.end.subtract(this.start);
+        var pt: Vector3 = this.end.clone().sub(this.start);
         var direction: Vector3 = new Vector3(pt.x, pt.y);
         return direction.normalize();
     }
 
-    copyFrom(line: Line) {
+    copy(line: Line) {
         if (!this.start) this.start = new Vector3();
         if (!this.end) this.end = new Vector3();
-        this.start.copyFrom(line.start);
-        this.end.copyFrom(line.end);
+        this.start.copy(line.start);
+        this.end.copy(line.end);
     }
 
     public static IsEqual(d1, d2) {
@@ -261,13 +261,13 @@ export class Line {
         // //@task to-do
         let tmpP0 = Vector3.HELP_0;
         let tmpP1 = Vector3.HELP_1;
-        tmpP0.copyFrom(ray.origin);
-        tmpP1.copyFrom(ray.direction);
+        tmpP0.copy(ray.origin);
+        tmpP1.copy(ray.direction);
 
-        tmpP1.scaleBy(9999);
-        tmpP1.add(tmpP0, tmpP1);
+        tmpP1.multiplyScalar(9999);
+        Vector3.add(tmpP1, tmpP0, tmpP1);
         Line.cacluteLine0.set(tmpP0, tmpP1);
-        Line.cacluteLine1.copyFrom(this);
+        Line.cacluteLine1.copy(this);
 
         if (mat) {
             mat.perspectiveMultiplyPoint3(Line.cacluteLine1.start, Line.cacluteLine1.start);

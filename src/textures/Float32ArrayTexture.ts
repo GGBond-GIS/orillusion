@@ -1,8 +1,7 @@
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { TextureMipmapGenerator } from '../gfx/graphics/webGpu/core/texture/TextureMipmapGenerator';
 import { GPUTextureFormat } from '../gfx/graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
-import { GPUContext } from '../gfx/renderJob/GPUContext';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 /**
  * @internal
  * Float32Array texture
@@ -17,8 +16,9 @@ export class Float32ArrayTexture extends Texture {
      * @param filtering set the sampler type to filtering, else it's non-filtering
      * @returns
      */
-    public create(width: number, height: number, data: Float32Array, filtering: boolean = true) {
-        let device = webGPUContext.device;
+    public create(width: number, height: number, data: Float32Array, filtering: boolean = true, ctx?: Context3D) {
+        this._ensureBound(ctx);
+        let device = this._boundCtx!.device;
         const bytesPerRow = width * 4 * 4;
         this.format = GPUTextureFormat.rgba32float;
 
@@ -30,8 +30,8 @@ export class Float32ArrayTexture extends Texture {
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
 
-        device.queue.writeBuffer(textureDataBuffer, 0, data);
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        device.queue.writeBuffer(textureDataBuffer, 0, data as BufferSource);
+        const commandEncoder = this._boundCtx!.gpuContext.beginCommandEncoder();
         commandEncoder.copyBufferToTexture(
             {
                 buffer: textureDataBuffer,
@@ -47,7 +47,7 @@ export class Float32ArrayTexture extends Texture {
             },
         );
 
-        GPUContext.endCommandEncoder(commandEncoder);
+        this._boundCtx!.gpuContext.endCommandEncoder(commandEncoder);
 
         // this.sampler.minFilter = `nearest`;
         // this.sampler.magFilter = `nearest`;
@@ -72,15 +72,16 @@ export class Float32ArrayTexture extends Texture {
      * @param textureDataBuffer GPUBuffer
      * @returns
      */
-    public fromBuffer(width: number, height: number, textureDataBuffer: GPUBuffer): this {
-        let device = webGPUContext.device;
+    public fromBuffer(width: number, height: number, textureDataBuffer: GPUBuffer, ctx?: Context3D): this {
+        this._ensureBound(ctx);
+        let device = this._boundCtx!.device;
         const bytesPerRow = width * 4 * 4;
         this.format = GPUTextureFormat.rgba32float;
 
         this.mipmapCount = 1;
         this.createTextureDescriptor(width, height, this.mipmapCount, this.format);
 
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = this._boundCtx!.gpuContext.beginCommandEncoder();
         commandEncoder.copyBufferToTexture(
             {
                 buffer: textureDataBuffer,
@@ -96,7 +97,7 @@ export class Float32ArrayTexture extends Texture {
             },
         );
 
-        GPUContext.endCommandEncoder(commandEncoder);
+        this._boundCtx!.gpuContext.endCommandEncoder(commandEncoder);
 
         // this.sampler.minFilter = `nearest`;
         // this.sampler.magFilter = `nearest`;

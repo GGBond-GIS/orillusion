@@ -13,5 +13,7 @@ export enum UniformType {
     Vector3,
     Vector4,
     Color,
-    Float32Array
+    Float32Array,
+    Int32Array,
+    Int32,
 }

@@ -5,6 +5,7 @@ import { Stats } from "@orillusion/stats";
 import { Graphic3D, Graphic3DMesh } from "@orillusion/graphic";
 
 export class Sample_GraphicMesh_7 {
+    engine: Engine3D;
     lightObj3D: Object3D;
     scene: Scene3D;
     parts: Object3D[];
@@ -23,10 +24,12 @@ export class Sample_GraphicMesh_7 {
         Matrix4.maxCount = 500000;
         Matrix4.allocCount = 500000;
 
-        await Engine3D.init();
-
-        Engine3D.setting.render.debug = true;
-        Engine3D.setting.shadow.shadowBound = 5;
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                render: { debug: true },
+                shadow: { },
+            },
+        });
 
         this.colors = [];
 
@@ -37,7 +40,7 @@ export class Sample_GraphicMesh_7 {
         let sky = this.scene.addComponent(AtmosphericComponent);
         sky.enable = false;
         let camera = CameraUtil.createCamera3DObject(this.scene);
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0);
+        camera.perspective(60, engine.aspect, 1, 5000.0);
 
         camera.object3D.addComponent(HoverCameraController).setCamera(30, 0, 120);
 
@@ -48,9 +51,9 @@ export class Sample_GraphicMesh_7 {
         this.graphic3D = new Graphic3D();
         this.scene.addChild(this.graphic3D);
 
-        Engine3D.startRenderView(this.view);
+        engine.startRenderView(this.view);
 
-        GUIUtil.renderDebug();
+        GUIUtil.renderDebug(this.view);
 
         let post = this.scene.addComponent(PostProcessingComponent);
         let bloom = post.addPost(BloomPost);
@@ -63,12 +66,12 @@ export class Sample_GraphicMesh_7 {
     async initScene() {
         let texts = [];
 
-        texts.push(await Engine3D.res.loadTexture("textures/128/star_0008.png") as BitmapTexture2D);
+        texts.push(await this.engine.res.loadTexture("textures/128/star_0008.png") as BitmapTexture2D);
 
-        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length);
+        let bitmapTexture2DArray = new BitmapTexture2DArray(texts[0].width, texts[0].height, texts.length, this.engine.context3D);
         bitmapTexture2DArray.setTextures(texts);
 
-        let mat = new UnLitTexArrayMaterial();
+        let mat = new UnLitTexArrayMaterial(this.engine.context3D);
         mat.baseMap = bitmapTexture2DArray;
         mat.name = "LitMaterial";
 
@@ -115,7 +118,7 @@ export class Sample_GraphicMesh_7 {
             for (let i = 0; i < this.parts.length; i++) {
                 const element = this.parts[i];
                 let tmp = this.sphericalFibonacci(i, this.parts.length);
-                tmp.scaleBy(this.cafe);
+                tmp.multiplyScalar(this.cafe);
                 element.transform.localPosition = tmp;
                 this.tmpArray.push(element);
             }

@@ -2,17 +2,23 @@ import { GeometryBase } from "../../core/geometry/GeometryBase";
 import { VertexAttributeName } from "../../core/geometry/VertexAttributeName";
 import { Vector3 } from "../Vector3";
 
+/**
+ * Utility that merges coincident vertices when building a navigation mesh from geometry.
+ * @group Math
+ */
 export class Navi3DMergeVertex {
+    /** The vertex positions extracted from the source geometry. */
     vertex: Vector3[];
+    /** The (possibly remapped) triangle indices into {@link vertex}. */
     indices: number[];
 
+    /** Extracts vertices and indices from the geometry, merging vertices closer than the given threshold. */
     merge(geometry: GeometryBase, threshould: number = 0.1): this {
         let vertex = geometry.getAttribute(VertexAttributeName.position).data;
         this.makeOriginVertex(vertex);
 
         let sameVertexIndex: Map<number, Vector3> = new Map<number, Vector3>();
         let redirectionIndex: number[] = [];
-        let mergePointCount: number = 0;
         for (let i = 0, c = this.vertex.length; i < c; i++) {
             let item = this.vertex[i];
             let samePointIndex = -1;
@@ -24,14 +30,11 @@ export class Navi3DMergeVertex {
             })
             if (samePointIndex > -1) {
                 redirectionIndex[i] = samePointIndex;
-                // console.log('points merged：', i, samePointIndex);
-                mergePointCount++;
             } else {
                 sameVertexIndex.set(i, item);
                 redirectionIndex[i] = i;
             }
         }
-        console.log('mergePointCount：', mergePointCount);
 
         //force modify indices
         this.indices = [];
@@ -42,6 +45,7 @@ export class Navi3DMergeVertex {
         return this;
     }
 
+    /** Extracts vertices and indices from the geometry without merging any vertices. */
     parse(geometry: GeometryBase): this {
         let vertex = geometry.getAttribute(VertexAttributeName.position).data;
         this.makeOriginVertex(vertex);

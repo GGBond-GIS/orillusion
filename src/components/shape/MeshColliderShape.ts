@@ -1,4 +1,10 @@
-import { GeometryBase, Matrix4, Ray, Triangle, Vector3, ColliderShape, ColliderShapeType, HitInfo, VertexAttributeName } from '@orillusion/core';
+import { GeometryBase } from "../../core/geometry/GeometryBase";
+import { VertexAttributeName } from "../../core/geometry/VertexAttributeName";
+import { Matrix4 } from "../../math/Matrix4";
+import { Ray } from "../../math/Ray";
+import { Triangle } from "../../math/Triangle";
+import { Vector3 } from "../../math/Vector3";
+import { ColliderShape, ColliderShapeType, HitInfo } from "./ColliderShape";
 
 
 /**
@@ -27,7 +33,7 @@ export class MeshColliderShape extends ColliderShape {
             let indexAttribute = this.mesh.getAttribute(VertexAttributeName.indices);
 
             let helpMatrix = ColliderShape.helpMatrix;
-            helpMatrix.copyFrom(fromMatrix).invert();
+            helpMatrix.copy(fromMatrix).invert();
 
             let helpRay = ColliderShape.helpRay.copy(ray);
             helpRay.applyMatrix(helpMatrix);
@@ -67,7 +73,7 @@ export class MeshColliderShape extends ColliderShape {
                         if(normalAttribute){
                             let normalData = normalAttribute.data;
                             let normal = new Vector3(normalData[i1], normalData[i1 + 1], normalData[i1 + 2]);
-                            fromMatrix.transformVector(normal, normal)
+                            Matrix4.transformVector(fromMatrix, normal, normal);
                             normal.normalize();
                             this._pickRet.normal = normal
                         }

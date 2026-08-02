@@ -1,4 +1,4 @@
-import { CreateFloatArray, FloatArray, WasmMatrix } from '@orillusion/wasm-matrix/WasmMatrix';
+import { CreateFloatArray, FloatArray, WasmMatrix } from '../components/matrix/WasmMatrix';
 import { DEGREES_TO_RADIANS, clamp, RADIANS_TO_DEGREES } from './MathUtil';
 import { Orientation3D } from './Orientation3D';
 import { Quaternion } from './Quaternion';
@@ -44,7 +44,7 @@ export class Matrix4 {
     /**
      * @internal
      */
-    public static buffer: ArrayBuffer;
+    public static buffer: ArrayBuffer | ArrayBufferLike;
 
     /**
      * @internal
@@ -56,6 +56,11 @@ export class Matrix4 {
      * matrix do use share bytesArray
      */
     public static dynamicMatrixBytes: FloatArray;
+    /** 32-bit float view of the shared matrix byte array. */
+    public static dynamicMatrixBytes_32bit: Float32Array;
+
+    /** Shared buffer holding high-precision (split-float) world position data. */
+    public static matrixWorldPositionHLDatas: Float32Array;
 
     /**
      * cache all use do matrix 
@@ -94,6 +99,7 @@ export class Matrix4 {
 
     private static _getEulerMatrix: Matrix4;
     private static _zero: Vector3 = new Vector3(0, 0, 0);
+    private static _zero2: Vector3 = new Vector3(0, 0, 0);
     private static _one: Vector3 = new Vector3(1, 1, 1);
     private static _prs: Vector3[] = [new Vector3(), new Vector3(), new Vector3()];
 
@@ -125,6 +131,8 @@ export class Matrix4 {
         this.allocCount = allocCount;
 
         Matrix4.dynamicMatrixBytes = WasmMatrix.matrixBuffer;
+        Matrix4.dynamicMatrixBytes_32bit = WasmMatrix.matrixBuffer_32bit;
+        Matrix4.matrixWorldPositionHLDatas = WasmMatrix.matrixWorldPositionHLBuffer;
         Matrix4.buffer = Matrix4.dynamicMatrixBytes.buffer;
         Matrix4.wasmMatrixPtr = WasmMatrix.matrixBufferPtr;
 
@@ -148,11 +156,12 @@ export class Matrix4 {
      * @param fromDirection first direction
      * @param toDirection  second direction
      * @param target ref matrix
+     * @param epsilon tiny number
      * @returns return new one matrix
      */
-    public static fromToRotation(fromDirection: Vector3, toDirection: Vector3, target?: Matrix4): Matrix4 {
+    public static fromToRotation(fromDirection: Vector3, toDirection: Vector3, target?: Matrix4, epsilon?: number): Matrix4 {
         target ||= new Matrix4();
-        target.transformDir(fromDirection, toDirection);
+        target.transformDir(fromDirection, toDirection, epsilon);
         return target;
     }
 
@@ -290,44 +299,61 @@ export class Matrix4 {
     }
 
     /**
-     * The Y-axis is rotated between the world matrix, and the parameters and results are specified according to the index
-     * @param aMat Matrix to be multiplied (please specify index)
-     * @param bMat Matrix to be multiplied (please specify index)
-     * @param target_Mat Result matrix (get results based on index)
+     * Rotate a matrix around the Y axis by the given angle, writing the result into the target matrix.
+     * @param rad rotation angle, in radians
+     * @param target_Mat result matrix (referenced by index)
      */
     public static matrixRotateY(rad: number, target_Mat: Matrix4): void {
         Matrix4.wasm.Matrix_Append(rad, target_Mat.index);
     }
 
     /**
-     * Rotate the world matrix, specifying parameters and results according to the index
-     * @param aMat Matrix to be multiplied (please specify index)
-     * @param bMat Matrix to be multiplied (please specify index)
-     * @param target_Mat Result matrix (get results based on index)
+     * Rotate a matrix around an arbitrary axis by the given angle, writing the result into the target matrix.
+     * @param rad rotation angle, in radians
+     * @param axis rotation axis
+     * @param target_Mat result matrix (referenced by index)
      */
     public static matrixRotate(rad: number, axis: Vector3, target_Mat: Matrix4): void {
         Matrix4.wasm.Matrix_Rotate(rad, axis, target_Mat.index);
     }
 
+    /** Stack of matrix indices that have been freed and are available for reuse. */
+    protected static freeIndexs: Uint32Array = new Uint32Array(Matrix4.allocCount);
+    /** Current top of the freed-index stack. */
+    protected static freeIndexOffset: number = 0;
+    /** Allocate a matrix index, reusing a freed index when available. */
+    public static allocIndex(): number {
+        return this.freeIndexOffset <= 0 ? Matrix4.useCount++ : this.freeIndexs[--this.freeIndexOffset]; 
+    }
+    /** Return a matrix's index to the free list for later reuse. */
+    public static freeIndex(matrix: Matrix4) {
+        if (this.freeIndexOffset >= this.freeIndexs.length) {
+            let buff = new Uint32Array(this.freeIndexs.length + Matrix4.allocOnceCount);
+            buff.set(this.freeIndexs);
+            this.freeIndexs = buff;
+        }
+        this.freeIndexs[this.freeIndexOffset++] = matrix.index;
+    }
 
     /**
-     * 
-     * @param local -- 
+     * Create a Matrix4.
+     * @param doMatrix reserved flag; when set, requests an explicit matrix allocation
      */
     constructor(doMatrix: boolean = false) {
         // if (doMatrix) {
         if (Matrix4.useCount >= Matrix4.allocCount) {
-            let allocCount = Matrix4.allocCount + Matrix4.allocOnceCount;
-            import.meta.env.DEV && console.warn(`allocMatrix(${allocCount})`);
+            // Exponential (doubling) growth keeps total realloc+copy work O(n)
+            // amortized. Linear +1000 steps turned a 100k-matrix scene into
+            // 100 reallocs and flooded the console with "allocMatrix(N)" warns.
+            let allocCount = Math.max(Matrix4.allocCount * 2, Matrix4.allocCount + Matrix4.allocOnceCount);
             WasmMatrix.allocMatrix(allocCount);
         }
 
-        this.index = Matrix4.useCount;
+        this.index = Matrix4.allocIndex();
         this.offset = Matrix4.wasmMatrixPtr + this.index * Matrix4.blockBytes;
 
         // if (Matrix4.dynamicGlobalMatrixRef) {
         Matrix4.dynamicGlobalMatrixRef[this.index] = this;
-        Matrix4.useCount++;
         this.rawData = CreateFloatArray(Matrix4.dynamicMatrixBytes.buffer, this.offset, 16);
         // } else {
         //     this.rawData = new Float32Array(16);
@@ -346,12 +372,12 @@ export class Matrix4 {
      */
     public lookAt(eye: Vector3, at: Vector3, up: Vector3 = Vector3.Y_AXIS): void {
         let data = this.rawData;
-        let zAxis: Vector3 = at.subtract(eye, Vector3.HELP_0);
+        let zAxis: Vector3 = Vector3.sub(at, eye, Vector3.HELP_0);
         if (zAxis.length === 0) {
             zAxis.z = 1;
         }
         zAxis.normalize();
-        let xAxis: Vector3 = up.crossProduct(zAxis, Vector3.HELP_1);
+        let xAxis: Vector3 = Vector3.cross(up, zAxis, Vector3.HELP_1);
         if (xAxis.length === 0) {
             if (Math.abs(up.z) === 1) {
                 zAxis.x += 0.0001;
@@ -359,11 +385,11 @@ export class Matrix4 {
                 zAxis.z -= 0.0001;
             }
             zAxis.normalize();
-            xAxis = up.crossProduct(zAxis, Vector3.HELP_1)
+            xAxis = Vector3.cross(up, zAxis, Vector3.HELP_1);
         }
 
         xAxis.normalize();
-        let yAxis = zAxis.crossProduct(xAxis, Vector3.HELP_2)
+        let yAxis = Vector3.cross(zAxis, xAxis, Vector3.HELP_2);
 
         data[0] = xAxis.x;
         data[1] = yAxis.x;
@@ -392,7 +418,7 @@ export class Matrix4 {
      * matrix multiply
      * @param mat4 multiply target
      */
-    public multiply(mat4: Matrix4): void {
+    public multiply(mat4: Matrix4): this {
         let a = this.rawData;
         let b = mat4.rawData;
         let r = Matrix4.floatArray;
@@ -433,13 +459,41 @@ export class Matrix4 {
         a[13] = r[13];
         a[14] = r[14];
         a[15] = r[15];
+        return this;
+    }
+
+    /** Set this = m * this. */
+    public premultiply(m: Matrix4): this {
+        return this.multiplyMatrices(m, this) as this;
+    }
+
+    /** Multiply two matrices: result = a * b. Allocates a new Matrix4 if result is omitted. */
+    public static multiply(a: Matrix4, b: Matrix4, result?: Matrix4): Matrix4 {
+        result ||= new Matrix4();
+        result.multiplyMatrices(a, b);
+        return result;
     }
 
     /**
-     * 
-     * @param a 
-     * @param b 
-     * @returns 
+     * Invert a matrix into result. Returns null when src is singular.
+     * @param src source matrix
+     * @param result optional output matrix
+     */
+    public static invert(src: Matrix4, result?: Matrix4): Matrix4 | null {
+        if (Math.abs(src.determinant) <= 0.00000000001) return null;
+        result ||= new Matrix4();
+        if (result !== src) {
+            result.copy(src);
+        }
+        result.invert();
+        return result;
+    }
+
+    /**
+     *
+     * @param a
+     * @param b
+     * @returns
      */
     public multiplyMatrices(a: Matrix4, b: Matrix4) {
 
@@ -482,59 +536,63 @@ export class Matrix4 {
     }
 
     /**
-     * convert a vector3 to this matrix space
-     * if output not set , return a new one
-     * @param v target vector3
-     * @param output save target
-     * @returns save target
+     * Convert a point (w=1) to this matrix space. Mutates and returns `v`.
+     * @param v target point — mutated in place
      */
-    public multiplyPoint3(v: Vector3, output?: Vector3): Vector3 {
-        output ||= new Vector3();
-        let rawData = this.rawData;
-        output.x = rawData[0] * v.x + rawData[4] * v.y + rawData[8] * v.z + rawData[12];
-        output.y = rawData[1] * v.x + rawData[5] * v.y + rawData[9] * v.z + rawData[13];
-        output.z = rawData[2] * v.x + rawData[6] * v.y + rawData[10] * v.z + rawData[14];
-        return output;
+    public multiplyPoint3(v: Vector3): Vector3 {
+        return Matrix4.multiplyPoint3(this, v, v);
     }
 
-    public multiplyVector4(a: Vector3, out?: Vector3) {
-        out ||= new Vector3();
-        let m = this.rawData;
-        let x = a.x;
-        let y = a.y;
-        let z = a.z;
-        let w = m[3] * x + m[7] * y + m[11] * z + m[15];
-        w = w || 1.0;
-        out.x = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
-        out.y = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
-        out.z = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
-        out.w = 1;
-        return out;
+    /** Transform point v (w=1) by matrix m into result. Allocates a new Vector3 if result is omitted. */
+    public static multiplyPoint3(m: Matrix4, v: Vector3, result?: Vector3): Vector3 {
+        result ||= new Vector3();
+        const rawData = m.rawData;
+        const x = v.x, y = v.y, z = v.z;
+        result.x = rawData[0] * x + rawData[4] * y + rawData[8] * z + rawData[12];
+        result.y = rawData[1] * x + rawData[5] * y + rawData[9] * z + rawData[13];
+        result.z = rawData[2] * x + rawData[6] * y + rawData[10] * z + rawData[14];
+        return result;
     }
 
     /**
-     * convert a vector3 to this matrix space
-     * if output not set , return a new one
-     * @param v convert target
-     * @param target ref one vector3
-     * @returns Vector3 
+     * Transform a homogeneous vector (w computed from matrix) and divide by w.
+     * Mutates and returns `a`.
      */
-    public transformVector4(v: Vector3, target?: Vector3): Vector3 {
-        let data: FloatArray = this.rawData;
+    public multiplyVector4(a: Vector3): Vector3 {
+        return Matrix4.multiplyVector4(this, a, a);
+    }
 
-        target ||= new Vector3();
+    /** Transform homogeneous vector a by matrix m (w computed and divided out) into result. */
+    public static multiplyVector4(m: Matrix4, a: Vector3, result?: Vector3): Vector3 {
+        result ||= new Vector3();
+        const d = m.rawData;
+        const x = a.x, y = a.y, z = a.z;
+        let w = d[3] * x + d[7] * y + d[11] * z + d[15];
+        w = w || 1.0;
+        result.x = (d[0] * x + d[4] * y + d[8] * z + d[12]) / w;
+        result.y = (d[1] * x + d[5] * y + d[9] * z + d[13]) / w;
+        result.z = (d[2] * x + d[6] * y + d[10] * z + d[14]) / w;
+        result.w = 1;
+        return result;
+    }
 
-        let x: number = v.x;
-        let y: number = v.y;
-        let z: number = v.z;
-        let w: number = v.w;
+    /**
+     * Transform a 4D vector (v.w used directly) by this matrix. Mutates and returns `v`.
+     */
+    public transformVector4(v: Vector3): Vector3 {
+        return Matrix4.transformVector4(this, v, v);
+    }
 
-        target.x = x * data[0] + y * data[4] + z * data[8] + w * data[12];
-        target.y = x * data[1] + y * data[5] + z * data[9] + w * data[13];
-        target.z = x * data[2] + y * data[6] + z * data[10] + w * data[14];
-        target.w = x * data[3] + y * data[7] + z * data[11] + w * data[15];
-
-        return target;
+    /** Transform 4D vector v (v.w used directly) by matrix m into result. */
+    public static transformVector4(m: Matrix4, v: Vector3, result?: Vector3): Vector3 {
+        result ||= new Vector3();
+        const data = m.rawData;
+        const x = v.x, y = v.y, z = v.z, w = v.w;
+        result.x = x * data[0] + y * data[4] + z * data[8] + w * data[12];
+        result.y = x * data[1] + y * data[5] + z * data[9] + w * data[13];
+        result.z = x * data[2] + y * data[6] + z * data[10] + w * data[14];
+        result.w = x * data[3] + y * data[7] + z * data[11] + w * data[15];
+        return result;
     }
 
     /**
@@ -599,12 +657,28 @@ export class Matrix4 {
         data[15] = 0;
     }
 
+    /**
+     * Set this matrix to a perspective projection defined by field of view.
+     * @param fov vertical field of view, in degrees
+     * @param aspect aspect ratio (width / height)
+     * @param near near plane distance
+     * @param far far plane distance
+     */
     public perspective3(fov: number, aspect: number, near: number, far: number) {
         var y = Math.tan(fov * Math.PI / 360) * near;
         var x = y * aspect;
         this.frustum(-x, x, -y, y, near, far);
     }
 
+    /**
+     * Set this matrix to a perspective projection defined by frustum bounds.
+     * @param l left plane
+     * @param r right plane
+     * @param b bottom plane
+     * @param t top plane
+     * @param n near plane
+     * @param f far plane
+     */
     public frustum(l: number, r: number, b: number, t: number, n: number, f: number) {
         var m = this.rawData;
 
@@ -703,7 +777,7 @@ export class Matrix4 {
     public orthoOffCenter(l: number, r: number, b: number, t: number, zn: number, zf: number) {
         let data = this.rawData;
 
-        data[0] = 2 / (r - l);
+        data[0] = -2 / (r - l);
         data[1] = 0;
         data[2] = 0;
         data[3] = 0;
@@ -728,18 +802,20 @@ export class Matrix4 {
      * set matrix from two direction
      * @param fromDirection first direction
      * @param toDirection second direction
+     * @param epsilon tiny number
      */
-    public transformDir(fromDirection: Vector3, toDirection: Vector3): this {
+
+    public transformDir(fromDirection: Vector3, toDirection: Vector3, epsilon?: number): this {
+        epsilon ||= EPSILON;
         let data = this.rawData;
 
-        let EPSILON: number = 0.000001;
-        let v: Vector3 = Vector3.ZERO;
-        toDirection.crossProduct(fromDirection, v);
+        let zero: Vector3 = Matrix4._zero2.set(0, 0, 0);
+        Vector3.cross(toDirection, fromDirection, zero);
         let e: number = toDirection.dotProduct(fromDirection);
 
-        if (e > 1.0 - EPSILON) {
+        if (e > 1.0 - epsilon) {
             this.identity();
-        } else if (e < -1.0 + EPSILON) {
+        } else if (e < -1.0 + epsilon) {
             let up: Vector3 = Vector3.HELP_1;
             let left: Vector3 = Vector3.HELP_2; //
             let invLen: number = 0;
@@ -766,7 +842,7 @@ export class Matrix4 {
             left.x = 0.0;
             left.y = fromDirection.z;
             left.z = -fromDirection.y;
-            if (left.dotProduct(left) < EPSILON) {
+            if (left.dotProduct(left) < epsilon) {
                 left.x = -fromDirection.z;
                 left.y = 0.0;
                 left.z = fromDirection.x;
@@ -777,7 +853,7 @@ export class Matrix4 {
             left.y *= invLen;
             left.z *= invLen;
 
-            left.crossProduct(fromDirection, up);
+            Vector3.cross(left, fromDirection, up);
 
             fxx = -fromDirection.x * fromDirection.x;
             fyy = -fromDirection.y * fromDirection.y;
@@ -821,22 +897,22 @@ export class Matrix4 {
             let hvxz;
             let hvyz;
 
-            let v2 = v.dotProduct(v);
+            let v2 = zero.dotProduct(zero);
             let h = (1.0 - e) / v2;
-            hvx = h * v.x;
-            hvz = h * v.z;
-            hvxy = hvx * v.y;
-            hvxz = hvx * v.z;
-            hvyz = hvz * v.y;
-            data[0] = e + hvx * v.x;
-            data[1] = hvxy - v.z;
-            data[2] = hvxz + v.y;
-            data[4] = hvxy + v.z;
-            data[5] = e + h * v.y * v.y;
-            data[6] = hvyz - v.x;
-            data[8] = hvxz - v.y;
-            data[9] = hvyz + v.x;
-            data[10] = e + hvz * v.z;
+            hvx = h * zero.x;
+            hvz = h * zero.z;
+            hvxy = hvx * zero.y;
+            hvxz = hvx * zero.z;
+            hvyz = hvz * zero.y;
+            data[0] = e + hvx * zero.x;
+            data[1] = hvxy - zero.z;
+            data[2] = hvxz + zero.y;
+            data[4] = hvxy + zero.z;
+            data[5] = e + h * zero.y * zero.y;
+            data[6] = hvyz - zero.x;
+            data[8] = hvxz - zero.y;
+            data[9] = hvyz + zero.x;
+            data[10] = e + hvz * zero.z;
 
             data[3] = 0;
             data[7] = 0;
@@ -851,7 +927,7 @@ export class Matrix4 {
      * multiply matrix a b
      * @param lhs target matrix
      */
-    public append(lhs: Matrix4): void {
+    public append(lhs: Matrix4): this {
         let data = this.rawData;
         let m111: number = data[0];
         let m121: number = data[4];
@@ -889,6 +965,7 @@ export class Matrix4 {
         data[13] = m141 * lhs.rawData[1] + m142 * lhs.rawData[5] + m143 * lhs.rawData[9] + m144 * lhs.rawData[13];
         data[14] = m141 * lhs.rawData[2] + m142 * lhs.rawData[6] + m143 * lhs.rawData[10] + m144 * lhs.rawData[14];
         data[15] = m141 * lhs.rawData[3] + m142 * lhs.rawData[7] + m143 * lhs.rawData[11] + m144 * lhs.rawData[15];
+        return this;
     }
 
     /**
@@ -1053,7 +1130,7 @@ export class Matrix4 {
     //  * @param z Angle of rotation around the z axis.
     //      //  */
     // public rotation(x: number, y: number, z: number) {
-    //   Quaternion.CALCULATION_QUATERNION.fromEulerAngles(x, y, z);
+    //   Quaternion.CALCULATION_QUATERNION.setFromEuler(x, y, z);
     //   this.makeTransform(
     //     Matrix4.position_000,
     //     Matrix4.scale_111,
@@ -1203,7 +1280,7 @@ export class Matrix4 {
      */
     public clone(): Matrix4 {
         let ret: Matrix4 = new Matrix4();
-        ret.copyFrom(this);
+        ret.copy(this);
         return ret;
     }
 
@@ -1286,7 +1363,7 @@ export class Matrix4 {
      * @param sourceMatrix3D source Matrix
      * @returns Returns the current matrix
      */
-    public copyFrom(sourceMatrix3D: Matrix4): Matrix4 {
+    public copy(sourceMatrix3D: Matrix4): Matrix4 {
         let data: FloatArray = this.rawData;
         data[0] = sourceMatrix3D.rawData[0];
         data[1] = sourceMatrix3D.rawData[1];
@@ -1374,6 +1451,11 @@ export class Matrix4 {
      * Copy a column of the current matrix
      * @param col column
      * @param Vector3 Target of copy
+     */
+    /**
+     * Copy a column of the current matrix into a Vector3.
+     * @param col column index (0-3)
+     * @param Vector3 target of copy
      */
     public copyColTo(col: number, Vector3: Vector3) {
         let data: FloatArray = this.rawData;
@@ -1728,10 +1810,11 @@ export class Matrix4 {
     }
 
     /**
-     * Invert the current matrix
-     * @returns boolean Whether can invert it
+     * Invert the current matrix in place. No-ops silently when the matrix is
+     * singular (matches Matrix3.invert). Use `Matrix4.invert(src, result?)`
+     * for the safe variant that returns `null` on singular input.
      */
-    public invert(): boolean {
+    public invert(): this {
         let d = this.determinant;
         let invertable = Math.abs(d) > 0.00000000001;
         let data: FloatArray = this.rawData;
@@ -1772,50 +1855,45 @@ export class Matrix4 {
             data[14] = -d * (m11 * (m22 * m43 - m42 * m23) - m21 * (m12 * m43 - m42 * m13) + m41 * (m12 * m23 - m22 * m13));
             data[15] = d * (m11 * (m22 * m33 - m32 * m23) - m21 * (m12 * m33 - m32 * m13) + m31 * (m12 * m23 - m22 * m13));
         }
-        return invertable;
+        return this;
     }
 
     /**
-     * Converts the current coordinates to the world coordinates
-     * @param v Current coordinates
-     * @param target world coordinate
-     * @returns world coordinate
+     * Convert the given point from the current matrix coordinate system to world
+     * coordinates. Mutates and returns `v`.
      */
-    public transformPoint(v: Vector3, target?: Vector3): Vector3 {
-        let data: FloatArray = this.rawData;
-        target ||= new Vector3();
+    public transformPoint(v: Vector3): Vector3 {
+        return Matrix4.transformPoint(this, v, v);
+    }
 
-        let x: number = v.x;
-        let y: number = v.y;
-        let z: number = v.z;
-
-        target.x = x * data[0] + y * data[4] + z * data[8] + data[12];
-        target.y = x * data[1] + y * data[5] + z * data[9] + data[13];
-        target.z = x * data[2] + y * data[6] + z * data[10] + data[14];
-
-        return target;
+    /** Transform point v (with translation) by matrix m into result. Allocates a new Vector3 if result is omitted. */
+    public static transformPoint(m: Matrix4, v: Vector3, result?: Vector3): Vector3 {
+        result ||= new Vector3();
+        const data = m.rawData;
+        const x = v.x, y = v.y, z = v.z;
+        result.x = x * data[0] + y * data[4] + z * data[8] + data[12];
+        result.y = x * data[1] + y * data[5] + z * data[9] + data[13];
+        result.z = x * data[2] + y * data[6] + z * data[10] + data[14];
+        return result;
     }
 
     /**
-     * Transforming a 3D vector with the current matrix does not deal with displacement
-     * @param v Vector of transformation
-     * @param target If the current argument is null then a new Vector3 will be returned
-     * @returns Vector3 The transformed vector
+     * Transform a 3D direction vector (no translation) by this matrix.
+     * Mutates and returns `v`.
      */
-    public transformVector(v: Vector3, target?: Vector3): Vector3 {
-        let data: FloatArray = this.rawData;
+    public transformVector(v: Vector3): Vector3 {
+        return Matrix4.transformVector(this, v, v);
+    }
 
-        target ||= new Vector3();
-
-        let x: number = v.x;
-        let y: number = v.y;
-        let z: number = v.z;
-
-        target.x = x * data[0] + y * data[4] + z * data[8];
-        target.y = x * data[1] + y * data[5] + z * data[9];
-        target.z = x * data[2] + y * data[6] + z * data[10];
-
-        return target;
+    /** Transform direction v (no translation) by matrix m into result. Allocates a new Vector3 if result is omitted. */
+    public static transformVector(m: Matrix4, v: Vector3, result?: Vector3): Vector3 {
+        result ||= new Vector3();
+        const data = m.rawData;
+        const x = v.x, y = v.y, z = v.z;
+        result.x = x * data[0] + y * data[4] + z * data[8];
+        result.y = x * data[1] + y * data[5] + z * data[9];
+        result.z = x * data[2] + y * data[6] + z * data[10];
+        return result;
     }
 
     /**
@@ -1968,7 +2046,7 @@ export class Matrix4 {
      */
     public lerp(m0: Matrix4, m1: Matrix4, t: number): void {
         ///t(m1 - m0) + m0
-        this.copyFrom(m1).sub(m0).mult(t).add(m0);
+        this.copy(m1).sub(m0).mult(t).add(m0);
     }
 
     /**
@@ -2024,10 +2102,12 @@ export class Matrix4 {
     }
 
     /**
-     * from unity AMath.PI
+     * Set this matrix to the inverse of the translation-rotation transform built from pos and q.
+     * @param pos translation
+     * @param q rotation quaternion
      */
     public setTRInverse(pos: Vector3, q: Quaternion) {
-        q = q.inverse();
+        q = q.clone().invert();
         Quaternion.quaternionToMatrix(q, this);
         this.translate(new Vector3(-pos.x, -pos.y, -pos.z));
     }
@@ -2073,6 +2153,11 @@ export class Matrix4 {
         return this;
     }
 
+    /**
+     * Set this matrix to a rotation about the given axis by the given angle (in radians).
+     * @param axis rotation axis (should be unit length)
+     * @param angle rotation angle, in radians
+     */
     public makeRotationAxis(axis: Vector3, angle: number) {
 
         const c = Math.cos(angle);
@@ -2301,7 +2386,7 @@ export function multiplyMatrices4x4REF(lhs: Matrix4, rhs: Matrix4, res: Matrix4)
  * @internal
  */
 export function makeMatrix44(r: Vector3, p: Vector3, s: Vector3, outMat: Matrix4) {
-    // Quaternion.CALCULATION_QUATERNION.fromEulerAngles(r.x, r.y, r.z);
+    // Quaternion.CALCULATION_QUATERNION.setFromEuler(r.x, r.y, r.z);
 
     let rawData = outMat.rawData;
 
@@ -2470,9 +2555,11 @@ export function matrixRotateY(rad: number, target: Matrix4) {
  * @param {ReadonlyMat4} a the matrix to rotate
  * @param {Number} rad the angle to rotate the matrix by
  * @param {ReadonlyVec3} axis the axis to rotate around
+ * @param epsilon tiny number
  * @returns {mat4} out
  */
-export function matrixRotate(rad: number, axis: Vector3, target: Matrix4) {
+export function matrixRotate(rad: number, axis: Vector3, target: Matrix4, epsilon?: number) {
+    epsilon ||= EPSILON;
     let x = axis.x;
     let y = axis.y;
     let z = axis.z;
@@ -2491,7 +2578,7 @@ export function matrixRotate(rad: number, axis: Vector3, target: Matrix4) {
     let b21;
     let b22;
 
-    if (len < EPSILON) {
+    if (len < epsilon) {
         return null;
     }
 

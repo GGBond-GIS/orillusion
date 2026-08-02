@@ -248,7 +248,7 @@ export let BRDF_frag: string = /*wgsl*/ `
       return nom / denom;
   }
 
-  //G项 几何函数
+  // G term: geometry function
   fn G_SubFunction( NdotW : f32,  K : f32)->f32
   {
       return NdotW / mix(NdotW,1.0,K);
@@ -341,8 +341,10 @@ export let BRDF_frag: string = /*wgsl*/ `
         let MAX_REFLECTION_LOD  = i32(textureNumLevels(envMap)) ;
         let mip = roughnessToMipmapLevel(roughness,MAX_REFLECTION_LOD);
         let R = 2.0 * dot( v , n ) * n - v ;
+        // envMap stores linear HDR; keep in linear so IBL contribution
+        // accumulates in the same space as direct lighting and gets a
+        // single linear-to-sRGB encode on present.
         var prefilteredColor: vec3<f32> = globalUniform.skyExposure * (textureSampleLevel(envMap, envMapSampler, R , mip ).rgb);
-        prefilteredColor = LinearToGammaSpace(prefilteredColor);
         return prefilteredColor ;
     }
 
@@ -465,18 +467,32 @@ export let BRDF_frag: string = /*wgsl*/ `
     }
 
 
-     fn indirectionDiffuse_Function( NdotV:f32, normalDir:vec3f, metallic:f32, baseColor:vec3f, roughness:f32, occlusion:f32, F0:vec3f)-> vec3f 
+     // indirection*_Function reference materialUniform.envIntensity /
+     // .specularColor.a, fields that only exist on the PBR
+     // (USE_BRDF) MaterialUniform layout. WGSL validates included
+     // function bodies even when uncalled, so non-BRDF shaders
+     // (Grass, Sprite, Unlit, ...) that pull LightingFunction_frag
+     // for the direct-light helpers reject the parse with
+     // "struct member envIntensity not found". Gate the helpers behind
+     // USE_BRDF so non-BRDF includes only see the direct-light path.
+     #if USE_BRDF
+     fn indirectionDiffuse_Function( NdotV:f32, normalDir:vec3f, metallic:f32, baseColor:vec3f, roughness:f32, occlusion:f32, F0:vec3f)-> vec3f
      {
         //  var SHColor = SH9(normalDir,globalUniform.SH).rgb * globalUniform.skyExposure ;
          var SHColor = fragData.Irradiance.rgb ;
-         
+
          var KS = F_indirect_Function(NdotV,roughness,F0);
-         var KD = (1.0 - KS) * (1.0 - metallic); 
-         return SHColor * KD * baseColor * occlusion;
+         var KD = (1.0 - KS) * (1.0 - metallic);
+         // envIntensity exclusively scales the IBL diffuse term — the
+         // ambient sky / SH lighting that fills in matte / shadow
+         // areas. Pairing it with specularIntensity (which drives the
+         // IBL spec lobe alone) gives the GUI two visually distinct
+         // knobs: env → "ambient brightness", spec → "highlight strength".
+         return SHColor * KD * baseColor * occlusion * materialUniform.envIntensity;
         //  return SHColor ;
      }
- 
-     fn indirectionSpec_Function( reflectDir:vec3f, roughness:f32, NdotV:f32,occlusion:f32, F0:vec3f )-> vec3f 
+
+     fn indirectionSpec_Function( reflectDir:vec3f, roughness:f32, NdotV:f32,occlusion:f32, F0:vec3f )-> vec3f
      {
          var mipRoughness = roughness * (1.7 - 0.7 * roughness) ;
          var env : vec3f ;
@@ -488,14 +504,22 @@ export let BRDF_frag: string = /*wgsl*/ `
         #endif
 
         //  env *= 0.45 ;
+         // Note: this lobe is the IBL specular term and is governed
+         // by specularIntensity (specularColor.a) — NOT by envIntensity.
+         // envIntensity is reserved for the IBL diffuse term in
+         // indirectionDiffuse_Function so the two GUI sliders feel
+         // distinct: env → ambient brightness on matte / shadow
+         // areas; spec → highlight / mirror reflection.
          var indirectionCube: vec3<f32> = globalUniform.skyExposure * env ;
          var F_IndirectionLight = F_indirect_Function(NdotV,roughness,F0);
 
          var AB = LUT_Approx(roughness,NdotV);
         //  var AB = textureSampleLevel(brdflutMap, brdflutMapSampler, vec2f(NdotV, roughness), 0.0).rg;
          var indirectionSpecFactor = indirectionCube.rgb * (F_IndirectionLight * AB.r + AB.g) ;
-         return indirectionSpecFactor * occlusion;
+         let specStrength = clamp(materialUniform.specularColor.a, 0.0, 1.0);
+         return indirectionSpecFactor * occlusion * specStrength;
      }
+     #endif
 
      const  c0 = vec4f(-1, -0.0275, -0.572, 0.022 );
      const  c1 = vec4f(1, 0.0425, 1.04, -0.04 );

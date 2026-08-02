@@ -3,8 +3,8 @@ import { CSM } from "../../../../core/csm/CSM";
 /**
  * @internal
  */
-export let GlobalUniform: string = /*wgsl*/ `
-
+export function GlobalUniform(maxShadowMapNum: number): string {
+  return /* wgsl */`
   #include "MathShader"
 
   struct GlobalUniform {
@@ -12,9 +12,9 @@ export let GlobalUniform: string = /*wgsl*/ `
     projMat: mat4x4<f32>,
     viewMat: mat4x4<f32>,
     cameraWorldMatrix: mat4x4<f32>,
-    pvMatrixInv : mat4x4<f32>,
+    projMatInv : mat4x4<f32>,
     viewToWorld : mat4x4<f32>,
-    shadowMatrix: array<mat4x4<f32>, 8u>,
+    shadowMatrix: array<mat4x4<f32>, ${maxShadowMapNum}>,
 
     csmShadowBias: vec4<f32>,
 
@@ -59,6 +59,8 @@ export let GlobalUniform: string = /*wgsl*/ `
     pointShadowBias: f32,
     shadowMapSize: f32,
     shadowSoft: f32,
+    pcfKernelScale: f32,
+
     enableCSM:f32,
 
 
@@ -72,15 +74,22 @@ export let GlobalUniform: string = /*wgsl*/ `
 
     frustumPlanes: array<vec4f, 6u>,
 
+    cameraPositionH: vec3<f32>,
+    maxModelsCount: u32,
+
+    cameraPositionL: vec3<f32>,
+    cameraMatrixIndex: u32,
+
+    useRTE: u32,
   };
 
   @group(0) @binding(0)
   var<uniform> globalUniform: GlobalUniform;
 
   fn getViewPosition(z:f32,uv:vec2f) -> vec3f {
-    let pvMatrixInv = globalUniform.pvMatrixInv ;
+    let projMatInv = globalUniform.projMatInv ;
     let clip = vec4<f32>((uv * 2.0 - 1.0) , z , 1.0);
-    var viewPos = pvMatrixInv * clip ;
+    var viewPos = projMatInv * clip ;
     return viewPos.xyz / viewPos.w ;
   }
 
@@ -115,5 +124,5 @@ export let GlobalUniform: string = /*wgsl*/ `
     var viewNormal = globalUniform.viewMat * vec4f(worldNormal,0.0) ;
     return normalize(viewNormal.xyz);
   }
-`
-
+  `
+};

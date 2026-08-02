@@ -10,7 +10,7 @@ class Sample_Destroy {
 
         GUIHelp.init();
 
-        await Engine3D.init();
+        const engine = await Engine3D.init();
         // create new scene as root node
         let scene3D: Scene3D = new Scene3D()
         scene3D.addComponent(Stats)
@@ -21,7 +21,7 @@ class Sample_Destroy {
         let cameraObj: Object3D = new Object3D()
         let camera = cameraObj.addComponent(Camera3D)
         // adjust camera view
-        camera.perspective(60, Engine3D.aspect, 1, 5000.0)
+        camera.perspective(60, engine.aspect, 1, 5000.0)
         // set camera controller
         let controller = cameraObj.addComponent(HoverCameraController)
         controller.setCamera(0, 0, 15)
@@ -76,7 +76,7 @@ class Sample_Destroy {
         view.scene = scene3D
         view.camera = camera
         // start render
-        Engine3D.startRenderView(view)
+        engine.startRenderView(view)
     }
 }
 

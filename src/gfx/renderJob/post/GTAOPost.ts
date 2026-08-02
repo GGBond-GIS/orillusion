@@ -5,8 +5,6 @@ import { UniformGPUBuffer } from '../../graphics/webGpu/core/buffer/UniformGPUBu
 import { WebGPUDescriptorCreator } from '../../graphics/webGpu/descriptor/WebGPUDescriptorCreator';
 import { ComputeShader } from '../../graphics/webGpu/shader/ComputeShader';
 import { GPUTextureFormat } from '../../graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
-import { GPUContext } from '../GPUContext';
 import { RendererPassState } from '../passRenderer/state/RendererPassState';
 import { PostBase } from './PostBase';
 import { Engine3D } from '../../../Engine3D';
@@ -23,7 +21,7 @@ import { GTAO_cs } from '../../../assets/shader/compute/GTAO_cs';
  * Let the intersection of the object and the object imitate the effect of the light being cross-occluded
  * ```
  * gtao setting
- * let cfg = {@link Engine3D.setting.render.postProcessing.gtao};
+ * let cfg = {@link this.setting.render.postProcessing.gtao};
  *```
  * @group Post Effects
  */
@@ -32,10 +30,6 @@ export class GTAOPost extends PostBase {
      * @internal
      */
     gtaoTexture: VirtualTexture;
-    /**
-     * @internal
-     */
-    rendererPassState: RendererPassState;
     /**
      * @internal
      */
@@ -67,87 +61,87 @@ export class GTAOPost extends PostBase {
      * @internal
      */
     onAttach(view: View3D,) {
-        Engine3D.setting.render.postProcessing.gtao.enable = true;
+        this.setting.render.postProcessing.gtao.enable = true;
     }
     /**
      * @internal
-     */Render
+     */
     onDetach(view: View3D,) {
-        Engine3D.setting.render.postProcessing.gtao.enable = false;
+        this.setting.render.postProcessing.gtao.enable = false;
     }
 
     public get maxDistance() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.maxDistance;
     }
 
     public set maxDistance(value: number) {
         value = clamp(value, 0.1, 50);
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.maxDistance = value;
     }
 
     public get maxPixel() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.maxPixel;
     }
 
     public set maxPixel(value: number) {
         value = clamp(value, 5, 100);
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.maxPixel = value;
     }
 
     public get darkFactor() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.darkFactor;
     }
 
     public set darkFactor(value: number) {
         value = clamp(value, 0.01, 1);
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.darkFactor = value;
     }
 
 
     public get rayMarchSegment() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.rayMarchSegment;
     }
 
     public set rayMarchSegment(value: number) {
         value = clamp(value, 4, 10);
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.rayMarchSegment = value;
     }
 
     public get multiBounce() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.multiBounce;
     }
 
     public set multiBounce(value: boolean) {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.multiBounce = value;
     }
 
     public get blendColor() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.blendColor;
     }
 
     public set blendColor(value: boolean) {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.blendColor = value;
     }
 
     public get usePosFloat32() {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         return setting.usePosFloat32;
     }
 
     public set usePosFloat32(value: boolean) {
-        let setting = Engine3D.setting.render.postProcessing.gtao;
+        let setting = this.setting.render.postProcessing.gtao;
         setting.usePosFloat32 = value;
     }
 
@@ -166,17 +160,17 @@ export class GTAOPost extends PostBase {
 
         this.aoBuffer = new StorageGPUBuffer(this.gtaoTexture.width * this.gtaoTexture.height);
         this.gtaoCompute.setStorageBuffer('aoBuffer', this.aoBuffer);
-        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer);
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, this._boundCtx!);
         this.gtaoCompute.setSamplerTexture(`gBufferTexture`, rtFrame.getCompressGBufferTexture());
-        this.autoSetColorTexture('inTex', this.gtaoCompute);
+        this.gtaoCompute.setSamplerTexture('inTex', this.getLastRenderTexture());
         this.gtaoCompute.setStorageTexture(`outTex`, this.gtaoTexture);
 
         this.gtaoSetting = gtaoSetting;
     }
 
-    private createResource() {
-        let [w, h] = webGPUContext.presentationSize;
-        this.gtaoTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING);
+    private _createGtaoResources() {
+        let [w, h] = this._boundCtx!.presentationSize;
+        this.gtaoTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.gtaoTexture.name = 'gtaoTex';
         let gtaoDec = new RTDescriptor();
         gtaoDec.loadOp = `load`;
@@ -202,17 +196,18 @@ export class GTAOPost extends PostBase {
      */
     render(view: View3D, command: GPUCommandEncoder) {
         if (!this.gtaoCompute) {
-            this.createResource();
+            this._createGtaoResources();
             this.createCompute();
             this.onResize();
 
-            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(this.rtFrame, null);
+            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(view.engine3D.context3D, this.rtFrame, null);
             this.rendererPassState.label = "GTAO";
 
             let globalUniform = GlobalBindGroup.getCameraGroup(view.camera);
             this.gtaoCompute.setUniformBuffer('globalUniform', globalUniform.uniformGPUBuffer);
         }
-        let cfg = Engine3D.setting.render.postProcessing.gtao;
+        this.bindUpstream(this.gtaoCompute, 'inTex');
+        let cfg = this.setting.render.postProcessing.gtao;
 
         this.directionsBuffer.setFloat32Array('array', this.randomDirection());
         this.directionsBuffer.apply();
@@ -232,12 +227,12 @@ export class GTAOPost extends PostBase {
 
         this.gtaoSetting.apply();
 
-        GPUContext.computeCommand(command, [this.gtaoCompute]);
-        GPUContext.lastRenderPassState = this.rendererPassState;
+        this._boundCtx!.gpuContext.computeCommand(command, [this.gtaoCompute]);
+        this._boundCtx!.gpuContext.lastRenderPassState = this.rendererPassState;
     }
 
     public onResize() {
-        let [w, h] = webGPUContext.presentationSize;
+        let [w, h] = this._boundCtx!.presentationSize;
         this.gtaoTexture.resize(w, h);
         this.gtaoCompute.workerSizeX = Math.ceil(this.gtaoTexture.width / 8);
         this.gtaoCompute.workerSizeY = Math.ceil(this.gtaoTexture.height / 8);

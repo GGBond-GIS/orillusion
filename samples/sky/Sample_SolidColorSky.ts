@@ -6,13 +6,13 @@ import { SolidColorSky, Engine3D, SkyRenderer, Color, Object3DUtil, GridObject }
 class HDRSkyMap {
     async run() {
         // init engine
-        await Engine3D.init({});
+        const engine = await Engine3D.init({});
         GUIHelp.init();
         // init scene
-        let scene = createExampleScene().scene;
+        let scene = createExampleScene(engine).scene;
         // use solid color as background
         let sky = scene.getOrAddComponent(SkyRenderer);
-        sky.map = new SolidColorSky(new Color(0.3, 0.5, 0.3, 1));
+        sky.map = new SolidColorSky(new Color(0.3, 0.5, 0.3, 1), engine.context3D);
         //gui
         GUIHelp.addColor(sky.map, 'color');
         GUIHelp.open();
@@ -22,7 +22,7 @@ class HDRSkyMap {
         // add a grid
         scene.addChild(new GridObject(1000, 100));
         // start renderer
-        Engine3D.startRenderView(scene.view);
+        engine.startRenderView(scene.view);
     }
 
 }

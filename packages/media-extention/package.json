@@ -1,6 +1,6 @@
 {
     "name": "@orillusion/media-extention",
-    "version": "0.3.6",
+    "version": "0.4.0",
     "author": "Orillusion",
     "description": "Orillusion Media Material Extention",
     "main": "./dist/media.umd.js",
@@ -10,10 +10,10 @@
     "files": ["dist"],
     "scripts": {
         "build": "vite build && npm run build:types && npm run build:clean",
-        "build:types": "tsc --emitDeclarationOnly -p tsconfig.json",
+        "build:types": "tsc --emitDeclarationOnly --experimentalDecorators -p tsconfig.json",
         "build:clean": "mv dist/packages/media-extention/* dist && rm -rf dist/src && rm -rf dist/packages",
         "docs": "npm run docs:typedoc ../../docs/media-extention index.ts",
-        "docs:typedoc": "npx typedoc --plugin typedoc-plugin-markdown --tsconfig tsconfig.json --gitRevision main --hideBreadcrumbs true --allReflectionsHaveOwnDocument true --readme none --excludeInternal --excludePrivate --excludeProtected --sort source-order --out"
+        "docs:typedoc": "npx typedoc --plugin typedoc-plugin-markdown --tsconfig tsconfig.json --gitRevision main --hideBreadcrumbs --router member --readme none --excludeInternal --excludePrivate --excludeProtected --excludeExternals --sort source-order --out"
     },
     "license": "MIT",
     "repository": {
@@ -21,6 +21,6 @@
         "url": "git+https://github.com/Orillusion/orillusion.git"
     },
     "peerDependencies": {
-        "@orillusion/core": ">=0.8.0"
+        "@orillusion/core": ">=0.9.0"
     }
 }

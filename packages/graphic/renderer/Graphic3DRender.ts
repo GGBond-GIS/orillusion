@@ -4,8 +4,8 @@ import { Graphic3DFillRenderer } from "./Graphic3DFillRenderer";
 import { Graphic3DLineRenderer } from "./Graphic3DLineBatchRenderer";
 
 export class Graphic3D extends Object3D {
-    protected mLineRender: Graphic3DLineRenderer;
-    protected mFillRender: Graphic3DFillRenderer;
+    public mLineRender: Graphic3DLineRenderer;
+    public mFillRender: Graphic3DFillRenderer;
 
     constructor() {
         super();
@@ -58,9 +58,13 @@ export class Graphic3D extends Object3D {
             const p3 = points[Math.min(i + 2, points.length - 1)];
 
             // let u = (p2 - p0) * (tension / 3.0) + p1;
-            p2.subtract(p0, u).multiplyScalar(tension / 3.0).add(p1, u);
+            Vector3.sub(p2, p0, u);
+            u.multiplyScalar(tension / 3.0);
+            Vector3.add(u, p1, u);
             // let v = (p1 - p3) * (tension / 3.0) + p2;
-            p1.subtract(p3, v).multiplyScalar(tension / 3.0).add(p2, v);
+            Vector3.sub(p1, p3, v);
+            v.multiplyScalar(tension / 3.0);
+            Vector3.add(v, p2, v);
 
             result.push(...this.calculateBezierCurve(p1, u, v, p2, samples));
         }
@@ -73,10 +77,10 @@ export class Graphic3D extends Object3D {
         for (let i = 0; i < samples; ++i) {
             let t = (i + 1) / (samples + 1.0);
             let _1t = 1 - t;
-            let v0 = p0.mul(_1t * _1t * _1t);
-            let v1 = p1.mul(3 * t * _1t * _1t);
-            let v2 = p2.mul(3 * t * t * _1t);
-            let v3 = p3.mul(t * t * t);
+            let v0 = p0.clone().multiplyScalar(_1t * _1t * _1t);
+            let v1 = p1.clone().multiplyScalar(3 * t * _1t * _1t);
+            let v2 = p2.clone().multiplyScalar(3 * t * t * _1t);
+            let v3 = p3.clone().multiplyScalar(t * t * t);
             result[i] = v0.add(v1).add(v2).add(v3);
         }
         return result;
@@ -370,15 +374,15 @@ export class Graphic3D extends Object3D {
             let near = camera.near;
             let pos = camera.transform.worldPosition;
 
-            let farLB = new Vector3().copyFrom(f0).multiplyScalar(far).add(pos);
-            let farLT = new Vector3().copyFrom(f1).multiplyScalar(far).add(pos);
-            let farRB = new Vector3().copyFrom(f2).multiplyScalar(far).add(pos);
-            let farRT = new Vector3().copyFrom(f3).multiplyScalar(far).add(pos);
+            let farLB = new Vector3().copy(f0).multiplyScalar(far).add(pos);
+            let farLT = new Vector3().copy(f1).multiplyScalar(far).add(pos);
+            let farRB = new Vector3().copy(f2).multiplyScalar(far).add(pos);
+            let farRT = new Vector3().copy(f3).multiplyScalar(far).add(pos);
 
-            let nearLB = new Vector3().copyFrom(f0).multiplyScalar(near).add(pos);
-            let nearLT = new Vector3().copyFrom(f1).multiplyScalar(near).add(pos);
-            let nearRB = new Vector3().copyFrom(f2).multiplyScalar(near).add(pos);
-            let nearRT = new Vector3().copyFrom(f3).multiplyScalar(near).add(pos);
+            let nearLB = new Vector3().copy(f0).multiplyScalar(near).add(pos);
+            let nearLT = new Vector3().copy(f1).multiplyScalar(near).add(pos);
+            let nearRB = new Vector3().copy(f2).multiplyScalar(near).add(pos);
+            let nearRT = new Vector3().copy(f3).multiplyScalar(near).add(pos);
 
             let custom = this.createCustomShape(`CameraFrustum_${camera.object3D.instanceID}`);
             custom.buildLines([nearLT, farLT], color);
@@ -388,18 +392,23 @@ export class Graphic3D extends Object3D {
             custom.buildLines([farLT, farRT, farRB, farLB, farLT], color);
             custom.buildLines([nearLT, nearRT, nearRB, nearLB, nearLT], color);
         } else if (camera.type == CameraType.ortho) {
-            camera.viewPort;
-            camera.viewPort.height;
+            // Use the ortho bounds (left/right/bottom/top), not viewPort — shadow cameras
+            // never get viewPort sized (they bypass _bindToCtx), so viewPort.width/height
+            // would be 0 and draw nothing. Corners are POINTS in camera-local space, so
+            // use transformPoint (rotation + translation) rather than transformVector
+            // (rotation only) — otherwise the rectangle is glued to the world origin
+            // and ignores the light's xyz.
             let worldMatrix = camera.transform.worldMatrix;
-            let farLT = worldMatrix.transformVector(new Vector3(camera.viewPort.width * -0.5, camera.viewPort.height * 0.5, camera.far));
-            let farLB = worldMatrix.transformVector(new Vector3(camera.viewPort.width * -0.5, camera.viewPort.height * -0.5, camera.far));
-            let farRT = worldMatrix.transformVector(new Vector3(camera.viewPort.width * 0.5, camera.viewPort.height * 0.5, camera.far));
-            let farRB = worldMatrix.transformVector(new Vector3(camera.viewPort.width * 0.5, camera.viewPort.height * -0.5, camera.far));
+            let l = camera.left, r = camera.right, b = camera.bottom, t = camera.top;
+            let farLT = worldMatrix.transformPoint(new Vector3(l, t, camera.far));
+            let farLB = worldMatrix.transformPoint(new Vector3(l, b, camera.far));
+            let farRT = worldMatrix.transformPoint(new Vector3(r, t, camera.far));
+            let farRB = worldMatrix.transformPoint(new Vector3(r, b, camera.far));
 
-            let nearLT = worldMatrix.transformVector(new Vector3(camera.viewPort.width * -0.5, camera.viewPort.height * 0.5, camera.near));
-            let nearLB = worldMatrix.transformVector(new Vector3(camera.viewPort.width * -0.5, camera.viewPort.height * -0.5, camera.near));
-            let nearRT = worldMatrix.transformVector(new Vector3(camera.viewPort.width * 0.5, camera.viewPort.height * 0.5, camera.near));
-            let nearRB = worldMatrix.transformVector(new Vector3(camera.viewPort.width * 0.5, camera.viewPort.height * -0.5, camera.near));
+            let nearLT = worldMatrix.transformPoint(new Vector3(l, t, camera.near));
+            let nearLB = worldMatrix.transformPoint(new Vector3(l, b, camera.near));
+            let nearRT = worldMatrix.transformPoint(new Vector3(r, t, camera.near));
+            let nearRB = worldMatrix.transformPoint(new Vector3(r, b, camera.near));
 
             let custom = this.createCustomShape(`CameraFrustum_${camera.object3D.instanceID}`);
             custom.buildLines([nearLT, farLT], color);

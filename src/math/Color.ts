@@ -153,6 +153,10 @@ export class Color {
         return color;
     }
 
+    /**
+     * generate a random color from per-channel seeds and base values
+     * @returns
+     */
     public static randomRGB(seedR: number = 0.5, seedG: number = 0.5, seedB: number = 0.5, baseR: number = 0.5, baseG: number = 0.5, baseB: number = 0.5): Color {
         let color = new Color();
         color.a = 1.0;
@@ -184,18 +188,19 @@ export class Color {
      * @param b blue channel
      * @param a alpha channel
      */
-    public setTo(r: number, g: number, b: number, a: number) {
+    public setTo(r: number, g: number, b: number, a: number): this {
         this.r = Math.max(r, 0.0);
         this.g = Math.max(g, 0.0);
         this.b = Math.max(b, 0.0);
         this.a = Math.max(a, 0.0);
+        return this;
     }
 
     /**
      * update this color rgba from hexadecimal 
      * @param hex hex string.
      */
-    public setHex(hex: string) {
+    public setHex(hex: string): this {
         if (typeof hex !== 'string' || Color.NON_HEX_CHARS.test(hex) || !Color.VALID_HEX_SIZE.test(hex)) {
             throw new TypeError('Expected a valid hex string');
         }
@@ -225,6 +230,7 @@ export class Color {
         this.r = red / 255;
         this.g = green / 255;
         this.b = blue / 255;
+        return this;
     }
 
     /**
@@ -277,14 +283,14 @@ export class Color {
      * @returns 
      */
     public clone(): Color {
-        return new Color().copyFrom(this);
+        return new Color().copy(this);
     }
 
     /**
      * copy color from source color
      * @returns
      */
-    public copyFrom(src: Color): this {
+    public copy(src: Color): this {
         this.r = src.r;
         this.g = src.g;
         this.b = src.b;
@@ -298,7 +304,7 @@ export class Color {
      * @param scalar 
      * @returns 
      */
-    public copyFromArray(arr: number[], scalar: number = 255) {
+    public copyFromArray(arr: number[], scalar: number = 255): this {
         this.r = arr[0] / scalar;
         this.g = arr[1] / scalar;
         this.b = arr[2] / scalar;
@@ -349,148 +355,290 @@ export class Color {
     }
 
 
+    /** Preset color: primary. */
     public static PRIMARY = 0x3f51b5; //
+    /** Preset color: primary dark. */
     public static PRIMARYDARK = 0x303f9f; //
+    /** Preset color: accent. */
     public static ACCENT = 0xff4081; //
 
+    /** Preset color: white. */
     public static WHITE = 0xffffff;
+    /** Preset color: ivory. */
     public static IVORY = 0xfffff0;
+    /** Preset color: light yellow. */
     public static LIGHTYELLOW = 0xffffe0;
+    /** Preset color: yellow. */
     public static YELLOW = 0xffff00;
+    /** Preset color: snow. */
     public static SNOW = 0xfffafa;
+    /** Preset color: floral white. */
     public static FLORALWHITE = 0xfffaf0;
+    /** Preset color: lemon chiffon. */
     public static LEMONCHIFFON = 0xfffacd;
+    /** Preset color: cornsilk. */
     public static CORNSILK = 0xfff8dc;
+    /** Preset color: seashell. */
     public static SEASHELL = 0xfff5ee;
+    /** Preset color: lavender blush. */
     public static LAVENDERBLUSH = 0xfff0f5;
+    /** Preset color: papaya whip. */
     public static PAPAYAWHIP = 0xffefd5;
+    /** Preset color: blanched almond. */
     public static BLANCHEDALMOND = 0xffebcd;
+    /** Preset color: misty rose. */
     public static MISTYROSE = 0xffe4e1;
+    /** Preset color: bisque. */
     public static BISQUE = 0xffe4c4;
+    /** Preset color: moccasin. */
     public static MOCCASIN = 0xffe4b5;
+    /** Preset color: navajo white. */
     public static NAVAJOWHITE = 0xffdead;
+    /** Preset color: peach puff. */
     public static PEACHPUFF = 0xffdab9;
+    /** Preset color: gold. */
     public static GOLD = 0xffd700;
+    /** Preset color: pink. */
     public static PINK = 0xffc0cb;
+    /** Preset color: light pink. */
     public static LIGHTPINK = 0xffb6c1;
+    /** Preset color: orange. */
     public static ORANGE = 0xffa500;
+    /** Preset color: light salmon. */
     public static LIGHTSALMON = 0xffa07a;
+    /** Preset color: dark orange. */
     public static DARKORANGE = 0xff8c00;
+    /** Preset color: coral. */
     public static CORAL = 0xff7f50;
+    /** Preset color: hot pink. */
     public static HOTPINK = 0xff69b4;
+    /** Preset color: tomato. */
     public static TOMATO = 0xff6347;
+    /** Preset color: orange red. */
     public static ORANGERED = 0xff4500;
+    /** Preset color: deep pink. */
     public static DEEPPINK = 0xff1493;
+    /** Preset color: fuchsia. */
     public static FUCHSIA = 0xff00ff;
+    /** Preset color: magenta. */
     public static MAGENTA = 0xff00ff;
+    /** Preset color: red. */
     public static RED = 0xff0000;
+    /** Preset color: old lace. */
     public static OLDLACE = 0xfdf5e6;
+    /** Preset color: light goldenrod yellow. */
     public static LIGHTGOLDENRODYELLOW = 0xfafad2;
+    /** Preset color: linen. */
     public static LINEN = 0xfaf0e6;
+    /** Preset color: antique white. */
     public static ANTIQUEWHITE = 0xfaebd7;
+    /** Preset color: salmon. */
     public static SALMON = 0xfa8072;
+    /** Preset color: ghost white. */
     public static GHOSTWHITE = 0xf8f8ff;
+    /** Preset color: mint cream. */
     public static MINTCREAM = 0xf5fffa;
+    /** Preset color: white smoke. */
     public static WHITESMOKE = 0xf5f5f5;
+    /** Preset color: beige. */
     public static BEIGE = 0xf5f5dc;
+    /** Preset color: wheat. */
     public static WHEAT = 0xf5deb3;
+    /** Preset color: sandy brown. */
     public static SANDYBROWN = 0xf4a460;
+    /** Preset color: azure. */
     public static AZURE = 0xf0ffff;
+    /** Preset color: honeydew. */
     public static HONEYDEW = 0xf0fff0;
+    /** Preset color: alice blue. */
     public static ALICEBLUE = 0xf0f8ff;
+    /** Preset color: khaki. */
     public static KHAKI = 0xf0e68c;
+    /** Preset color: light coral. */
     public static LIGHTCORAL = 0xf08080;
+    /** Preset color: pale goldenrod. */
     public static PALEGOLDENROD = 0xeee8aa;
+    /** Preset color: violet. */
     public static VIOLET = 0xee82ee;
+    /** Preset color: dark salmon. */
     public static DARKSALMON = 0xe9967a;
+    /** Preset color: lavender. */
     public static LAVENDER = 0xe6e6fa;
+    /** Preset color: light cyan. */
     public static LIGHTCYAN = 0xe0ffff;
+    /** Preset color: burlywood. */
     public static BURLYWOOD = 0xdeb887;
+    /** Preset color: plum. */
     public static PLUM = 0xdda0dd;
+    /** Preset color: gainsboro. */
     public static GAINSBORO = 0xdcdcdc;
+    /** Preset color: crimson. */
     public static CRIMSON = 0xdc143c;
+    /** Preset color: pale violet red. */
     public static PALEVIOLETRED = 0xdb7093;
 
+    /** Preset color: goldenrod. */
     public static GOLDENROD = 0xdaa520;
+    /** Preset color: orchid. */
     public static ORCHID = 0xda70d6;
+    /** Preset color: thistle. */
     public static THISTLE = 0xd8bfd8;
+    /** Preset color: light grey. */
     public static LIGHTGREY = 0xd3d3d3;
+    /** Preset color: tan. */
     public static TAN = 0xd2b48c;
+    /** Preset color: chocolate. */
     public static CHOCOLATE = 0xd2691e;
+    /** Preset color: peru. */
     public static PERU = 0xcd853f;
+    /** Preset color: indian red. */
     public static INDIANRED = 0xcd5c5c;
+    /** Preset color: medium violet red. */
     public static MEDIUMVIOLETRED = 0xc71585;
+    /** Preset color: silver. */
     public static SILVER = 0xc0c0c0;
+    /** Preset color: dark khaki. */
     public static DARKKHAKI = 0xbdb76b;
+    /** Preset color: rosy brown. */
     public static ROSYBROWN = 0xbc8f8f;
+    /** Preset color: medium orchid. */
     public static MEDIUMORCHID = 0xba55d3;
+    /** Preset color: dark goldenrod. */
     public static DARKGOLDENROD = 0xb8860b;
+    /** Preset color: firebrick. */
     public static FIREBRICK = 0xb22222;
+    /** Preset color: powder blue. */
     public static POWDERBLUE = 0xb0e0e6;
+    /** Preset color: light steel blue. */
     public static LIGHTSTEELBLUE = 0xb0c4de;
+    /** Preset color: pale turquoise. */
     public static PALETURQUOISE = 0xafeeee;
+    /** Preset color: green yellow. */
     public static GREENYELLOW = 0xadff2f;
+    /** Preset color: light blue. */
     public static LIGHTBLUE = 0xadd8e6;
+    /** Preset color: dark gray. */
     public static DARKGRAY = 0xa9a9a9;
+    /** Preset color: brown. */
     public static BROWN = 0xa52a2a;
+    /** Preset color: sienna. */
     public static SIENNA = 0xa0522d;
+    /** Preset color: dark orchid. */
     public static DARKORCHID = 0x9932cc;
+    /** Preset color: pale green. */
     public static PALEGREEN = 0x98fb98;
+    /** Preset color: dark violet. */
     public static DARKVIOLET = 0x9400d3;
+    /** Preset color: medium purple. */
     public static MEDIUMPURPLE = 0x9370db;
+    /** Preset color: light green. */
     public static LIGHTGREEN = 0x90ee90;
+    /** Preset color: dark sea green. */
     public static DARKSEAGREEN = 0x8fbc8f;
+    /** Preset color: saddle brown. */
     public static SADDLEBROWN = 0x8b4513;
+    /** Preset color: dark magenta. */
     public static DARKMAGENTA = 0x8b008b;
+    /** Preset color: dark red. */
     public static DARKRED = 0x8b0000;
+    /** Preset color: blue violet. */
     public static BLUEVIOLET = 0x8a2be2;
+    /** Preset color: light sky blue. */
     public static LIGHTSKYBLUE = 0x87cefa;
+    /** Preset color: sky blue. */
     public static SKYBLUE = 0x87ceeb;
+    /** Preset color: gray. */
     public static GRAY = 0x808080;
+    /** Preset color: olive. */
     public static OLIVE = 0x808000;
+    /** Preset color: purple. */
     public static PURPLE = 0x800080;
+    /** Preset color: maroon. */
     public static MAROON = 0x800000;
+    /** Preset color: aquamarine. */
     public static AQUAMARINE = 0x7fffd4;
+    /** Preset color: chartreuse. */
     public static CHARTREUSE = 0x7fff00;
+    /** Preset color: lawn green. */
     public static LAWNGREEN = 0x7cfc00;
+    /** Preset color: medium slate blue. */
     public static MEDIUMSLATEBLUE = 0x7b68ee;
+    /** Preset color: light slate gray. */
     public static LIGHTSLATEGRAY = 0x778899;
+    /** Preset color: slate gray. */
     public static SLATEGRAY = 0x708090;
+    /** Preset color: olive drab. */
     public static OLIVEDRAB = 0x6b8e23;
+    /** Preset color: slate blue. */
     public static SLATEBLUE = 0x6a5acd;
+    /** Preset color: dim gray. */
     public static DIMGRAY = 0x696969;
+    /** Preset color: medium aquamarine. */
     public static MEDIUMAQUAMARINE = 0x66cdaa;
+    /** Preset color: cornflower blue. */
     public static CORNFLOWERBLUE = 0x6495ed;
+    /** Preset color: cadet blue. */
     public static CADETBLUE = 0x5f9ea0;
+    /** Preset color: dark olive green. */
     public static DARKOLIVEGREEN = 0x556b2f;
+    /** Preset color: indigo. */
     public static INDIGO = 0x4b0082;
+    /** Preset color: medium turquoise. */
     public static MEDIUMTURQUOISE = 0x48d1cc;
+    /** Preset color: dark slate blue. */
     public static DARKSLATEBLUE = 0x483d8b;
+    /** Preset color: steel blue. */
     public static STEELBLUE = 0x4682b4;
+    /** Preset color: royal blue. */
     public static ROYALBLUE = 0x4169e1;
+    /** Preset color: turquoise. */
     public static TURQUOISE = 0x40e0d0;
+    /** Preset color: medium sea green. */
     public static MEDIUMSEAGREEN = 0x3cb371;
+    /** Preset color: lime green. */
     public static LIMEGREEN = 0x32cd32;
+    /** Preset color: dark slate gray. */
     public static DARKSLATEGRAY = 0x2f4f4f;
+    /** Preset color: sea green. */
     public static SEAGREEN = 0x2e8b57;
+    /** Preset color: forest green. */
     public static FORESTGREEN = 0x228b22;
+    /** Preset color: light sea green. */
     public static LIGHTSEAGREEN = 0x20b2aa;
+    /** Preset color: dodger blue. */
     public static DODGERBLUE = 0x1e90ff;
+    /** Preset color: midnight blue. */
     public static MIDNIGHTBLUE = 0x191970;
+    /** Preset color: aqua. */
     public static AQUA = 0x00ffff;
+    /** Preset color: cyan. */
     public static CYAN = 0x00ffff;
+    /** Preset color: spring green. */
     public static SPRINGGREEN = 0x00ff7f;
+    /** Preset color: lime. */
     public static LIME = 0x00ff00;
+    /** Preset color: medium spring green. */
     public static MEDIUMSPRINGGREEN = 0x00fa9a;
+    /** Preset color: dark turquoise. */
     public static DARKTURQUOISE = 0x00ced1;
+    /** Preset color: deep sky blue. */
     public static DEEPSKYBLUE = 0x00bfff;
+    /** Preset color: dark cyan. */
     public static DARKCYAN = 0x008b8b;
+    /** Preset color: teal. */
     public static TEAL = 0x008080;
+    /** Preset color: green. */
     public static GREEN = 0x008000;
+    /** Preset color: dark green. */
     public static DARKGREEN = 0x006400;
+    /** Preset color: blue. */
     public static BLUE = 0x0000ff;
+    /** Preset color: medium blue. */
     public static MEDIUMBLUE = 0x0000cd;
+    /** Preset color: dark blue. */
     public static DARKBLUE = 0x00008b;
+    /** Preset color: navy. */
     public static NAVY = 0x000080;
+    /** Preset color: black. */
     public static BLACK = 0x000000;
 }

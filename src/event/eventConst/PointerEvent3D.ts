@@ -1,4 +1,3 @@
-import { GUIHitInfo } from '../../components/gui/uiComponents/IUIInteractive';
 import { Vector2 } from '../../math/Vector2';
 import { Vector3 } from '../../math/Vector3';
 import { CEvent } from '../CEvent';
@@ -52,17 +51,7 @@ export class PointerEvent3D extends CEvent {
      * Triggered when the right pointer clicked
      */
     public static POINTER_RIGHT_CLICK: string = 'onPointerRightClick';
-    /**
-     *
-     * Triggered when the middle pointer released
-     */
-    public static POINTER_MID_UP: string = 'onPointerMidUp';
-    /**
-     *
-     * Triggered when the middle pointer pressed
-     */
-    public static POINTER_MID_DOWN: string = 'onPointerMidDown';
-
+    
     /**
      * Triggered when the pointer clicked  
      */
@@ -156,6 +145,10 @@ export class PointerEvent3D extends CEvent {
      */
     public deltaY: number;
 
+    /**
+     * Pick result carried by PICK_* events: hit mesh id, world position/normal,
+     * and optional screen UV and distance.
+     */
     declare public data: pickResult
 
     /**
@@ -178,102 +171,3 @@ export class PointerEvent3D extends CEvent {
     }
 }
 
-export class PickGUIEvent3D extends CEvent {
-    /**
-     * Triggered when the touch point enters the interactive GUI
-     */
-    public static PICK_OVER_GUI = 'onPickOverGUI';
-
-    /**
-     * Triggered when the touch point clicked the interactive GUI
-     */
-    public static PICK_CLICK_GUI = 'onPickClickGUI';
-
-    /**
-     * Triggered when the touch point leave the interactive GUI
-     */
-    public static PICK_OUT_GUI = 'onPickOutGUI';
-
-    /**
-     * Triggered when the touch point release from the interactive GUI
-     */
-    public static PICK_UP_GUI = 'onPickUpGUI';
-
-    /**
-     * Triggered when the touch point pressed the interactive GUI
-     */
-    public static PICK_DOWN_GUI = 'onPickDownGUI';
-
-    /**
-     * A unique identifier for an event caused by a pointer.
-     */
-    public pointerId: number;
-
-    /**
-     * event type
-     */
-    public pointerType: string = 'onPickGUI';
-
-    /**
-     * whether it's the preferred pointer in this type of pointer.
-     */
-    public isPrimary: boolean;
-
-    /**
-     * Normalize values
-     */
-    public pressure: number;
-
-    /**
-     * coord x of mouse
-     */
-    public mouseX: number;
-
-    /**
-     * coord y of mouse
-     */
-    public mouseY: number;
-
-    /**
-     * delta of coord x of mouse
-     */
-    public movementX: number;
-
-    /**
-     * delta of coord y of mouse
-     */
-    public movementY: number;
-
-    /**
-     * Returns a negative value when scrolling left, 
-     * a positive value when scrolling right, otherwise 0.
-     */
-    public deltaX: number;
-
-    /**
-     * Returns a positive value when scrolling down,
-     * a negative value when scrolling up, otherwise 0.
-     */
-    public deltaY: number;
-
-    declare public data: GUIHitInfo
-
-    /**
-     * @internal
-     */
-    public deltaZ: number;
-
-    /**
-     * @internal
-     */
-    public reset() {
-        super.reset();
-        this.mouseX = 0;
-        this.mouseY = 0;
-        this.movementX = 0;
-        this.movementY = 0;
-        this.deltaX = 0;
-        this.deltaY = 0;
-        this.deltaZ = 0;
-    }
-}

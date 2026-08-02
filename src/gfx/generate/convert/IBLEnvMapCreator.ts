@@ -1,24 +1,26 @@
 import { Texture } from '../../graphics/webGpu/core/texture/Texture';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
 
 import { TextureCubeUtils } from './TextureCubeUtils';
-import { GPUContext } from '../../renderJob/GPUContext';
 import { IBLEnvMapCreator_cs } from '../../../assets/shader/compute/IBLEnvMapCreator_cs';
 
 /**
  * @internal
- * @group GFX
  */
 export class IBLEnvMapCreator {
-    private static configBuffer: GPUBuffer = null;
-    private static quaternionBuffer: GPUBuffer = null;
-    private static blurSettingBuffer: GPUBuffer = null;
-    private static pipeline: GPUComputePipeline;
-
     static importantSample(image: { width: number; height: number; erpTexture: Texture }, dstSize: number, roughness: number, dstView: GPUTextureView): void {
-        const device = webGPUContext.device;
-        if (this.pipeline == null) {
-            this.pipeline = device.createComputePipeline({
+        const ctx = image.erpTexture._boundCtx!;
+        const device = ctx.device;
+        const gpu = ctx.gpuContext;
+        const state = ctx.cache(IBLEnvMapCreator, () => ({
+            configBuffer: null as GPUBuffer,
+            quaternionBuffer: null as GPUBuffer,
+            blurSettingBuffer: null as GPUBuffer,
+            pipeline: null as GPUComputePipeline,
+            quaternionUploaded: false,
+        }));
+
+        if (state.pipeline == null) {
+            state.pipeline = device.createComputePipeline({
                 layout: `auto`,
                 compute: {
                     module: device.createShaderModule({
@@ -28,20 +30,20 @@ export class IBLEnvMapCreator {
                 },
             });
         }
-        const computePipeline = this.pipeline;
+        const computePipeline = state.pipeline;
 
         //config
         const configStride = 4 * 4; //4 float
-        this.configBuffer ||= device.createBuffer({
+        state.configBuffer ||= device.createBuffer({
             size: configStride,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
-        device.queue.writeBuffer(this.configBuffer, 0, new Uint32Array([image.width, image.height, dstSize, dstSize]));
+        device.queue.writeBuffer(state.configBuffer, 0, new Uint32Array([image.width, image.height, dstSize, dstSize]));
 
         const quaternionSize = 4 * 6; ////xyzw * float
         //quaternion
-        if (!this.quaternionBuffer) {
-            this.quaternionBuffer = device.createBuffer({
+        if (!state.quaternionBuffer) {
+            state.quaternionBuffer = device.createBuffer({
                 size: quaternionSize * 4 * 6,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             });
@@ -54,15 +56,15 @@ export class IBLEnvMapCreator {
                 qArray[i * 4 + 2] = q.z;
                 qArray[i * 4 + 3] = q.w;
             }
-            device.queue.writeBuffer(this.quaternionBuffer, 0, qArray);
+            device.queue.writeBuffer(state.quaternionBuffer, 0, qArray);
         }
 
         //roughness
-        this.blurSettingBuffer ||= device.createBuffer({
+        state.blurSettingBuffer ||= device.createBuffer({
             size: configStride,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
-        device.queue.writeBuffer(this.blurSettingBuffer, 0, new Float32Array([roughness, 0, 0, 0]));
+        device.queue.writeBuffer(state.blurSettingBuffer, 0, new Float32Array([roughness, 0, 0, 0]));
 
         //image
         const inputImageBuffer = image.erpTexture;
@@ -71,14 +73,14 @@ export class IBLEnvMapCreator {
             {
                 binding: 0,
                 resource: {
-                    buffer: this.configBuffer,
+                    buffer: state.configBuffer,
                     size: 4 * 4,
                 },
             },
             {
                 binding: 1,
                 resource: {
-                    buffer: this.quaternionBuffer,
+                    buffer: state.quaternionBuffer,
                     size: quaternionSize * 4,
                 },
             },
@@ -96,7 +98,7 @@ export class IBLEnvMapCreator {
             {
                 binding: 0,
                 resource: {
-                    buffer: this.blurSettingBuffer,
+                    buffer: state.blurSettingBuffer,
                     size: 4 * 4,
                 },
             },
@@ -116,7 +118,7 @@ export class IBLEnvMapCreator {
             entries: entries1,
         });
 
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = gpu.beginCommandEncoder();
         const computePass = commandEncoder.beginComputePass();
         computePass.setPipeline(computePipeline);
         computePass.setBindGroup(0, computeBindGroup0);
@@ -124,6 +126,6 @@ export class IBLEnvMapCreator {
         computePass.dispatchWorkgroups(dstSize / 8, dstSize / 8, 6);
 
         computePass.end();
-        GPUContext.endCommandEncoder(commandEncoder);
+        gpu.endCommandEncoder(commandEncoder);
     }
 }

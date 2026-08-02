@@ -1,6 +1,6 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { Stats } from '@orillusion/stats'
-import { Engine3D, Scene3D, AtmosphericComponent, CameraUtil, HoverCameraController, Object3D, MeshRenderer, BoxGeometry, LitMaterial, DirectLight, KelvinUtil, View3D, Vector3, Vector3Ex, UnLitMaterial, InstanceDrawComponent, LambertMaterial, Time, BoundingBox, Color, OcclusionSystem, PostProcessingComponent, GlobalFog, SphereGeometry, RendererMask, RenderLayer } from '@orillusion/core';
+import { Engine3D, Scene3D, AtmosphericComponent, CameraUtil, HoverCameraController, Object3D, MeshRenderer, BoxGeometry, LitMaterial, DirectLight, KelvinUtil, View3D, Vector3, Vector3Ex, UnLitMaterial, InstanceDrawComponent, LambertMaterial, Time, BoundingBox, Color, OcclusionSystem, PostProcessingComponent, GlobalFog, SphereGeometry, RendererMask, VisibleLayer } from '@orillusion/core';
 
 // simple base demo
 export class Sample_drawCallShareGeometry {
@@ -8,9 +8,13 @@ export class Sample_drawCallShareGeometry {
     public anim: boolean = false;
     async run() {
 
-        Engine3D.setting.pick.enable = false;
         // init engine
-        await Engine3D.init({ renderLoop: () => this.renderLoop() });
+        const engine = await Engine3D.init({
+            renderLoop: () => this.renderLoop(),
+            setting: {
+                pick: { enable: false },
+            },
+        });
 
         OcclusionSystem.enable = false;
         // create new Scene
@@ -25,7 +29,7 @@ export class Sample_drawCallShareGeometry {
 
         // init camera3D
         let mainCamera = CameraUtil.createCamera3D(null, this.scene);
-        mainCamera.perspective(60, Engine3D.aspect, 1, 2000.0);
+        mainCamera.perspective(60, engine.aspect, 1, 2000.0);
 
         // add a basic camera controller
         let hoverCameraController = mainCamera.object3D.addComponent(HoverCameraController);
@@ -50,7 +54,7 @@ export class Sample_drawCallShareGeometry {
         view.camera = mainCamera;
 
         // start render
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
         GUIHelp.init();
 
         GUIHelp.add(this, "anim").onChange = () => {

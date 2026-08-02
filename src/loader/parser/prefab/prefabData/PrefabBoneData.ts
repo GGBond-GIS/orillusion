@@ -2,6 +2,11 @@ import { Quaternion } from "../../../../math/Quaternion";
 import { Vector3 } from "../../../../math/Vector3";
 import { BytesArray } from "../../../../util/BytesArray";
 
+/**
+ * Internal data carrier for a single skeleton bone decoded from the prefab
+ * stream: names, hierarchy ids and the local transform (translation/rotation/scale).
+ * @internal
+ */
 export class PrefabBoneData {
     public boneName: string;
     public bonePath: string;

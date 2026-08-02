@@ -1,21 +1,24 @@
-import { DirectLight, Engine3D, View3D, LitMaterial, HoverCameraController, KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, SSRPost, Time, CameraUtil, webGPUContext, PostProcessingComponent, BloomPost, AtmosphericComponent } from '@orillusion/core'
+import { DirectLight, Engine3D, View3D, LitMaterial, HoverCameraController, KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry, SSRPost, Time, CameraUtil, PostProcessingComponent, BloomPost, AtmosphericComponent } from '@orillusion/core'
 import { GUIHelp } from '@orillusion/debug/GUIHelp'
 import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Sample_SSR {
+    engine: Engine3D;
     lightObj: Object3D
     scene: Scene3D
 
     async run() {
-        Engine3D.setting.shadow.enable = true;
-        Engine3D.setting.shadow.shadowSize = 2048
-        Engine3D.setting.shadow.shadowBound = 200;
-        Engine3D.setting.shadow.shadowBias = 0.05;
         GUIHelp.init();
 
-        await Engine3D.init({
+        const engine = this.engine = await Engine3D.init({
             canvasConfig: {
                 devicePixelRatio: 1
+            },
+            setting: {
+                shadow: {
+                    enable: true,
+                    shadowSize: 2048,
+                },
             },
             renderLoop: () => this.loop()
         })
@@ -24,7 +27,7 @@ export class Sample_SSR {
         this.scene.addComponent(AtmosphericComponent).sunY = 0.6
 
         let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera')
-        mainCamera.perspective(60, webGPUContext.aspect, 1, 2000.0)
+        mainCamera.perspective(60, engine.context3D.aspect, 1, 2000.0)
         let ctrl = mainCamera.object3D.addComponent(HoverCameraController)
         ctrl.setCamera(-75, -20, 40)
         await this.initScene(this.scene)
@@ -32,7 +35,7 @@ export class Sample_SSR {
         let view = new View3D()
         view.scene = this.scene
         view.camera = mainCamera
-        Engine3D.startRenderView(view)
+        engine.startRenderView(view)
 
         let postProcessing = this.scene.addComponent(PostProcessingComponent)
         postProcessing.addPost(SSRPost)
@@ -50,12 +53,13 @@ export class Sample_SSR {
             lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355)
             lc.castShadow = true
             lc.intensity = 10
+            lc.enableCSM = true;
             scene.addChild(this.lightObj)
             GUIUtil.renderDirLight(lc);
         }
 
         // load test model
-        let minimalObj = await Engine3D.res.loadGltf('/PBR/ToyCar/ToyCar.gltf')
+        let minimalObj = await this.engine.res.loadGltf('/PBR/ToyCar/ToyCar.gltf')
         minimalObj.scaleX = minimalObj.scaleY = minimalObj.scaleZ = 1000;
         minimalObj.y = -1.1;
         scene.addChild(minimalObj)

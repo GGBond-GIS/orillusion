@@ -5,8 +5,6 @@ import { UniformGPUBuffer } from '../../graphics/webGpu/core/buffer/UniformGPUBu
 import { WebGPUDescriptorCreator } from '../../graphics/webGpu/descriptor/WebGPUDescriptorCreator';
 import { ComputeShader } from '../../graphics/webGpu/shader/ComputeShader';
 import { GPUTextureFormat } from '../../graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
-import { GPUContext } from '../GPUContext';
 import { RendererPassState } from '../passRenderer/state/RendererPassState';
 import { PostBase } from './PostBase';
 import { Engine3D } from '../../../Engine3D';
@@ -25,7 +23,7 @@ import { CResizeEvent } from '../../../event/CResizeEvent';
  * Temporal AA
  * ```
  *       //setting
- *       let cfg = {@link Engine3D.setting.render.postProcessing.taa};
+ *       let cfg = {@link this.setting.render.postProcessing.taa};
  *         let view = new View3D();
         view.scene = this.scene;
         view.camera = mainCamera;
@@ -41,10 +39,6 @@ export class TAAPost extends PostBase {
      */
     taaTexture: VirtualTexture;
     outTexture: VirtualTexture;
-    /**
-     * @internal
-     */
-    rendererPassState: RendererPassState;
     /**
      * @internal
      */
@@ -76,7 +70,7 @@ export class TAAPost extends PostBase {
      * @internal
      */
     onAttach(view: View3D) {
-        Engine3D.setting.render.postProcessing.taa.enable = true;
+        this.setting.render.postProcessing.taa.enable = true;
         view.camera.enableJitterProjection(true);
 
         this.createGUI();
@@ -85,63 +79,63 @@ export class TAAPost extends PostBase {
      * @internal
      */
     onDetach(view: View3D) {
-        Engine3D.setting.render.postProcessing.taa.enable = false;
+        this.setting.render.postProcessing.taa.enable = false;
         view.camera.enableJitterProjection(false);
     }
 
     public get jitterSeedCount() {
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         return setting.jitterSeedCount;
     }
 
     public set jitterSeedCount(value: number) {
         value = clamp(value, 2, 32);
         value = Math.round(value);
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         setting.jitterSeedCount = value;
     }
 
     public get blendFactor() {
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         return setting.blendFactor;
     }
 
     public set blendFactor(value: number) {
         value = clamp(value, 0, 1);
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         setting.blendFactor = value;
     }
 
     public get sharpFactor() {
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         return setting.sharpFactor;
     }
 
     public set sharpFactor(value: number) {
         value = clamp(value, 0.1, 0.99);
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         setting.sharpFactor = value;
     }
 
     public get sharpPreBlurFactor() {
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         return setting.sharpPreBlurFactor;
     }
 
     public set sharpPreBlurFactor(value: number) {
         value = clamp(value, 0.1, 0.99);
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         setting.sharpPreBlurFactor = value;
     }
 
     public get temporalJitterScale() {
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         return setting.temporalJitterScale;
     }
 
     public set temporalJitterScale(value: number) {
         value = clamp(value, 0, 1);
-        let setting = Engine3D.setting.render.postProcessing.taa;
+        let setting = this.setting.render.postProcessing.taa;
         setting.temporalJitterScale = value;
     }
 
@@ -158,10 +152,10 @@ export class TAAPost extends PostBase {
         computeShader.setUniformBuffer('taaData', taaSetting);
         computeShader.setStorageBuffer(`preColorBuffer`, this.preColorBuffer);
 
-        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer);
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, this._boundCtx!);
         computeShader.setSamplerTexture(`preColorTex`, this.preColorTex);
         computeShader.setSamplerTexture(`gBufferTexture`, rtFrame.getCompressGBufferTexture());
-        this.autoSetColorTexture('inTex', computeShader);
+        computeShader.setSamplerTexture('inTex', this.getLastRenderTexture());
         computeShader.setStorageTexture(`outTex`, this.taaTexture);
 
         computeShader.workerSizeX = Math.ceil(this.taaTexture.width / 8);
@@ -189,27 +183,27 @@ export class TAAPost extends PostBase {
         this.sharpCompute.workerSizeZ = 1;
     }
 
-    private createResource() {
+    private _createTaaResources() {
         this.preProjMatrix = new Matrix4().identity();
         this.preViewMatrix = new Matrix4().identity();
 
-        let [w, h] = webGPUContext.presentationSize;
+        let [w, h] = this._boundCtx!.presentationSize;
 
         this.preColorBuffer = new StorageGPUBuffer(w * h * 4, GPUBufferUsage.COPY_SRC);
 
-        this.preColorTex = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING);
+        this.preColorTex = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.preColorTex.name = 'taaTex';
         let preColorDec = new RTDescriptor();
         preColorDec.clearValue = [0, 0, 0, 1];
         preColorDec.loadOp = `clear`;
 
-        this.taaTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING);
+        this.taaTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.taaTexture.name = 'taaTex';
         let taaDec = new RTDescriptor();
         taaDec.clearValue = [0, 0, 0, 1];
         taaDec.loadOp = `clear`;
 
-        this.outTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING);
+        this.outTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.outTexture.name = 'sharpTaaTex';
         let outDec = new RTDescriptor();
         outDec.clearValue = [0, 0, 0, 1];
@@ -230,12 +224,14 @@ export class TAAPost extends PostBase {
      */
     render(view: View3D, command: GPUCommandEncoder) {
         if (!this.taaCompute) {
-            this.createResource();
+            this._createTaaResources();
             this.createCompute(view);
-            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(this.rtFrame, null);
+            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(view.engine3D.context3D, this.rtFrame, null);
         }
 
-        let cfg = Engine3D.setting.render.postProcessing.taa;
+        this.bindUpstream(this.taaCompute, 'inTex');
+
+        let cfg = this.setting.render.postProcessing.taa;
         this.taaSetting.setMatrix('preProjMatrix', this.preProjMatrix);
         this.taaSetting.setMatrix('preViewMatrix', this.preViewMatrix);
         this.taaSetting.setFloat('jitterFrameIndex', view.camera.jitterFrameIndex);
@@ -246,14 +242,14 @@ export class TAAPost extends PostBase {
         this.taaSetting.setFloat('jitterY', view.camera.jitterY);
         this.taaSetting.apply();
 
-        GPUContext.computeCommand(command, [this.copyTexCompute, this.taaCompute, this.sharpCompute]);
-        GPUContext.lastRenderPassState = this.rendererPassState;
-        this.preProjMatrix.copyFrom(view.camera.projectionMatrix);
-        this.preViewMatrix.copyFrom(view.camera.viewMatrix);
+        this._boundCtx!.gpuContext.computeCommand(command, [this.copyTexCompute, this.taaCompute, this.sharpCompute]);
+        this._boundCtx!.gpuContext.lastRenderPassState = this.rendererPassState;
+        this.preProjMatrix.copy(view.camera.projectionMatrix);
+        this.preViewMatrix.copy(view.camera.viewMatrix);
     }
 
     public onResize(): void {
-        let [w, h] = webGPUContext.presentationSize;
+        let [w, h] = this._boundCtx!.presentationSize;
 
         this.preColorBuffer.resizeBuffer(w * h * 4);
 

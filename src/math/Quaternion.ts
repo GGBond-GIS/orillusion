@@ -1,4 +1,4 @@
-import { FloatArray } from '@orillusion/wasm-matrix/WasmMatrix';
+import { FloatArray } from '../components/matrix/WasmMatrix';
 import { DEGREES_TO_RADIANS, RADIANS_TO_DEGREES } from './MathUtil';
 import { Orientation3D } from './Orientation3D';
 import { Vector3 } from './Vector3';
@@ -9,10 +9,15 @@ import { Vector3 } from './Vector3';
  */
 export class Quaternion {
 
+    /** Shared scratch quaternion for intermediate calculations. */
     public static HELP_0: Quaternion = new Quaternion(0, 0, 0, 1);
+    /** Shared scratch quaternion for intermediate calculations. */
     public static HELP_1: Quaternion = new Quaternion(0, 0, 0, 1);
+    /** Shared scratch quaternion for intermediate calculations. */
     public static HELP_2: Quaternion = new Quaternion(0, 0, 0, 1);
+    /** Shared identity quaternion (0, 0, 0, 1). */
     public static _zero: Quaternion = new Quaternion(0, 0, 0, 1);
+    /** Shared scratch quaternion used for rotation calculations. */
     public static CALCULATION_QUATERNION: Quaternion = new Quaternion();
     /**
      * @internal
@@ -100,6 +105,7 @@ export class Quaternion {
         m.rawData[15] = 1.0;
     }
 
+    /** The magnitude (norm) of this quaternion. */
     public get magnitude(): number {
         return Math.sqrt(this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z);
     }
@@ -119,6 +125,7 @@ export class Quaternion {
         return this;
     }
 
+    /** Divide this quaternion by another quaternion (component-wise, new instance) or by a scalar (in place). */
     public divide(v): Quaternion {
         if (v instanceof Quaternion) {
             return new Quaternion(this.x / v.x, this.y / v.y, this.z / v.z);
@@ -147,7 +154,7 @@ export class Quaternion {
      * @param qa Quaternion 1
      * @param qb Quaternion 2
      */
-    public multiply(qa: Quaternion, qb: Quaternion) {
+    public multiply(qa: Quaternion, qb: Quaternion): this {
         var w1: number = qa.w;
         var x1: number = qa.x;
         var y1: number = qa.y;
@@ -161,20 +168,22 @@ export class Quaternion {
         this.x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2;
         this.y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2;
         this.z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2;
+        return this;
     }
 
-    public multiplyVector(vector: Vector3, target: Quaternion = null): Quaternion {
-        target ||= new Quaternion();
-        var x2: number = vector.x;
-        var y2: number = vector.y;
-        var z2: number = vector.z;
-
-        target.w = -this.x * x2 - this.y * y2 - this.z * z2;
-        target.x = this.w * x2 + this.y * z2 - this.z * y2;
-        target.y = this.w * y2 - this.x * z2 + this.z * x2;
-        target.z = this.w * z2 + this.x * y2 - this.y * x2;
-
-        return target;
+    /**
+     * Multiply this quaternion by a vector. Returns a new Quaternion.
+     */
+    public multiplyVector(vector: Vector3): Quaternion {
+        const x2: number = vector.x;
+        const y2: number = vector.y;
+        const z2: number = vector.z;
+        return new Quaternion(
+            this.w * x2 + this.y * z2 - this.z * y2,
+            this.w * y2 - this.x * z2 + this.z * x2,
+            this.w * z2 + this.x * y2 - this.y * x2,
+            -this.x * x2 - this.y * y2 - this.z * z2,
+        );
     }
 
     /**
@@ -182,7 +191,7 @@ export class Quaternion {
      * @param axis  axis
      * @param angle angle
      */
-    public fromAxisAngle(axis: Vector3, angle: number) {
+    public setFromAxisAngle(axis: Vector3, angle: number): this {
         angle *= Math.PI / 180.0;
         var halfAngle: number = angle * 0.5;
         var sinA: number = Math.sin(halfAngle);
@@ -193,6 +202,7 @@ export class Quaternion {
         this.z = axis.z * sinA;
 
         this.normalize();
+        return this;
     }
 
     /**
@@ -312,7 +322,7 @@ export class Quaternion {
      * @param    ay        The angle in radians of the rotation around the ay axis.
      * @param    az        The angle in radians of the rotation around the az axis.
      */
-    public fromEulerAngles(ax: number, ay: number, az: number): Quaternion {
+    public setFromEuler(ax: number, ay: number, az: number): Quaternion {
         ax *= DEGREES_TO_RADIANS;
         ay *= DEGREES_TO_RADIANS;
         az *= DEGREES_TO_RADIANS;
@@ -423,20 +433,21 @@ export class Quaternion {
             z = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz));
         }
 
-        return eulers.set(x, y, z).scaleBy(RADIANS_TO_DEGREES);
+        return eulers.set(x, y, z).multiplyScalar(RADIANS_TO_DEGREES);
     }
 
     /**
      * The normalize of the quaternion. Convert this quaternion to a normalize coefficient.
      * @param val normalize coefficient, which is 1 by default
      */
-    public normalize(val: number = 1): void {
+    public normalize(val: number = 1): this {
         var mag: number = val / Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w);
 
         this.x *= mag;
         this.y *= mag;
         this.z *= mag;
         this.w *= mag;
+        return this;
     }
 
     /**
@@ -448,36 +459,10 @@ export class Quaternion {
     }
 
     /**
-     * Extracts a quaternion rotation matrix out of a given Matrix3D object.
-     * @param matrix The Matrix3D out of which the rotation will be extracted.
+     * Inverts this quaternion in place. Mutates and returns this.
      */
-    public fromMatrix(matrix: any) {
-        var v: Vector3 = matrix.decompose(Orientation3D.QUATERNION)[1];
-        this.x = v.x;
-        this.y = v.y;
-        this.z = v.z;
-        this.w = v.w;
-    }
-
-    /**
-     * Returns a quaternion that inverts the current quaternion
-     * @param target The default parameter is null. If the current parameter is null, a new quaternion object is returned
-     * @returns Quaternion Result
-     */
-    public inverse(target: Quaternion = null): Quaternion {
-        target ||= new Quaternion();
-
-        var norm: number = this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z;
-
-        if (norm > 0.0) {
-            var invNorm = 1.0 / norm;
-            target.w = this.w * invNorm;
-            target.x = -this.x * invNorm;
-            target.y = -this.y * invNorm;
-            target.z = -this.z * invNorm;
-        }
-
-        return target;
+    public invert(): this {
+        return Quaternion.invert(this, this) as this;
     }
 
     /**
@@ -489,39 +474,17 @@ export class Quaternion {
     }
 
     /**
-     * Rotates a point.
-     * @param vector The Vector3D object to be rotated.
-     * @param target An optional Vector3D object that will contain the rotated coordinates. If not provided, a new object will be created.
-     * @returns A Vector3D object containing the rotated point.
+     * Rotates `vector` by this quaternion. Mutates and returns `vector`.
      */
-    public transformVector(vector: Vector3, target: Vector3 = null): Vector3 {
-        var x1: number;
-        var y1: number;
-        var z1: number;
-        var w1: number;
-        var x2: number = vector.x;
-        var y2: number = vector.y;
-        var z2: number = vector.z;
-
-        target ||= new Vector3();
-
-        // p*q'
-        w1 = -this.x * x2 - this.y * y2 - this.z * z2;
-        x1 = this.w * x2 + this.y * z2 - this.z * y2;
-        y1 = this.w * y2 - this.x * z2 + this.z * x2;
-        z1 = this.w * z2 + this.x * y2 - this.y * x2;
-
-        target.x = -w1 * this.x + x1 * this.w - y1 * this.z + z1 * this.y;
-        target.y = -w1 * this.y + x1 * this.z + y1 * this.w - z1 * this.x;
-        target.z = -w1 * this.z - x1 * this.y + y1 * this.x + z1 * this.w;
-        return target;
+    public transformVector(vector: Vector3): Vector3 {
+        return Quaternion.transformVector(this, vector, vector);
     }
 
     /**
      * Copies the data from a quaternion into this instance.
      * @param q The quaternion to copy from.
      */
-    public copyFrom(q: Quaternion | Vector3): this {
+    public copy(q: Quaternion | Vector3): this {
         var v = this;
         v.x = q.x;
         v.y = q.y;
@@ -534,13 +497,63 @@ export class Quaternion {
      * from untiy API
      * op
      */
-    public mul(lhs: Quaternion, rhs: Quaternion, target?: Quaternion) {
-        let ret = target || new Quaternion();
-        ret.x = lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y;
-        ret.y = lhs.w * rhs.y + lhs.y * rhs.w + lhs.z * rhs.x - lhs.x * rhs.z;
-        ret.z = lhs.w * rhs.z + lhs.z * rhs.w + lhs.x * rhs.y - lhs.y * rhs.x;
-        ret.w = lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z;
-        return ret;
+    public static mul(lhs: Quaternion, rhs: Quaternion, result?: Quaternion): Quaternion {
+        result ||= new Quaternion();
+        const x = lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y;
+        const y = lhs.w * rhs.y + lhs.y * rhs.w + lhs.z * rhs.x - lhs.x * rhs.z;
+        const z = lhs.w * rhs.z + lhs.z * rhs.w + lhs.x * rhs.y - lhs.y * rhs.x;
+        const w = lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z;
+        result.x = x;
+        result.y = y;
+        result.z = z;
+        result.w = w;
+        return result;
+    }
+
+    /**
+     * Canonical static multiply — alias of Quaternion.mul.
+     */
+    public static multiply(a: Quaternion, b: Quaternion, result?: Quaternion): Quaternion {
+        return Quaternion.mul(a, b, result);
+    }
+
+    /**
+     * Invert a quaternion.
+     */
+    public static invert(src: Quaternion, result?: Quaternion): Quaternion {
+        result ||= new Quaternion();
+        const norm = src.w * src.w + src.x * src.x + src.y * src.y + src.z * src.z;
+        if (norm > 0.0) {
+            const invNorm = 1.0 / norm;
+            result.w = src.w * invNorm;
+            result.x = -src.x * invNorm;
+            result.y = -src.y * invNorm;
+            result.z = -src.z * invNorm;
+        } else {
+            result.x = result.y = result.z = 0;
+            result.w = 1;
+        }
+        return result;
+    }
+
+    /**
+     * Rotate a Vector3 by a Quaternion.
+     */
+    public static transformVector(q: Quaternion, v: Vector3, result?: Vector3): Vector3 {
+        result ||= new Vector3();
+        const x2 = v.x;
+        const y2 = v.y;
+        const z2 = v.z;
+
+        const w1 = -q.x * x2 - q.y * y2 - q.z * z2;
+        const x1 = q.w * x2 + q.y * z2 - q.z * y2;
+        const y1 = q.w * y2 - q.x * z2 + q.z * x2;
+        const z1 = q.w * z2 + q.x * y2 - q.y * x2;
+
+        result.x = -w1 * q.x + x1 * q.w - y1 * q.z + z1 * q.y;
+        result.y = -w1 * q.y + x1 * q.z + y1 * q.w - z1 * q.x;
+        result.z = -w1 * q.z - x1 * q.y + y1 * q.x + z1 * q.w;
+        return result;
     }
 
     private clampf(value: number, minInclusive: number, maxInclusive: number): number {
@@ -552,9 +565,99 @@ export class Quaternion {
         return value < minInclusive ? minInclusive : value < maxInclusive ? value : maxInclusive;
     }
 
+    /** Returns a new Quaternion copy of the given quaternion, used for serialization. */
     static serialize(value: Quaternion): Quaternion {
         let v = new Quaternion(value.x, value.y, value.z, value.w);
         return v;
+    }
+
+    // -------- Standard instance API --------
+
+    /** Set this = a * b. Canonical alias of {@link multiply}. */
+    public multiplyQuaternions(a: Quaternion, b: Quaternion): this {
+        return this.multiply(a, b);
+    }
+
+    /** Set this = q * this. */
+    public premultiply(q: Quaternion): this {
+        return Quaternion.mul(q, this, this) as this;
+    }
+
+    /** Conjugate: negate (x, y, z). For a unit quaternion this equals the inverse. */
+    public conjugate(): this {
+        this.x = -this.x;
+        this.y = -this.y;
+        this.z = -this.z;
+        return this;
+    }
+
+    /** Dot product of this quaternion and q. */
+    public dot(q: Quaternion): number {
+        return this.x * q.x + this.y * q.y + this.z * q.z + this.w * q.w;
+    }
+
+    /** Squared length (norm) of this quaternion. */
+    public lengthSq(): number {
+        return this.dot(this);
+    }
+
+    /** Length (norm) of this quaternion. */
+    public length(): number {
+        return Math.sqrt(this.lengthSq());
+    }
+
+    /** Returns true if every component of q exactly equals this quaternion. */
+    public equals(q: Quaternion): boolean {
+        return q.x === this.x && q.y === this.y && q.z === this.z && q.w === this.w;
+    }
+
+    /** Set x/y/z/w from array starting at offset. Mutates and returns this. */
+    public fromArray(array: ArrayLike<number>, offset: number = 0): this {
+        this.x = array[offset];
+        this.y = array[offset + 1];
+        this.z = array[offset + 2];
+        this.w = array[offset + 3];
+        return this;
+    }
+
+    /** Write x/y/z/w into array starting at offset and return the array. */
+    public toArray(array: number[] = [], offset: number = 0): number[] {
+        array[offset] = this.x;
+        array[offset + 1] = this.y;
+        array[offset + 2] = this.z;
+        array[offset + 3] = this.w;
+        return array;
+    }
+
+    /** Set this = the rotation that takes unit vector vFrom to unit vector vTo. */
+    public setFromUnitVectors(vFrom: Vector3, vTo: Vector3): this {
+        let r = vFrom.x * vTo.x + vFrom.y * vTo.y + vFrom.z * vTo.z + 1;
+        if (r < Number.EPSILON) {
+            // vFrom and vTo are antiparallel — pick any axis ⟂ vFrom
+            r = 0;
+            if (Math.abs(vFrom.x) > Math.abs(vFrom.z)) {
+                this.x = -vFrom.y;
+                this.y = vFrom.x;
+                this.z = 0;
+            } else {
+                this.x = 0;
+                this.y = -vFrom.z;
+                this.z = vFrom.y;
+            }
+            this.w = r;
+        } else {
+            this.x = vFrom.y * vTo.z - vFrom.z * vTo.y;
+            this.y = vFrom.z * vTo.x - vFrom.x * vTo.z;
+            this.z = vFrom.x * vTo.y - vFrom.y * vTo.x;
+            this.w = r;
+        }
+        return this.normalize();
+    }
+
+    /** Canonical alias of {@link slerp} (qa, qb, t form). */
+    public slerpQuaternions(qa: Quaternion, qb: Quaternion, t: number): this {
+        this.slerp(qa, qb, t);
+        return this;
     }
 }
 

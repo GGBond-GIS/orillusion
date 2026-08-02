@@ -1,7 +1,6 @@
 import { Texture } from '../gfx/graphics/webGpu/core/texture/Texture';
 import { GPUAddressMode, GPUTextureFormat } from '../gfx/graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../gfx/graphics/webGpu/Context3D';
-import { GPUContext } from '../gfx/renderJob/GPUContext';
+import { Context3D } from '../gfx/graphics/webGpu/Context3D';
 import { UUID } from '../util/Global';
 /**
  * @internal
@@ -10,12 +9,18 @@ import { UUID } from '../util/Global';
  * @group Texture
  */
 export class VirtualTexture extends Texture {
+    /** Resolve target view used when this texture is multisampled. */
     public resolveTarget: GPUTextureView;
+    /** Number of MSAA samples; 0 means no multisampling. */
     sampleCount: number;
     // storeOp: string = 'store';
     // loadOp: GPULoadOp = `load`;
     // clearValue: GPUColor = [0, 0, 0, 0];
 
+    /**
+     * Create a copy of this texture with the same configuration.
+     * @returns the cloned virtual texture
+     */
     public clone() {
         let texture = new VirtualTexture(this.width, this.height, this.format, this.useMipmap, this.usage, this.numberLayer, this.sampleCount);
         texture.name = "clone_" + texture.name;
@@ -30,9 +35,9 @@ export class VirtualTexture extends Texture {
      * @param useMipmap whether or not gen mipmap
      * @returns
      */
-    constructor(width: number, height: number, format: GPUTextureFormat = GPUTextureFormat.rgba8unorm, useMipMap: boolean = false, usage?: GPUFlagsConstant, numberLayer: number = 1, sampleCount: number = 0, mipmapCount: number = 1) {
+    constructor(width: number, height: number, format: GPUTextureFormat = GPUTextureFormat.rgba8unorm, useMipMap: boolean = false, usage?: GPUFlagsConstant, numberLayer: number = 1, sampleCount: number = 0, mipmapCount: number = 1, ctx?: Context3D) {
         super(width, height, numberLayer);
-        let device = webGPUContext.device;
+        this._ensureBound(ctx);
         this.name = UUID();
 
         this.useMipmap = useMipMap;
@@ -50,10 +55,15 @@ export class VirtualTexture extends Texture {
         this.resize(width, height);
     }
 
+    /**
+     * Recreate the GPU texture and sampler for the new size and current format.
+     * @param width new texture width
+     * @param height new texture height
+     */
     public resize(width, height) {
-        let device = webGPUContext.device;
+        let device = this._boundCtx!.device;
         if (this.gpuTexture) {
-            Texture.delayDestroyTexture(this.gpuTexture);
+            Texture.delayDestroyTexture(this._boundCtx!, this.gpuTexture);
             this.gpuTexture = null;
             this.view = null;
         }
@@ -72,8 +82,8 @@ export class VirtualTexture extends Texture {
             this.samplerBindingLayout.type = `filtering`;
             this.sampler_comparisonBindingLayout.type = `comparison`;
             this.textureBindingLayout.sampleType = `depth`;
-            this.gpuSampler = webGPUContext.device.createSampler({});
-            this.gpuSampler_comparison = webGPUContext.device.createSampler({
+            this.gpuSampler = device.createSampler({});
+            this.gpuSampler_comparison = device.createSampler({
                 compare: 'less',
                 label: "sampler_comparison"
             });
@@ -85,8 +95,8 @@ export class VirtualTexture extends Texture {
                 type: 'comparison',
             }
             this.textureBindingLayout.sampleType = `depth`;
-            this.gpuSampler = webGPUContext.device.createSampler({});
-            this.gpuSampler_comparison = webGPUContext.device.createSampler({
+            this.gpuSampler = device.createSampler({});
+            this.gpuSampler_comparison = device.createSampler({
                 compare: 'less',
                 label: "sampler_comparison"
             });
@@ -122,7 +132,7 @@ export class VirtualTexture extends Texture {
     * @returns
     */
     public create(width: number, height: number, useMiamp: boolean = true) {
-        let device = webGPUContext.device;
+        let device = this._boundCtx!.device;
         const bytesPerRow = width * 4;
         let td = new Float32Array(width * height * 4);
 
@@ -132,7 +142,7 @@ export class VirtualTexture extends Texture {
         });
 
         device.queue.writeBuffer(textureDataBuffer, 0, td);
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = this._boundCtx!.gpuContext.beginCommandEncoder();
         commandEncoder.copyBufferToTexture(
             {
                 buffer: textureDataBuffer,
@@ -148,13 +158,18 @@ export class VirtualTexture extends Texture {
             },
         );
 
-        GPUContext.endCommandEncoder(commandEncoder);
+        this._boundCtx!.gpuContext.endCommandEncoder(commandEncoder);
     }
 
+    /**
+     * Copy this texture's contents back into a CPU buffer.
+     * @returns the mapped array buffer of the texture data
+     */
     public readTextureToImage() {
-        let device = webGPUContext.device;
-        let w = webGPUContext.windowWidth;
-        let h = webGPUContext.windowHeight;
+        const ctx = this._boundCtx!;
+        let device = ctx.device;
+        let w = ctx.windowWidth;
+        let h = ctx.windowHeight;
         const bytesPerRow = w * 4;
         let td = new Float32Array(w * h * 4);
 
@@ -162,7 +177,7 @@ export class VirtualTexture extends Texture {
             size: td.byteLength,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
-        const commandEncoder = GPUContext.beginCommandEncoder();
+        const commandEncoder = ctx.gpuContext.beginCommandEncoder();
         commandEncoder.copyTextureToBuffer(
             {
                 texture: this.getGPUTexture()

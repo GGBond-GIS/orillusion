@@ -16,29 +16,7 @@ struct ConstUniform{
    screenHeight:f32
 }
 
-struct LightData {
-     index:f32,
-     lightType:i32,
-     radius:f32,
-     linear:f32,
-     
-     position:vec3<f32>,
-     lightMatrixIndex:f32,
-
-     direction:vec3<f32>,
-     quadratic:f32,
-
-     lightColor:vec3<f32>,
-     intensity:f32,
-
-     innerCutOff :f32,
-     outerCutOff:f32,
-     range :f32,
-     castShadow:i32,
-
-     lightTangent:vec3<f32>,
-     ies:f32,
-};
+#include "LightData"
 
 struct Uniforms {
      matrix : array<mat4x4<f32>>
@@ -63,7 +41,7 @@ const SpotLightType = 3;
 
 @group(1) @binding(auto) var shadowMapSampler : sampler_comparison;
 @group(1) @binding(auto) var shadowMap : texture_depth_2d_array;
-@group(1) @binding(auto) var pointShadowMapSampler: sampler;
+@group(1) @binding(auto) var pointShadowMapSampler: sampler_comparison;
 @group(1) @binding(auto) var pointShadowMap: texture_depth_cube_array ;
 
 @group(2) @binding(0)
@@ -165,9 +143,9 @@ fn pointShadowMapCompare(shadowBias:f32){
        var dir:vec3<f32> = normalize(frgToLight)  ;
 
        var len = length(frgToLight) ;
-       var depth = textureSampleLevel(pointShadowMap,pointShadowMapSampler,dir.xyz,i,0); 
-       depth *= globalUniform.far ;
-       if((len - shadowBias) > depth){
+       let compareZ = (len - shadowBias) / globalUniform.far;
+       var depth = textureSampleCompareLevel(pointShadowMap,pointShadowMapSampler,dir.xyz,i,compareZ); 
+       if(depth < 0.5){
           v = 0.0 ; 
        }
        shadowStrut.pointShadows[i] = v ;

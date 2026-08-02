@@ -1,8 +1,10 @@
 import { GeometryBase } from "../core/geometry/GeometryBase";
+import { GeometryVertexType } from "../core/geometry/GeometryVertexType";
 import { VertexAttributeName } from "../core/geometry/VertexAttributeName";
 
 /**
- * Plane geometry
+ * Triangle-list geometry allocating buffers for a fixed number of
+ * free-standing triangle faces.
  * @group Geometry
  */
 export class TriGeometry extends GeometryBase {
@@ -16,6 +18,7 @@ export class TriGeometry extends GeometryBase {
     constructor(count: number) {
         super();
         this.faceCount = count;
+        this.geometryType = GeometryVertexType.compose;
         this.buildGeometry();
     }
 

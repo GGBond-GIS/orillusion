@@ -306,11 +306,11 @@ export class SkeletonAnimationComponent extends ComponentBase {
     })
 
     if (mixClipState.length > 0) {
-      this._mixSkeletonPose.copyFrom(mixClipState[0].currSkeletonPose);
+      this._mixSkeletonPose.copy(mixClipState[0].currSkeletonPose);
       for (var i = 1; i < mixClipState.length; ++i) {
         const clipState = mixClipState[i];
         this._mixTempSkeletonPose.lerp(this._mixSkeletonPose, clipState.currSkeletonPose, clipState.weight / totalWeight);
-        this._mixSkeletonPose.copyFrom(this._mixTempSkeletonPose);
+        this._mixSkeletonPose.copy(this._mixTempSkeletonPose);
       }
     }
   }

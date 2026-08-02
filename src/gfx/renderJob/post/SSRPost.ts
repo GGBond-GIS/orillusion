@@ -7,8 +7,6 @@ import { UniformGPUBuffer } from '../../graphics/webGpu/core/buffer/UniformGPUBu
 import { WebGPUDescriptorCreator } from '../../graphics/webGpu/descriptor/WebGPUDescriptorCreator';
 import { ComputeShader } from '../../graphics/webGpu/shader/ComputeShader';
 import { GPUTextureFormat } from '../../graphics/webGpu/WebGPUConst';
-import { webGPUContext } from '../../graphics/webGpu/Context3D';
-import { GPUContext } from '../GPUContext';
 import { RendererPassState } from '../passRenderer/state/RendererPassState';
 import { PostBase } from './PostBase';
 import { clamp } from '../../../math/MathUtil';
@@ -26,7 +24,7 @@ import { SSR_BlendColor_cs } from '../../../assets/shader/compute/SSR_BlendColor
  * Screen space reflection
  * ```
  *       //setting
- *       let cfg = {@link Engine3D.setting.render.postProcessing.ssr};
+ *       let cfg = {@link this.setting.render.postProcessing.ssr};
  *         let view = new View3D();
         view.scene = this.scene;
         view.camera = mainCamera;
@@ -51,10 +49,6 @@ export class SSRPost extends PostBase {
     /**
      * @internal
      */
-    rendererPassState: RendererPassState;
-    /**
-     * @internal
-     */
     ssrUniformBuffer: UniformGPUBuffer;
     /**
      * @internal
@@ -76,80 +70,80 @@ export class SSRPost extends PostBase {
      */
     public onAttach(view: View3D,) {
         this.view = view;
-        Engine3D.setting.render.postProcessing.ssr.enable = true;
+        this.setting.render.postProcessing.ssr.enable = true;
     }
     /**
      * @internal
      */
     public onDetach(view: View3D,) {
-        Engine3D.setting.render.postProcessing.ssr.enable = false;
+        this.setting.render.postProcessing.ssr.enable = false;
     }
 
     private reflectionRatio: number = 0.5;//sqrt
 
     public get fadeEdgeRatio() {
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         return setting.fadeEdgeRatio;
     }
 
     public set fadeEdgeRatio(value: number) {
         value = clamp(value, 0, 1);
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         setting.fadeEdgeRatio = value;
     }
 
     public get rayMarchRatio() {
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         return setting.rayMarchRatio;
     }
 
     public set rayMarchRatio(value: number) {
         value = clamp(value, 0, 1);
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         setting.rayMarchRatio = value;
     }
 
     public get roughnessThreshold() {
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         return setting.roughnessThreshold;
     }
 
     public set roughnessThreshold(value: number) {
         value = clamp(value, 0, 1);
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         setting.roughnessThreshold = value;
     }
 
     public get fadeDistanceMin() {
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         return setting.fadeDistanceMin;
     }
 
     public set fadeDistanceMin(value: number) {
         value = clamp(value, 0, 10000);
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         setting.fadeDistanceMin = value;
     }
 
     public get fadeDistanceMax() {
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         return setting.fadeDistanceMax;
     }
 
     public set fadeDistanceMax(value: number) {
         value = clamp(value, 0, 10000);
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         setting.fadeDistanceMax = value;
     }
 
     public get powDotRN() {
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         return setting.powDotRN;
     }
 
     public set powDotRN(value: number) {
         value = clamp(value, 0, 1);
-        let setting = Engine3D.setting.render.postProcessing.ssr;
+        let setting = this.setting.render.postProcessing.ssr;
         setting.powDotRN = value;
     }
 
@@ -162,13 +156,14 @@ export class SSRPost extends PostBase {
         this.SSR_RayTraceCompute.setStorageBuffer(`rayTraceBuffer`, this.rayTraceData);
         this.SSR_RayTraceCompute.setStorageBuffer(`historyPosition`, this.historyPosition);
 
-        let rtFrame = GBufferFrame.getGBufferFrame("ColorPassGBuffer");
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, this._boundCtx!);
         let gBufferTexture = rtFrame.getCompressGBufferTexture();
 
         this.SSR_RayTraceCompute.setSamplerTexture("gBufferTexture", gBufferTexture);
 
-        if (EntityCollect.instance.sky instanceof SkyRenderer)
-            this.SSR_RayTraceCompute.setSamplerTexture(`prefilterMap`, EntityCollect.instance.sky.map);
+        const sky = EntityCollect.instance.getSky(this.view?.scene);
+        if (sky instanceof SkyRenderer)
+            this.SSR_RayTraceCompute.setSamplerTexture(`prefilterMap`, sky.map);
 
         this.SSR_RayTraceCompute.workerSizeX = Math.ceil(this.isRetTexture.width / 8);
         this.SSR_RayTraceCompute.workerSizeY = Math.ceil(this.isRetTexture.height / 8);
@@ -182,7 +177,7 @@ export class SSRPost extends PostBase {
         this.SSR_IS_Compute.setStorageBuffer(`rayTraceBuffer`, this.rayTraceData);
         this.SSR_IS_Compute.setStorageBuffer(`ssrColorData`, this.ssrColorData);
         this.SSR_IS_Compute.setStorageBuffer(`historyPosition`, this.historyPosition);
-        this.SSR_IS_Compute.setSamplerTexture(`colorMap`, this.getOutTexture());
+        this.SSR_IS_Compute.setSamplerTexture(`colorMap`, this.getLastRenderTexture());
 
         this.SSR_IS_Compute.setStorageTexture(`outTex`, this.isRetTexture);
 
@@ -198,11 +193,11 @@ export class SSRPost extends PostBase {
         this.SSR_Blend_Compute.setStorageBuffer(`rayTraceBuffer`, this.rayTraceData);
         this.SSR_Blend_Compute.setUniformBuffer('globalUniform', globalUniform.uniformGPUBuffer);
 
-        let rtFrame = GBufferFrame.getGBufferFrame("ColorPassGBuffer");
+        let rtFrame = GBufferFrame.getGBufferFrame(GBufferFrame.colorPass_GBuffer, this._boundCtx!);
         let gBufferTexture = rtFrame.getCompressGBufferTexture();
 
         this.SSR_Blend_Compute.setSamplerTexture("gBufferTexture", gBufferTexture);
-        this.SSR_Blend_Compute.setSamplerTexture("colorMap", this.getOutTexture());
+        this.SSR_Blend_Compute.setSamplerTexture("colorMap", this.getLastRenderTexture());
         this.SSR_Blend_Compute.setSamplerTexture(`ssrMap`, input);
         this.SSR_Blend_Compute.setStorageTexture(`outTex`, this.finalTexture);
 
@@ -211,19 +206,19 @@ export class SSRPost extends PostBase {
         this.SSR_Blend_Compute.workerSizeZ = 1;
     }
 
-    private createResource() {
-        let [w, h] = webGPUContext.presentationSize;
+    private _createSsrResources() {
+        let [w, h] = this._boundCtx!.presentationSize;
 
-        this.finalTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING);
+        this.finalTexture = new VirtualTexture(w, h, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.finalTexture.name = 'ssrOutTex';
         let rtDec = new RTDescriptor();
         rtDec.clearValue = [0, 0, 0, 0];
         rtDec.loadOp = `clear`;
 
-        let ssrWidth = Math.ceil(w * Engine3D.setting.render.postProcessing.ssr.pixelRatio);
-        let ssrHeight = Math.ceil(h * Engine3D.setting.render.postProcessing.ssr.pixelRatio);
+        let ssrWidth = Math.ceil(w * this.setting.render.postProcessing.ssr.pixelRatio);
+        let ssrHeight = Math.ceil(h * this.setting.render.postProcessing.ssr.pixelRatio);
 
-        this.isRetTexture = new VirtualTexture(ssrWidth, ssrHeight, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING);
+        this.isRetTexture = new VirtualTexture(ssrWidth, ssrHeight, GPUTextureFormat.rgba16float, false, GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING, 1, 0, 1, this._boundCtx!);
         this.isRetTexture.name = 'ssrTextureIn';
         let isRetDec = new RTDescriptor();
         isRetDec.clearValue = [0, 0, 0, 0];
@@ -255,17 +250,20 @@ export class SSRPost extends PostBase {
      */
     render(view: View3D, command: GPUCommandEncoder) {
         if (!this.SSR_RayTraceCompute) {
-            this.createResource();
+            this._createSsrResources();
             this.createISShader();
             this.createRayTraceShader();
             this.createBlendShader(this.isRetTexture);
-            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(this.rtFrame, null);
+            this.rendererPassState = WebGPUDescriptorCreator.createRendererPassState(view.engine3D.context3D, this.rtFrame, null);
 
             let standUniform = GlobalBindGroup.getCameraGroup(view.camera);
             this.SSR_RayTraceCompute.setUniformBuffer('standUniform', standUniform.uniformGPUBuffer);
         }
 
-        let setting: SSRSetting = Engine3D.setting.render.postProcessing.ssr;
+        this.bindUpstream(this.SSR_IS_Compute, 'colorMap');
+        this.bindUpstream(this.SSR_Blend_Compute, 'colorMap');
+
+        let setting: SSRSetting = this.setting.render.postProcessing.ssr;
         this.ssrUniformBuffer.setFloat('fadeEdgeRatio', setting.fadeEdgeRatio);
         this.ssrUniformBuffer.setFloat('rayMarchRatio', setting.rayMarchRatio);
         this.ssrUniformBuffer.setFloat('fadeDistanceMin', setting.fadeDistanceMin);
@@ -282,15 +280,15 @@ export class SSRPost extends PostBase {
         this.ssrUniformBuffer.apply();
 
         let computes = [this.SSR_RayTraceCompute, this.SSR_IS_Compute, this.SSR_Blend_Compute];
-        GPUContext.computeCommand(command, computes);
-        GPUContext.lastRenderPassState = this.rendererPassState;
+        this._boundCtx!.gpuContext.computeCommand(command, computes);
+        this._boundCtx!.gpuContext.lastRenderPassState = this.rendererPassState;
     }
 
     public onResize(): void {
-        let [w, h] = webGPUContext.presentationSize;
+        let [w, h] = this._boundCtx!.presentationSize;
 
-        let ssrWidth = Math.ceil(w * Engine3D.setting.render.postProcessing.ssr.pixelRatio);
-        let ssrHeight = Math.ceil(h * Engine3D.setting.render.postProcessing.ssr.pixelRatio);
+        let ssrWidth = Math.ceil(w * this.setting.render.postProcessing.ssr.pixelRatio);
+        let ssrHeight = Math.ceil(h * this.setting.render.postProcessing.ssr.pixelRatio);
 
         this.finalTexture.resize(w, h);
         this.isRetTexture.resize(ssrWidth, ssrHeight);

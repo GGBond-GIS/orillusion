@@ -1,24 +1,24 @@
-import { test, expect, end, delay } from '../util'
+import { test, expect, end, waitUntil } from '../util'
 import { CameraUtil, Color, Engine3D, PostProcessingComponent, SSRPost, Scene3D, SkyRenderer, SolidColorSky, View3D } from '@orillusion/core';
 
 await test('Post SSR test', async () => {
-    await Engine3D.init();
-    Engine3D.frameRate = 1;
+    const engine = await Engine3D.init();
 
     let view = new View3D();
     view.scene = new Scene3D();
     let sky = view.scene.addComponent(SkyRenderer)
-    sky.map = new SolidColorSky(new Color(0, 0, 0))
+    sky.map = new SolidColorSky(new Color(0, 0, 0), engine.context3D)
     view.scene.envMap = sky.map
     view.camera = CameraUtil.createCamera3DObject(view.scene, "camera");
-    Engine3D.startRenderViews([view]);
+    engine.startRenderViews([view]);
 
     let postProcessing = view.scene.addComponent(PostProcessingComponent);
     let ssr = postProcessing.addPost(SSRPost);
 
-    await delay(1000)
-
-    let dest = Math.floor(window.innerWidth * window.devicePixelRatio);
+    // finalTexture is created lazily inside SSRPost.render(); poll
+    // instead of racing a fixed delay against the RAF tick.
+    await waitUntil(() => ssr.finalTexture)
+    let dest = engine.context3D.presentationSize[0];
     let src = ssr.finalTexture?.width;
     expect(src).tobe(dest)
 

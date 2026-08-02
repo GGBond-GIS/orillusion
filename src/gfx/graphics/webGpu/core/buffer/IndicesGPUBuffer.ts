@@ -1,6 +1,4 @@
-import { MemoryDO } from '../../../../../core/pool/memory/MemoryDO';
 import { MemoryInfo } from '../../../../../core/pool/memory/MemoryInfo';
-import { webGPUContext } from '../../Context3D';
 import { ArrayBufferData } from './ArrayBufferData';
 import { GPUBufferBase } from './GPUBufferBase';
 import { GPUBufferType } from './GPUBufferType';
@@ -20,26 +18,11 @@ export class IndicesGPUBuffer extends GPUBufferBase {
     }
 
     protected createIndicesBuffer(usage: GPUBufferUsageFlags, data?: ArrayBufferData) {
-        let device = webGPUContext.device;
-        this.byteSize = data.length * 4;
-        this.usage = usage;
-        if (this.buffer) {
-            this.destroy();
-        }
-        this.buffer = device.createBuffer({
-            label: "IndicesGPUBuffer",
-            size: this.byteSize,
-            usage: usage,
-            mappedAtCreation: false,
-        });
-
-        this.memory = new MemoryDO();
-        this.memoryNodes = new Map<string | number, MemoryInfo>();
-        this.memory.allocation(this.byteSize);
+        const size = data ? data.length : 0;
+        this.createBuffer(usage, size, undefined, "IndicesGPUBuffer");
         if (data) {
             this.indicesNode = this.memory.allocation_node(data.length * 4);
-            this.indicesNode.setArrayBuffer(0, data);
-            this.apply();
+            this.indicesNode.setArrayBuffer(0, data as unknown as ArrayBuffer);
         }
     }
 }

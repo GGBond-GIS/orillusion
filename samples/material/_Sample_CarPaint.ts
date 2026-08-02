@@ -2,43 +2,45 @@ import {
 	View3D, DirectLight, Engine3D,
 	PostProcessingComponent, LitMaterial, HoverCameraController,
 	KelvinUtil, MeshRenderer, Object3D, PlaneGeometry, Scene3D, SphereGeometry,
-	CameraUtil, webGPUContext, BoxGeometry, TAAPost, AtmosphericComponent, GTAOPost, Color, BloomPost, SSRPost, SSGIPost, GBufferPost, FXAAPost, SkyRenderer, Reflection, SphereReflection, GBufferFrame, ProfilerUtil, Time, SpotLight, Object3DUtil, Object3DTransformTools, PointLight, DepthOfFieldPost, OutlinePost, Material, Vector3
+	CameraUtil, BoxGeometry, TAAPost, AtmosphericComponent, GTAOPost, Color, BloomPost, SSRPost, SSGIPost, GBufferPost, FXAAPost, SkyRenderer, Reflection, SphereReflection, GBufferFrame, ProfilerUtil, Time, SpotLight, Object3DUtil, Object3DTransformTools, PointLight, DepthOfFieldPost, OutlinePost, Material, Vector3
 } from '@orillusion/core';
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { GUIUtil } from '@samples/utils/GUIUtil';
 
 export class Sample_CarPaint {
+    engine: Engine3D;
 	lightObj: Object3D;
 	scene: Scene3D;
 	view: View3D;
 
 	async run() {
-		Engine3D.setting.shadow.shadowSize = 2048
-		Engine3D.setting.shadow.shadowBound = 175;
-		Engine3D.setting.shadow.shadowBias = 0.0061;
-
-		Engine3D.setting.shadow.shadowBound = 550;
-		Engine3D.setting.shadow.shadowBias = 0.018;
-		Engine3D.setting.render.useCompressGBuffer = true;
-
-		Engine3D.setting.reflectionSetting.reflectionProbeMaxCount = 8;
-		Engine3D.setting.reflectionSetting.reflectionProbeSize = 128;
-		Engine3D.setting.reflectionSetting.enable = true;
-
-		Engine3D.setting.render.hdrExposure = 1.0;
-
 		GUIHelp.init();
-		await Engine3D.init();
+		const engine = this.engine = await Engine3D.init({
+			setting: {
+				shadow: {
+					shadowSize: 2048,
+				},
+				render: {
+					useCompressGBuffer: true,
+					hdrExposure: 1.0,
+				},
+				reflectionSetting: {
+					reflectionProbeMaxCount: 8,
+					reflectionProbeSize: 128,
+					enable: true,
+				},
+			},
+		});
 
 		this.scene = new Scene3D();
 		let sky = this.scene.getOrAddComponent(SkyRenderer);
-		sky.map = await Engine3D.res.loadTextureCubeStd('sky/LDR_sky.jpg');
+		sky.map = await this.engine.res.loadTextureCubeStd('sky/LDR_sky.jpg');
 		sky.exposure = 1.0;
 		sky.useSkyReflection();
 		// sky.enable = false;
 
 		let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera');
-		mainCamera.perspective(60, webGPUContext.aspect, 1, 8000.0);
+		mainCamera.perspective(60, engine.context3D.aspect, 1, 8000.0);
 		let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
 		ctrl.setCamera(-90, -25, 1200);
 		this.view = new View3D();
@@ -49,7 +51,7 @@ export class Sample_CarPaint {
 
 		await this.initScene();
 
-		Engine3D.startRenderView(this.view);
+		engine.startRenderView(this.view);
 
 		let ssgi: SSGIPost;
 		let postProcessing = this.scene.addComponent(PostProcessingComponent);
@@ -77,11 +79,11 @@ export class Sample_CarPaint {
 		// ssgi = postProcessing.addPost(SSGIPost);
 		// GUIUtil.renderDirLight(this.lightObj.getComponent(DirectLight));
 		GUIUtil.renderProfiler(ProfilerUtil.viewCount(this.view));
-		GUIUtil.renderShadowSetting();
+		GUIUtil.renderShadowSetting(this.engine);
 		let f = GUIHelp.addFolder("SSGI");
 		f.open();
-		GUIHelp.add(Engine3D.setting.sky, 'skyExposure', 0.0, 5.0, 0.0001);
-		GUIHelp.add(Engine3D.setting.render, 'hdrExposure', 0.0, 5.0, 0.0001);
+		GUIHelp.add(this.engine.setting.sky, 'skyExposure', 0.0, 5.0, 0.0001);
+		GUIHelp.add(this.engine.setting.render, 'hdrExposure', 0.0, 5.0, 0.0001);
 		GUIHelp.endFolder();
 	}
 
@@ -131,10 +133,10 @@ export class Sample_CarPaint {
 			GUIUtil.showPointLightGUI(pl);
 		}
 
-		// let giScene = await Engine3D.res.loadGltf("gltfs/pbrCar/car.gltf");
-		let giScene = await Engine3D.res.loadGltf("gltfs/scene/ue5_006.glb");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/测试汽车1.gltf");
-		// let giScene = await Engine3D.res.loadGltf("gltfs/scene/测试汽车.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/pbrCar/car.gltf");
+		let giScene = await this.engine.res.loadGltf("gltfs/scene/ue5_006.glb");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/test_car_1.gltf");
+		// let giScene = await this.engine.res.loadGltf("gltfs/scene/test_car.glb");
 
 		let i = 0;
 		let cacheMat = new Map<string, Material>();
@@ -146,7 +148,7 @@ export class Sample_CarPaint {
 
 				if (mat instanceof LitMaterial) {
 					let has = mat.shader.hasDefine('USE_CLEARCOAT');
-					// if (has && !cacheMat.has(mat.name) && mat.name.includes("白色")) {
+					// if (has && !cacheMat.has(mat.name) && mat.name.includes("White")) {
 					// 	GUIUtil.renderLitMaterial(mat);
 					// 	cacheMat.set(mat.name, mat);
 					// }

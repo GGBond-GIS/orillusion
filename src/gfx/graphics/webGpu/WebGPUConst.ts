@@ -35,11 +35,24 @@ export const blendComponent = {
 /**
  * @internal
  */
-export const stencilStateFace = {
+export const defaultStencilFaceState: GPUStencilFaceState = {
     compare: 'always',
     failOp: 'keep',
     depthFailOp: 'keep',
     passOp: 'keep',
+};
+/**
+ * Stencil operation enumeration
+ */
+export let GPUStencilOperation = {
+    keep: 'keep' as GPUStencilOperation,
+    zero: 'zero' as GPUStencilOperation,
+    replace: 'replace' as GPUStencilOperation,
+    invert: 'invert' as GPUStencilOperation,
+    increment_clamp: 'increment-clamp' as GPUStencilOperation,
+    decrement_clamp: 'decrement-clamp' as GPUStencilOperation,
+    increment_wrap: 'increment-wrap' as GPUStencilOperation,
+    decrement_wrap: 'decrement-wrap' as GPUStencilOperation,
 };
 /**
  * @internal

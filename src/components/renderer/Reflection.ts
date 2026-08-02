@@ -11,15 +11,21 @@ import { RenderNode } from './RenderNode';
 import { mergeFunctions } from '../../util/Global';
 
 /**
- *
- * Sky Box Renderer Component
+ * Reflection probe render node. Captures the surrounding scene into a
+ * reflection G-Buffer so reflective materials can sample real-time
+ * environment reflections.
  * @group Components
  */
 export class Reflection extends RenderNode {
+    /** Global reflection probe id assigned by the reflection system. */
     public gid: number = 0;
+    /** Whether this probe needs to be re-captured on the next frame. */
     public needUpdate: boolean = true;
+    /** When true, the probe re-captures automatically every frame. */
     public autoUpdate: boolean = false;
+    /** Radius of the probe's influence volume. */
     public radius: number = 500;
+    /** Initialize the reflection mask, bounds and position-change tracking. */
     public init(): void {
         super.init();
         this.addRendererMask(RendererMask.Reflection);
@@ -31,10 +37,12 @@ export class Reflection extends RenderNode {
         });
     }
 
+    /** Register this probe as a render node when enabled. */
     public onEnable(): void {
         EntityCollect.instance.addRenderNode(this.transform.scene3D, this);
     }
 
+    /** Unregister this probe from the render node list when disabled. */
     public onDisable(): void {
         EntityCollect.instance.removeRenderNode(this.transform.scene3D, this);
     }

@@ -4,7 +4,8 @@ import { VertexAttributeName } from "../core/geometry/VertexAttributeName";
 import { Vector3 } from "../math/Vector3";
 
 /**
- * Plane geometry
+ * Trail geometry made of a configurable number of segments, used to render
+ * a ribbon that follows a moving object's path.
  * @group Geometry
  */
 export class TrailGeometry extends GeometryBase {

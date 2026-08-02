@@ -1,12 +1,20 @@
 /**
  * instance reference statistics module
  * apply any instance , used full destroy
+ *
+ * Outer map is a WeakMap so a resource (ref) doesn't stay alive merely
+ * because Reference knows about it — its `_boundCtx` back-ref would
+ * otherwise pin the owning Context3D forever across engine reinits.
+ * Inner map retains parents strongly (that's the whole point of the
+ * tracker), but it evaporates with the ref once nothing else holds it.
+ * @group Util
  */
 export class Reference {
-    protected reference: Map<any, Map<any, any>>;
+    protected reference: WeakMap<any, Map<any, any>>;
 
     private static _ins: Reference;
 
+    /** Get the shared Reference singleton, creating it on first use. */
     public static getInstance(): Reference {
         this._ins ||= new Reference();
         return this._ins;
@@ -18,7 +26,7 @@ export class Reference {
      * @param target reference parent
      */
     public attached(ref: any, target: any) {
-        this.reference ||= new Map<any, Map<any, any>>();
+        this.reference ||= new WeakMap<any, Map<any, any>>();
 
         let refMap = this.reference.get(ref);
         refMap ||= new Map<any, any>();
@@ -36,6 +44,12 @@ export class Reference {
         let refMap = this.reference.get(ref);
         if (refMap) {
             refMap.delete(target);
+            // Drop the outer-map entry once the last parent is gone —
+            // without this, every resource that ever called attached()
+            // remains a strong key in `reference`, keeping its
+            // `_boundCtx` (and therefore the owning Context3D) alive
+            // across engine reinit cycles.
+            if (refMap.size === 0) this.reference.delete(ref);
         }
     }
 

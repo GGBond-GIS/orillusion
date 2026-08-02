@@ -1,4 +1,4 @@
-import { AtmosphericComponent, BoxGeometry, CameraUtil, CylinderGeometry, DirectLight, Engine3D, FXAAPost, GlobalFog, HoverCameraController, KelvinUtil, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, PostProcessingComponent, Scene3D, View3D, webGPUContext } from '@orillusion/core';
+import { AtmosphericComponent, BoxGeometry, CameraUtil, CylinderGeometry, DirectLight, Engine3D, FXAAPost, GlobalFog, HoverCameraController, KelvinUtil, LitMaterial, MeshRenderer, Object3D, PlaneGeometry, PostProcessingComponent, Scene3D, View3D } from '@orillusion/core';
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
 import { GUIUtil } from '@samples/utils/GUIUtil';
 
@@ -8,16 +8,20 @@ class Sample_Fog {
     scene: Scene3D;
 
     async run() {
-        Engine3D.setting.shadow.shadowSize = 2048
-        Engine3D.setting.shadow.shadowBound = 1000;
-
-        await Engine3D.init();
+        const engine = await Engine3D.init({
+            setting: {
+                shadow: {
+                    shadowSize: 2048,
+                },
+            },
+        });
+        await GUIHelp.init();
 
         this.scene = new Scene3D();
         let sky = this.scene.addComponent(AtmosphericComponent);
         sky.sunY = 0.6;
         let mainCamera = CameraUtil.createCamera3DObject(this.scene, 'camera');
-        mainCamera.perspective(60, webGPUContext.aspect, 1, 5000.0);
+        mainCamera.perspective(60, engine.context3D.aspect, 1, 5000.0);
         let ctrl = mainCamera.object3D.addComponent(HoverCameraController);
         ctrl.setCamera(0, -10, 400);
         await this.initScene();
@@ -25,7 +29,7 @@ class Sample_Fog {
         let view = new View3D();
         view.scene = this.scene;
         view.camera = mainCamera;
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
 
         GUIHelp.init();
         GUIUtil.renderAtmosphericSky(sky, false);
@@ -45,6 +49,8 @@ class Sample_Fog {
             lc.lightColor = KelvinUtil.color_temperature_to_rgb(5355);
             lc.castShadow = true;
             lc.intensity = 5;
+            lc.enableCSM = true;
+            GUIUtil.renderDirLight(lc);
             this.scene.addChild(this.lightObj);
         }
 

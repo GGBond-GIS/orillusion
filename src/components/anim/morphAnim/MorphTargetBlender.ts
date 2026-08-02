@@ -10,12 +10,19 @@ import { RendererMask, RendererMaskUtil } from "../../../gfx/renderJob/passRende
 import { Ctor } from "../../../util/Global";
 import { MeshRenderer } from "../../renderer/MeshRenderer";
 
+/**
+ * Component that drives blend-shape (morph target) influences across all
+ * morph-capable renderers in its subtree. Typically fed per-frame ARKit
+ * capture data to animate facial expressions.
+ * @group Animation
+ */
 export class MorphTargetBlender extends ComponentBase {
     private _targetRenderers: { [key: string]: SkinnedMeshRenderer2[] } = {};
     private _vec3 = new Vector3();
     private _matrix4: Matrix4 = new Matrix4();
     private _quaternion: Quaternion = new Quaternion();
 
+    /** Collect morph-capable renderers in the subtree and index them by morph key. */
     public init(param?: any): void {
         let meshRenders: SkinnedMeshRenderer2[] = this.fetchMorphRenderers(this.object3D, SkinnedMeshRenderer2);
         let meshRenders2: MeshRenderer[] = this.fetchMorphRenderers(this.object3D, MeshRenderer);
@@ -35,10 +42,12 @@ export class MorphTargetBlender extends ComponentBase {
 
     }
 
+    /** Get the renderers that own the given morph-target key. */
     public getMorphRenderersByKey(key: string): SkinnedMeshRenderer2[] {
         return this._targetRenderers[key];
     }
 
+    /** Return a shallow copy of the morph-key to renderers map. */
     public cloneMorphRenderers(): { [key: string]: SkinnedMeshRenderer2[] } {
         let dst = {} as any;
         for (let key in this._targetRenderers) {
@@ -73,7 +82,7 @@ export class MorphTargetBlender extends ComponentBase {
         this._matrix4.copyColFrom(0, this._vec3);
 
         this._matrix4.transpose();
-        this._quaternion.fromMatrix(this._matrix4);
+        this._quaternion.setFromRotationMatrix(this._matrix4);
         this.object3D.localQuaternion = this._quaternion;
         //morph
         for (let keyInModel in keyMapper) {

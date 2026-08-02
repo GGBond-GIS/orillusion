@@ -1,4 +1,6 @@
 import { defineConfig } from 'vite'
+import { createPlugin } from 'rollup';
+
 const path = require('path')
 export default defineConfig({
     resolve: {
@@ -19,7 +21,8 @@ export default defineConfig({
             output: {
                 globals: {
                     '@orillusion/core': 'Orillusion'
-                }
+                },
+                name: 'Orillusion.Stats'
             }
         }
     }

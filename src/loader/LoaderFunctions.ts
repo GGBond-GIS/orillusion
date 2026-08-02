@@ -1,6 +1,6 @@
 /**
  * Loader callback functions
- * @group Assets
+ * @group Loader
  */
 export type LoaderFunctions = {
     /**

@@ -202,7 +202,7 @@ export class MathUtil {
      */
     public static angle_360(from: Vector3, to: Vector3) {
         let v3 = Vector3.HELP_0;
-        from.crossProduct(to, v3);
+        Vector3.cross(from, to, v3);
         if (v3.z > 0) {
             return MathUtil.angle(from, to);
         }
@@ -232,7 +232,7 @@ export class MathUtil {
         target ||= new Quaternion();
         let mat: Matrix4 = Matrix4.help_matrix_2;
         Matrix4.fromToRotation(fromDirection, toDirection, mat);
-        target.fromMatrix(mat);
+        target.setFromRotationMatrix(mat);
         return target;
     }
 
@@ -243,8 +243,8 @@ export class MathUtil {
      */
     public static getEularDir_yUp(v: number): Vector3 {
         let q = Quaternion.HELP_0;
-        q.fromEulerAngles(0, v, 0);
-        q.transformVector(Vector3.Z_AXIS, Vector3.HELP_5);
+        q.setFromEuler(0, v, 0);
+        Quaternion.transformVector(q, Vector3.Z_AXIS, Vector3.HELP_5);
         return Vector3.HELP_5;
     }
 
@@ -354,7 +354,11 @@ export let PingPong = function (t: number, start: number, end: number): number {
  */
 export let RepeatSE = function (t: number, start: number, end: number): number {
     let len = end - start;
-    return (t % len) + start;
+    // Wrap into [start, end). JS `%` keeps the sign of the dividend, so a
+    // bare `(t % len)` leaves negative inputs negative (e.g. -0.5 stays -0.5
+    // instead of looping to 0.5). Normalize with `((x % len) + len) % len`
+    // so Repeat loops correctly for times before `start`, matching PingPong.
+    return (((t - start) % len) + len) % len + start;
 };
 
 /**
@@ -440,7 +444,8 @@ export function magnitude(inV: Vector2 | Vector3 | Quaternion) {
 export function normalizeSafe(inV: Vector2 | Vector3 | Quaternion, defaultV?: Vector2 | Vector3 | Quaternion) {
     let mag = magnitude(inV);
     if (mag > Vector3.EPSILON) {
-        return inV.divide(magnitude(inV));
+        if (inV instanceof Vector2) return inV.clone().divide(mag);
+        if (inV instanceof Vector3) return inV.clone().divideScalar(mag);
     }
     else {
         if (inV instanceof Vector2) {
@@ -605,7 +610,7 @@ export function randomPointInsideCube(r: Rand, extents: Vector3) {
  */
 export function randomPointInsideUnitSphere(r: Rand) {
     let v = randomUnitVector(r);
-    v.scaleBy(Math.pow(random01(r), 1.0 / 3.0)); // *= Math.pow (Random01 (r), 1.0 / 3.0);
+    v.multiplyScalar(Math.pow(random01(r), 1.0 / 3.0)); // *= Math.pow (Random01 (r), 1.0 / 3.0);
     return v;
 }
 
@@ -623,7 +628,7 @@ export function randomPointBetweenSphere(r: Rand, minRadius: number, maxRadius: 
     let v = randomUnitVector(r);
     // As the volume of the sphere increases (x^3) over an interval we have to increase range as well with x^(1/3)
     let range = Math.pow(rangedRandomFloat(r, 0.0, 1.0), 1.0 / 3.0);
-    v.scaleBy(minRadius + (maxRadius - minRadius) * range);
+    v.multiplyScalar(minRadius + (maxRadius - minRadius) * range);
     return v;
 }
 
@@ -633,7 +638,7 @@ export function randomPointBetweenSphere(r: Rand, minRadius: number, maxRadius: 
 export function randomPointInsideUnitCircle(r: Rand) {
     let v = randomUnitVector2(r);
     // As the volume of the sphere increases (x^3) over an interval we have to increase range as well with x^(1/3)
-    v.multiply(Math.pow(rangedRandomFloat(r, 0.0, 1.0), 1.0 / 2.0), v);
+    Vector2.multiplyScalar(v, Math.pow(rangedRandomFloat(r, 0.0, 1.0), 1.0 / 2.0), v);
     return v;
 }
 
@@ -644,7 +649,7 @@ export function randomPointBetweenEllipsoid(r: Rand, maxExtents: Vector3, minRan
     let v = scale(randomUnitVector(r), maxExtents);
     // As the volume of the sphere increases (x^3) over an interval we have to increase range as well with x^(1/3)
     let range = Math.pow(rangedRandomFloat(r, minRange, 1.0), 1.0 / 3.0);
-    v.scaleBy(range);
+    v.multiplyScalar(range);
     return v;
 }
 
@@ -769,14 +774,14 @@ export function fastInvSqrt(f) {
  */
 export function normalizeFast(inV: Vector3) {
     let m = sqrMagnitude(inV);
-    return inV.scaleBy(fastInvSqrt(m));
+    return inV.multiplyScalar(fastInvSqrt(m));
 }
 
 /**
  * @internal
  */
 export function crossProduct(lhs: Vector3, rhs: Vector3) {
-    return lhs.crossProduct(rhs);
+    return lhs.clone().cross(rhs);
 }
 
 /**

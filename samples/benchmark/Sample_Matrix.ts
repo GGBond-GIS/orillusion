@@ -1,5 +1,4 @@
-import { WasmMatrix } from "@orillusion/wasm-matrix/WasmMatrix";
-import { Engine3D, Matrix4, Quaternion, Transform, Vector3, append, makeMatrix44 } from "../../src"
+import { Engine3D, Matrix4, Quaternion, Transform, Vector3, WasmMatrix, append, makeMatrix44 } from "../../src"
 
 class Sample_Matrix {
     matrixList: Transform[];
@@ -66,7 +65,7 @@ class Sample_Matrix {
         }
 
         let time2 = performance.now();
-        WasmMatrix.updateAllContinueTransform(0, Matrix4.useCount, 0);
+        WasmMatrix.updateAllContinueTransform(0, Matrix4.useCount, 0, 0);
         let count2 = performance.now() - time2;
         this.divB.innerText = "wasm :" + count2.toFixed(4) + ' ms';
         // console.log("wasm :", count2);

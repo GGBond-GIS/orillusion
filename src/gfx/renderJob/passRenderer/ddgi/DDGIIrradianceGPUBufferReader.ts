@@ -1,38 +1,53 @@
-﻿import { Engine3D } from "../../../../Engine3D";
-import { CEvent } from "../../../../event/CEvent";
+﻿import { CEvent } from "../../../../event/CEvent";
 import { CEventDispatcher } from "../../../../event/CEventDispatcher";
 import { RenderTexture } from "../../../../textures/RenderTexture";
-import { webGPUContext } from "../../../graphics/webGpu/Context3D";
-import { GPUContext } from "../../GPUContext";
-import { DDGIProbeRenderer, GIRenderCompleteEvent, GIRenderStartEvent } from "./DDGIProbeRenderer";
+import { bindCtx, Context3D } from "../../../graphics/webGpu/Context3D";
+import { GIPass, GIRenderCompleteEvent } from "../../graph/passes/GIPass";
 
 export let IrradianceDataReaderCompleteEvent: CEvent = new CEvent('IrradianceDataReaderCompleteEvent');
+/**
+ * Reads the DDGI probe irradiance/depth octahedral maps back from the GPU
+ * into CPU Float32Arrays. Listens for the {@link GIPass} render-complete
+ * event, copies the color and depth textures into mappable buffers, and
+ * dispatches {@link IrradianceDataReaderCompleteEvent} once both arrays
+ * are populated.
+ *
+ * @group GFX
+ */
 export class DDGIIrradianceGPUBufferReader extends CEventDispatcher {
     private readFlag = false;
-    private probeRenderer: DDGIProbeRenderer;
+    private probeRenderer: GIPass;
     private opColorBuffer: GPUBuffer;
     private opDepthBuffer: GPUBuffer;
     private srcColorMap: RenderTexture;
     private srcDepthMap: RenderTexture;
 
+    /** CPU copy of the probe depth octahedral map. */
     public opDepthArray: Float32Array;
+    /** CPU copy of the probe irradiance (color) octahedral map. */
     public opColorArray: Float32Array;
+    /** Context3D this reader's GPU buffers are bound to. */
+    public _boundCtx: Context3D | null = null;
 
-    public initReader(probeRender: DDGIProbeRenderer, colorMap: RenderTexture, depthMap: RenderTexture) {
+    /** Allocate the readback buffers and subscribe to the GI pass's render-complete event. */
+    public initReader(ctx: Context3D, probeRender: GIPass, colorMap: RenderTexture, depthMap: RenderTexture) {
         this.probeRenderer = probeRender;
         this.srcColorMap = colorMap;
         this.srcDepthMap = depthMap;
-        let giSetting = Engine3D.setting.gi;
+        let giSetting = ctx.engine!.setting.gi;
         let pixelCount = giSetting.octRTMaxSize * giSetting.octRTMaxSize;
 
-        this.opColorBuffer = webGPUContext.device.createBuffer({
+        bindCtx(this, ctx);
+        let device = this._boundCtx!.device;
+
+        this.opColorBuffer = device.createBuffer({
             size: pixelCount * 4 * 4,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
             mappedAtCreation: false,
         });
         this.opColorArray = new Float32Array(pixelCount * 4);
 
-        this.opDepthBuffer = webGPUContext.device.createBuffer({
+        this.opDepthBuffer = device.createBuffer({
             size: pixelCount * 4 * 4,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
             mappedAtCreation: false,
@@ -48,38 +63,23 @@ export class DDGIIrradianceGPUBufferReader extends CEventDispatcher {
             this,
         );
 
-        //listener
-        this.probeRenderer.addEventListener(
-            GIRenderStartEvent.type,
-            () => {
-                console.log('GIRenderStartEvent');
-            },
-            this,
-        );
     }
 
     private async onProbeRenderComplete() {
-        console.log('GIRenderCompleteEvent');
         if (!this.readFlag) {
             this.readFlag = true;
-            let startTime = Date.now();
-            console.log('irradianceDataReader start reading ');
-
-            await DDGIIrradianceGPUBufferReader.read(this.srcColorMap.getGPUTexture(), this.opColorBuffer, this.opColorArray);
-            await DDGIIrradianceGPUBufferReader.read(this.srcDepthMap.getGPUTexture(), this.opDepthBuffer, this.opDepthArray);
+            await this.read(this.srcColorMap.getGPUTexture(), this.opColorBuffer, this.opColorArray);
+            await this.read(this.srcDepthMap.getGPUTexture(), this.opDepthBuffer, this.opDepthArray);
             this.readFlag = false;
-            console.log('process time :', Date.now() - startTime);
-            console.log('irradianceDataReader read complete');
             this.dispatchEvent(IrradianceDataReaderCompleteEvent);
-        } else {
-            console.log('irradianceDataReader is reading yet!!!');
         }
     }
 
-    private static async read(srcTexture: GPUTexture, dstBuffer: GPUBuffer, output: Float32Array) {
-        let command = GPUContext.beginCommandEncoder();
+    private async read(srcTexture: GPUTexture, dstBuffer: GPUBuffer, output: Float32Array) {
+        const gpu = this._boundCtx!.gpuContext;
+        let command = gpu.beginCommandEncoder();
         command.copyTextureToBuffer({ texture: srcTexture }, { buffer: dstBuffer, bytesPerRow: srcTexture.width * 16 }, [srcTexture.width, srcTexture.height]);
-        GPUContext.endCommandEncoder(command);
+        gpu.endCommandEncoder(command);
 
         await dstBuffer.mapAsync(GPUMapMode.READ);
         const copyArrayBuffer = dstBuffer.getMappedRange();

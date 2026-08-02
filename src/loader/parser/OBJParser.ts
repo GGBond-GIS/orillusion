@@ -124,7 +124,7 @@ export class OBJParser extends ParserBase {
   }
 
   private async loadMTL() {
-    let fileLoad = new FileLoader();
+    let fileLoad = new FileLoader(this.ctx);
     let sourceData = await fileLoad.loadTxt(this.baseUrl + this.mtlUrl);
     let sourceStr: string = sourceData[`data`];
 
@@ -164,7 +164,7 @@ export class OBJParser extends ParserBase {
       if (mat.textures && mat.textures.length > 0) {
         for (let i = 0; i < mat.textures.length; i++) {
           const texUrl = StringUtil.normalizePath(this.baseUrl + mat.textures[i]);
-          await Engine3D.res.loadTexture(texUrl);
+          await Engine3D.resFor(this.ctx).loadTexture(texUrl);
         }
       }
     }
@@ -351,9 +351,9 @@ export class OBJParser extends ParserBase {
         topology: 0,
       });
 
-      let mat = new LitMaterial();
+      let mat = new LitMaterial(this.ctx);
       let matData = this.matLibs[geoData.source_mat];
-      mat.baseMap = Engine3D.res.getTexture(StringUtil.normalizePath(this.baseUrl + matData.map_Kd));
+      mat.baseMap = Engine3D.resFor(this.ctx).getTexture(StringUtil.normalizePath(this.baseUrl + matData.map_Kd));
 
       let obj = new Object3D();
       let mr = obj.addComponent(MeshRenderer);
@@ -362,7 +362,7 @@ export class OBJParser extends ParserBase {
       root.addChild(obj);
     }
 
-    // root.renderLayer = RenderLayer.StaticBatch;
+    // root.batchMode = BatchMode.StaticBatch;
     this.data = root;
   }
 

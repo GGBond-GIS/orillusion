@@ -69,7 +69,7 @@ export class PhysicsDebugDrawer {
     }
 
     /**
-     * 启用/禁用物理调试绘制
+     * Enable / disable physics debug drawing
      */
     public set enable(value: boolean) {
         this._enable = value;
@@ -109,7 +109,7 @@ export class PhysicsDebugDrawer {
     private drawLine(from: Ammo.btVector3, to: Ammo.btVector3, color: Ammo.btVector3): void {
         if (!this._enable) return;
 
-        if (++this.lineCount > this.maxLineCount) return; // console.log(`超出限制,正在渲染第 ${this.lineCount} 条线`);
+        if (++this.lineCount > this.maxLineCount) return; // console.log(`exceeded limit, rendering line #${this.lineCount}`);
 
         const fromVector = Ammo.wrapPointer(from as unknown as number, Ammo.btVector3);
         const toVector = Ammo.wrapPointer(to as unknown as number, Ammo.btVector3);
@@ -121,7 +121,6 @@ export class PhysicsDebugDrawer {
 
         const name = `AmmoLine_${this.lineCount}`;
         this.lineNameList.push(name);
-        // Engine3D.views[this.viewIndex].graphic3D.drawLines(name, [p0, p1], lineColor);
         this.graphic3D.drawLines(name, [p0, p1], lineColor);
 
     }
@@ -129,7 +128,7 @@ export class PhysicsDebugDrawer {
     private drawContactPoint(pointOnB: Ammo.btVector3, normalOnB: Ammo.btVector3, distance: number, lifeTime: number, color: Ammo.btVector3): void {
         if (!this._enable) return;
 
-        if (++this.lineCount > this.maxLineCount) return; // console.log(`超出限制,正在渲染第 ${this.lineCount} 条线`);
+        if (++this.lineCount > this.maxLineCount) return; // console.log(`exceeded limit, rendering line #${this.lineCount}`);
 
         const colorVector = Ammo.wrapPointer(color as unknown as number, Ammo.btVector3);
         const pointOnBVector = Ammo.wrapPointer(pointOnB as unknown as number, Ammo.btVector3);
@@ -138,18 +137,12 @@ export class PhysicsDebugDrawer {
         const lineColor = this._tmpCor.copyFromVector(TempPhyMath.fromBtVec(colorVector, this._tmpVecA));
         const p0 = TempPhyMath.fromBtVec(pointOnBVector, this._tmpVecA);
         const normal = TempPhyMath.fromBtVec(normalOnBVector, this._tmpVecB);
-        const p1 = p0.add(normal.multiplyScalar(distance), this._tmpVecB);
+        const p1 = Vector3.add(p0, normal.multiplyScalar(distance), this._tmpVecB);
 
         const name = `AmmoContactPoint_${GetCountInstanceID()}`;
         this.lineNameList.push(name);
 
-        // Engine3D.views[this.viewIndex].graphic3D.drawLines(name, [p0, p1], lineColor);
         this.graphic3D.drawLines(name, [p0, p1], lineColor);
-
-        // 在接触点生命周期结束后进行清理
-        // setTimeout(() => {
-        //     Engine3D.views[this.viewIndex].graphic3D.Clear(name)
-        // }, lifeTime * 1000);
     }
 
     private reportErrorWarning(warningString: string): void {
@@ -157,15 +150,10 @@ export class PhysicsDebugDrawer {
         console.error(warning);
     }
 
-    private draw3dText(location: Ammo.btVector3, textString: string): void {
-        const _location = Ammo.wrapPointer(location as unknown as number, Ammo.btVector3);
-        const _textString = Ammo.UTF8ToString(textString as unknown as number);
-        console.log("draw3dText", _location, _textString);
+    private draw3dText(_location: Ammo.btVector3, _textString: string): void {
     }
 
     private clearLines(): void {
-        // let view = Engine3D.views[this.viewIndex];
-        // this.lineNameList.forEach(name => view.graphic3D.Clear(name));
         this.lineNameList.forEach(name => this.graphic3D.Clear(name));
         this.lineNameList.length = 0;
     }

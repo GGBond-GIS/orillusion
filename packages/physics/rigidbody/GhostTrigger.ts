@@ -24,7 +24,7 @@ export class GhostTrigger extends ComponentBase {
         if (this._ghostObject) {
             Ammo.destroy(this._ghostObject.getCollisionShape());
             this._ghostObject.setCollisionShape(value);
-            // Physics.world.updateSingleAabb(this._ghostObject);  // 更新世界中的碰撞体状态
+            // Physics.world.updateSingleAabb(this._ghostObject);  // Update the collision body's state in the world
         }
     }
 
@@ -40,21 +40,21 @@ export class GhostTrigger extends ComponentBase {
     private _collisionFlags: CollisionFlags = CollisionFlags.NO_CONTACT_RESPONSE;
 
     /**
-     * 获取碰撞标志
+     * Gets the collision flags
      */
     public get collisionFlags(): number {
         return this._ghostObject?.getCollisionFlags() ?? this._collisionFlags;
     }
 
     /**
-     * 添加单个碰撞标志
+     * Adds a single collision flag
      */
     public addCollisionFlag(value: CollisionFlags) {
         this._collisionFlags = this.collisionFlags | value;
         this._ghostObject?.setCollisionFlags(this._collisionFlags);
     }
     /**
-     * 删除单个碰撞标志
+     * Removes a single collision flag
      */
     public removeCollisionFlag(value: CollisionFlags) {
         this._collisionFlags = this.collisionFlags & ~value;
@@ -71,7 +71,7 @@ export class GhostTrigger extends ComponentBase {
         this._ghostObject = GhostTrigger.createAndAddGhostObject(this._shape, position, rotation, this._collisionFlags, this._userIndex);
 
 
-        // 变换更新，确保三维对象更新变换时同步到幽灵对象
+        // Transform updates; ensures the ghost object is synchronized whenever the 3D object's transform changes
         this.transform.onPositionChange = (oldValue: Vector3, newValue: Vector3) => {
             newValue ||= this.transform.localPosition;
             this._ghostObject.getWorldTransform().setOrigin(TempPhyMath.toBtVec(newValue))
@@ -92,13 +92,13 @@ export class GhostTrigger extends ComponentBase {
     }
 
     /**
-     * 创建幽灵对象并添加到物理世界。
-     * @param shape - 碰撞形状。
-     * @param position - 幽灵对象的位置。
-     * @param rotation - 幽灵对象的旋转。
-     * @param collisionFlags - 可选参数，碰撞标志，默认值为 4 `NO_CONTACT_RESPONSE` 表示对象不参与碰撞响应，但仍会触发碰撞事件。
-     * @param userIndex - 可选参数，用户索引，可作为物理对象标识。
-     * @returns 新创建的 Ammo.btPairCachingGhostObject 对象。
+     * Creates a ghost object and adds it to the physics world.
+     * @param shape - The collision shape.
+     * @param position - The position of the ghost object.
+     * @param rotation - The rotation of the ghost object.
+     * @param collisionFlags - Optional parameter, collision flags; defaults to 4 `NO_CONTACT_RESPONSE`, meaning the object does not participate in collision response but still triggers collision events.
+     * @param userIndex - Optional parameter, user index that can serve as an identifier for the physics object.
+     * @returns The newly created Ammo.btPairCachingGhostObject.
      */
     public static createAndAddGhostObject(shape: Ammo.btCollisionShape, position: Vector3, rotation: Vector3, collisionFlags?: number, userIndex?: number) {
         let ghostObject = new Ammo.btPairCachingGhostObject();
@@ -108,7 +108,7 @@ export class GhostTrigger extends ComponentBase {
         transform.setRotation(TempPhyMath.eulerToBtQua(rotation));
         ghostObject.setWorldTransform(transform);
 
-        // 设置形状和属性
+        // Set shape and properties
         ghostObject.setCollisionShape(shape);
         collisionFlags ??= CollisionFlags.NO_CONTACT_RESPONSE;
         ghostObject.setCollisionFlags(ghostObject.getCollisionFlags() | collisionFlags);
@@ -117,21 +117,21 @@ export class GhostTrigger extends ComponentBase {
             ghostObject.setUserIndex(userIndex);
         }
 
-        // 将 Ghost Object 添加到物理世界
+        // Add the ghost object to the physics world
         Physics.world.addCollisionObject(ghostObject);
 
         return ghostObject;
     }
 
     /**
-     * 获取幽灵对象
+     * Gets the ghost object
      */
     public get ghostObject() {
         return this._ghostObject;
     }
 
     /**
-     * 异步获取完成初始化的幽灵对象
+     * Asynchronously retrieves the fully initialized ghost object
      */
     public async wait() {
         await this._initializationPromise;
@@ -139,7 +139,7 @@ export class GhostTrigger extends ComponentBase {
     }
 
     /**
-     * 启用/禁用碰撞回调
+     * Enable/disable collision callbacks
      */
     public get enableCollisionEvent(): boolean {
         return this.collisionEventHandler.enableCollisionEvent;
@@ -150,7 +150,7 @@ export class GhostTrigger extends ComponentBase {
     }
 
     /**
-     * 碰撞事件回调
+     * Collision event callback
      */
     public get collisionEvent() {
         return this.collisionEventHandler.collisionEvent;

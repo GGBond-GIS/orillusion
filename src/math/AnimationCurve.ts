@@ -4,7 +4,7 @@ import { WrapTimeMode } from './enum/WrapTimeMode';
 import { Keyframe } from './enum/Keyframe';
 
 /**
- * Animation Cureve 
+ * Animation Curve 
  * has frame list data 
  * @group Math
  */
@@ -20,16 +20,24 @@ export class AnimationCurve {
 
     private _InvalidateCache: boolean = false;
 
+    /** Ordered list of keyframes defining this curve. */
     public curve: Keyframe[] = [];
 
+    /** Serialized format version of this curve. */
     public serializedVersion: number;
 
+    /** Wrap mode applied for times before the first keyframe. */
     public preWarpMode: number;
 
+    /** Wrap mode applied for times after the last keyframe. */
     public postWarpMode: number;
 
+    /** Euler rotation order associated with this curve. */
     public rotationOrder: number;
 
+    /**
+     * Last computed left/right keyframe indices from the most recent lookup.
+     */
     public get cacheOut(): { lhsIndex: number; rhsIndex: number } {
         return this._cacheOut;
     }
@@ -171,6 +179,11 @@ export class AnimationCurve {
         return this.curve[index];
     }
 
+    /**
+     * Deserialize this curve from raw asset data (Unity-style field names).
+     * @param data source object containing wrap modes and keyframes
+     * @returns this curve
+     */
     public unSerialized(data: any): this {
         this.preWarpMode = data['m_PreInfinity'];
         this.postWarpMode = data['m_PostInfinity'];
@@ -185,6 +198,11 @@ export class AnimationCurve {
         return this;
     }
 
+    /**
+     * Deserialize this curve from an alternate data layout (preWrapMode/keys fields).
+     * @param data source object containing wrap modes and keyframes
+     * @returns this curve
+     */
     public unSerialized2(data: Object): this {
         this.preWarpMode = data['preWrapMode'];
         this.postWarpMode = data['postWrapMode'];
@@ -199,6 +217,11 @@ export class AnimationCurve {
         return this;
     }
 
+    /**
+     * Wrap a time value into the curve range according to the pre/post wrap modes.
+     * @param curveT input time
+     * @returns wrapped time within the curve bounds
+     */
     public wrapTime(curveT: number) {
         let m_Curve = this.curve;
         let begTime = m_Curve[0].time;
@@ -224,12 +247,41 @@ export class AnimationCurve {
 
     private findCurve(time: number, out: { lhsIndex: number; rhsIndex: number }) {
         let frames = this.curve;
-        for (let i = 1; i < frames.length; i++) {
+        const n = frames.length;
+        // Empty / single keyframe: collapse both sides to index 0.
+        if (n <= 1) {
+            out.lhsIndex = 0;
+            out.rhsIndex = 0;
+            return;
+        }
+        // Time at or before the first keyframe: clamp to [0, 1).
+        if (time <= frames[0].time) {
+            out.lhsIndex = 0;
+            out.rhsIndex = 1;
+            return;
+        }
+        // Time at or after the last keyframe: clamp to [n-2, n-1].
+        // Without this branch, when `time === frames[last].time` the loop
+        // below (which uses `right.time > time` strict-greater) leaves
+        // `out` unmodified — falling back to the previous call's cached
+        // indices, or the initial {0, 0} (i.e. lhs === rhs → divide-by-zero
+        // when the caller does `(time - kL.time) / (kR.time - kL.time)`,
+        // producing NaN quaternions). This struck `AnimationLayer` static
+        // poses where `layer.time` is pinned to `lastKeyTime`.
+        const last = n - 1;
+        if (time >= frames[last].time) {
+            out.lhsIndex = last - 1;
+            out.rhsIndex = last;
+            return;
+        }
+        // Interior search.
+        for (let i = 1; i < n; i++) {
             let left = frames[i - 1];
             let right = frames[i];
             if (left.time <= time && right.time > time) {
                 out.lhsIndex = i - 1;
                 out.rhsIndex = i;
+                return;
             }
         }
     }
@@ -259,6 +311,11 @@ export class AnimationCurve {
         this._totalTime = maxTime;
     }
 
+    /**
+     * Scale the value and tangents of every keyframe in the curve, then invalidate its cache.
+     * @param curve curve to scale
+     * @param scale multiplier applied to each keyframe value and slope
+     */
     public static scaleCurveValue(curve: AnimationCurve, scale: number) {
         if (!curve._InvalidateCache) {
             for (let i = 0; i < curve.curve.length; i++) {

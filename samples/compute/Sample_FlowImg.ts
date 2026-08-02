@@ -1,19 +1,19 @@
 import { GUIHelp } from '@orillusion/debug/GUIHelp';
-import { CameraUtil, Engine3D, HoverCameraController, Object3D, Scene3D, webGPUContext, AtmosphericComponent, View3D } from '@orillusion/core';
+import { CameraUtil, Engine3D, HoverCameraController, Object3D, Scene3D, AtmosphericComponent, View3D } from '@orillusion/core';
 import { FlowImgSimulator } from "./flowImg/FlowImgSimulator";
 
 export class Demo_FlowImg {
     constructor() { }
 
     async run() {
-        await Engine3D.init({});
+        const engine = await Engine3D.init({});
         let scene = new Scene3D();
         let sky = scene.addComponent(AtmosphericComponent);
         await this.initScene(scene);
 
         let camera = CameraUtil.createCamera3DObject(scene);
         
-        camera.perspective(60, webGPUContext.aspect, 0.01, 10000.0);
+        camera.perspective(60, engine.context3D.aspect, 0.01, 10000.0);
         let ctl = camera.object3D.addComponent(HoverCameraController);
         ctl.distance = 3;
 
@@ -21,7 +21,7 @@ export class Demo_FlowImg {
         view.scene = scene;
         view.camera = camera;
 
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async initScene(scene: Scene3D) {
@@ -39,7 +39,7 @@ export class Demo_FlowImg {
         input.style.position = 'fixed'
         document.body.appendChild(input)
         input.onchange= async (e)=>{
-            let url = URL.createObjectURL(e.target.files[0])
+            let url = URL.createObjectURL((e.target as HTMLInputElement).files[0])
             let image = await this.imageloader(url)
             simulator.setImageData(image);
             simulator.reset()
@@ -62,6 +62,14 @@ export class Demo_FlowImg {
     async initComputeBuffer() { }
 
     async imageloader(url: string) {
+        // Iframe srcdoc resolves bare relative URLs against
+        // about:srcdoc, which makes fetch() return an empty blob and
+        // createImageBitmap reject with InvalidStateError. Force-bind
+        // to the parent's origin (vite dev server) the same way
+        // BitmapTextureCube / VideoTexture do.
+        if (!/^https?:|^data:|^blob:|^\//.test(url)) {
+            url = new URL(url, (window.parent || window).location.origin + '/').href
+        }
         const res = await fetch(url)
         const img = await res.blob()
         const bitmap = await createImageBitmap(img)

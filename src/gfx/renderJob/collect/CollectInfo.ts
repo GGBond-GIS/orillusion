@@ -2,7 +2,6 @@ import { RenderNode } from '../../../components/renderer/RenderNode';
 import { Octree } from '../../../core/tree/octree/Octree';
 /**
  * @internal
- * @group Post
  */
 export class CollectInfo {
     public opaqueList: RenderNode[] = [];

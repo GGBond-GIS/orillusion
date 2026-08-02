@@ -1,17 +1,18 @@
 
-import { AtmosphericComponent, CameraUtil, DirectLight, Engine3D, HoverCameraController, Object3D, PlaneGeometry, Scene3D, Vector3, View3D, webGPUContext } from "@orillusion/core";
+import { AtmosphericComponent, CameraUtil, DirectLight, Engine3D, HoverCameraController, Object3D, PlaneGeometry, Scene3D, Vector3, View3D } from "@orillusion/core";
 import { GUIHelp } from "@orillusion/debug/GUIHelp";
 import { FlameSimulator } from "./flame/FlameSimulator";
 import { FlameSimulatorMaterial } from "./flame/FlameSimulatorMaterial";
 
 export class Demo_Flame {
+    engine: Engine3D;
     constructor() { }
 
     protected mLastPoint: Vector3 = new Vector3();
     protected mVelocity: Vector3 = new Vector3();
 
     async run() {
-        await Engine3D.init({});
+        const engine = this.engine = await Engine3D.init({});
 
         GUIHelp.init();
 
@@ -21,18 +22,18 @@ export class Demo_Flame {
 
         let camera = CameraUtil.createCamera3DObject(scene);
 
-        camera.perspective(60, webGPUContext.aspect, 0.01, 10000.0);
+        camera.perspective(60, engine.context3D.aspect, 0.01, 10000.0);
         let ctl = camera.object3D.addComponent(HoverCameraController);
         ctl.setCamera(0, 0, 5);
 
         let view = new View3D();
         view.scene = scene;
         view.camera = camera;
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
     }
 
     async initScene(scene: Scene3D) {
-        let cesiumMan = await Engine3D.res.loadGltf('gltfs/CesiumMan/CesiumMan.gltf');
+        let cesiumMan = await this.engine.res.loadGltf('gltfs/CesiumMan/CesiumMan.gltf');
         // cesiumMan.transform.localScale.set(10, 10, 10);
         cesiumMan.rotationX = -90;
         cesiumMan.rotationY = 180;
@@ -58,7 +59,6 @@ export class Demo_Flame {
             let light = obj.addComponent(DirectLight);
             light.intensity = 5;
             light.castShadow = true;
-            light.debug();
             scene.addChild(obj);
         }
 

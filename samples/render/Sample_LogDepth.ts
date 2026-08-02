@@ -1,13 +1,23 @@
 import { Engine3D, Scene3D, AtmosphericComponent, View3D, CameraUtil, HoverCameraController, Object3D, MeshRenderer, SphereGeometry, UnLitMaterial, BoxGeometry, SkyRenderer, Color, Vector3 } from "@orillusion/core";
+import { GUIHelp } from "@orillusion/debug/GUIHelp";
 
 export class Sample_LogDepth {
+    engine: Engine3D;
     async run() {
-        Engine3D.setting.render.useLogDepth = true;
-        await Engine3D.init();
+        const engine = this.engine = await Engine3D.init({
+            setting: {
+                render: {
+                    useLogDepth: sessionStorage.logdepth === 'false' ? false : true,
+                },
+            },
+        });
+        GUIHelp.init();
 
         let scene = new Scene3D();
+        let sky = scene.getOrAddComponent(SkyRenderer);
+        sky.map = await this.engine.res.loadLDRTextureCube('https://cdn.orillusion.com/images/space.webp')
         let camera = CameraUtil.createCamera3DObject(scene);
-        camera.perspective(60, Engine3D.aspect, 1.0, 6000 * 10000.0);
+        camera.perspective(60, engine.aspect, 1.0, 6000 * 10000.0);
 
         let cameraController = camera.object3D.addComponent(HoverCameraController);
         cameraController.setCamera(20, -45, 2000 * 10000.0);
@@ -19,7 +29,15 @@ export class Sample_LogDepth {
         let view = new View3D();
         view.scene = scene;
         view.camera = camera;
-        Engine3D.startRenderView(view);
+        engine.startRenderView(view);
+
+        // change cull mode by click dropdown box
+        GUIHelp.add(engine.setting.render, 'useLogDepth').onChange((v) => {
+            sessionStorage.logdepth = v
+            location.reload()
+        });
+        GUIHelp.open();
+        GUIHelp.endFolder();
     }
 
     async initScene(scene: Scene3D) {
@@ -29,7 +47,7 @@ export class Sample_LogDepth {
             let mr = obj.addComponent(MeshRenderer);
             mr.geometry = new SphereGeometry(600 * 10000.0, 128, 128);
             let mat = new UnLitMaterial();
-            mat.baseMap = await Engine3D.res.loadTexture('textures/earth/8k_earth_daymap.jpg');
+            mat.baseMap = await this.engine.res.loadTexture('textures/earth/8k_earth_daymap.jpg');
             mr.material = mat;
             scene.addChild(obj);
         }

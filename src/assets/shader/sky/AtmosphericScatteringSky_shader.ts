@@ -245,7 +245,7 @@ export class AtmosphericScatteringSky_shader {
 
         var sky: vec3<f32> = (insctrTotalMie + insctrTotalRayleigh) * setting.sunRadiance;
         if(uniformBuffer.displaySun > 0.5){
-          var angle:f32 = saturate((1.0 - phaseTheta) * setting.sunRadius);
+          var angle:f32 = clamp((1.0 - phaseTheta) * setting.sunRadius, 0.0000001, 0.9999999);
           var cosAngle:f32 = cos(angle * PI * 0.5);
           var edge:f32 = 0.0;
           if(angle >= 0.9){
@@ -302,8 +302,12 @@ export class AtmosphericScatteringSky_shader {
         var sky0:vec4<f32> = ComputeSkyInscattering(setting, eye, V, L);
         var sky = vec3<f32>(sky0.rgb);
 
-        sky = TonemapACES(sky.rgb * 2.0);
-        sky = pow(sky.rgb, vec3<f32>(1.0/1.2)); // gamma
+        // Emit linear HDR radiance. The cube is consumed as a linear env map:
+        // CubeSky_Shader and the IBL path (BRDF_frag) only scale by skyExposure
+        // and defer tone-mapping to the single global ACES PostPass + sRGB
+        // swapchain encode. Baking ACES + gamma here double tone-mapped the
+        // sky (washed-out look) and corrupted IBL, which expects linear input.
+        sky = sky.rgb * 2.0;
 
         var fragColor:vec4<f32> = vec4<f32>((sky.rgb), 1.0);
         return fragColor;

@@ -6,7 +6,6 @@ import { Vector3 } from '../math/Vector3';
 import { PickResult } from './PickResult';
 /**
  * @internal
- * @group IO
  */
 export class RayCastMeshDetail {
     /**
@@ -26,9 +25,9 @@ export class RayCastMeshDetail {
         let v0 = new Vector3();
         let v1 = new Vector3();
         let v2 = new Vector3();
-        c.subtract(a, v0);
-        b.subtract(a, v1);
-        p.subtract(a, v2);
+        Vector3.sub(c, a, v0);
+        Vector3.sub(b, a, v1);
+        Vector3.sub(p, a, v2);
 
         let dot00 = dot(v0, v0);
         let dot01 = dot(v0, v1);
@@ -63,13 +62,13 @@ export class RayCastMeshDetail {
         let v2 = face.v3;
 
         // E1
-        let E1 = v1.subtract(v0, Vector3.HELP_3);
+        let E1 = Vector3.sub(v1, v0, Vector3.HELP_3);
 
         // E2
-        let E2 = v2.subtract(v0, Vector3.HELP_4);
+        let E2 = Vector3.sub(v2, v0, Vector3.HELP_4);
 
         // P
-        let P = ray.direction.crossProduct(E2, Vector3.HELP_5);
+        let P = Vector3.cross(ray.direction, E2, Vector3.HELP_5);
 
         // determinant
         let det = dot(E1, P);
@@ -80,9 +79,9 @@ export class RayCastMeshDetail {
             if (backfaceCulling) {
                 return null;
             }
-            T = ray.origin.subtract(v0, Vector3.HELP_2);
+            T = Vector3.sub(ray.origin, v0, Vector3.HELP_2);
         } else {
-            T = v0.subtract(ray.origin, Vector3.HELP_2);
+            T = Vector3.sub(v0, ray.origin, Vector3.HELP_2);
             det = -det;
         }
 
@@ -106,7 +105,7 @@ export class RayCastMeshDetail {
         }
 
         // Q
-        let Q = T.crossProduct(E1, Vector3.HELP_1);
+        let Q = Vector3.cross(T, E1, Vector3.HELP_1);
 
         // Calculate v and make sure u + v <= 1
         let v = dot(ray.direction, Q);
@@ -134,22 +133,22 @@ export class RayCastMeshDetail {
         //(1 - u - v)V0 + uV1 + vV2
         let d = 1 - u - v;
 
-        this._u0.copyFrom(face.u1);
-        this._u0.scale(d);
+        this._u0.copy(face.u1);
+        this._u0.multiplyScalar(d);
 
-        this._u1.copyFrom(face.u2);
-        this._u1.scale(u);
+        this._u1.copy(face.u2);
+        this._u1.multiplyScalar(u);
 
-        this._u2.copyFrom(face.u3);
-        this._u2.scale(v);
+        this._u2.copy(face.u3);
+        this._u2.multiplyScalar(v);
 
-        this._info.uv.copyFrom(this._u0);
-        this._info.uv.add(this._u1, this._info.uv);
-        this._info.uv.add(this._u2, this._info.uv);
+        this._info.uv.copy(this._u0);
+        Vector2.add(this._info.uv, this._u1, this._info.uv);
+        Vector2.add(this._info.uv, this._u2, this._info.uv);
 
-        // this.info.uv.copyFrom(face.u1);
-        this._info.localPosition.copyFrom(ray.direction).multiplyScalar(t);
-        this._info.localPosition.add(ray.origin, this._info.localPosition);
+        // this.info.uv.copy(face.u1);
+        this._info.localPosition.copy(ray.direction).multiplyScalar(t);
+        Vector3.add(this._info.localPosition, ray.origin, this._info.localPosition);
         return this._info;
     }
 

@@ -1,7 +1,7 @@
-import { webGPUContext } from "../gfx/graphics/webGpu/Context3D";
 import { GPUTextureFormat } from "../gfx/graphics/webGpu/WebGPUConst";
 import { ITexture } from "../gfx/graphics/webGpu/core/texture/ITexture";
 import { Texture } from "../gfx/graphics/webGpu/core/texture/Texture";
+import { Context3D } from "../gfx/graphics/webGpu/Context3D";
 
 /**
  * cube texture witch data if for depth
@@ -33,13 +33,14 @@ export class DepthCubeTexture extends Texture implements ITexture {
     /**
      * @constructor
      */
-    constructor(width: number, height: number) {
+    constructor(width: number, height: number, ctx?: Context3D) {
         super(width, height, 6);
 
         // texture_depth_2d_array
-        this.format = GPUTextureFormat.depth24plus;
+        this.format = GPUTextureFormat.depth32float;
         this.mipmapCount = 1;
 
+        this._ensureBound(ctx);
         this.init();
     }
 
@@ -56,7 +57,6 @@ export class DepthCubeTexture extends Texture implements ITexture {
             dimension: '2d',
             usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING,
         }
-        // this.gpuTexture = webGPUContext.device.createTexture(this.textureDescriptor);
         this.gpuTexture = this.getGPUTexture();
     }
 
@@ -69,8 +69,10 @@ export class DepthCubeTexture extends Texture implements ITexture {
     }
 
     public internalCreateSampler() {
-        this.gpuSampler = webGPUContext.device.createSampler({});
-        this.gpuSampler_comparison = webGPUContext.device.createSampler({
+        this._ensureBound();
+        const device = this._boundCtx!.device;
+        this.gpuSampler = device.createSampler({});
+        this.gpuSampler_comparison = device.createSampler({
             compare: 'less',
             label: "sampler_comparison"
         });

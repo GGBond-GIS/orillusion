@@ -114,8 +114,11 @@ export class ShaderReflection {
                         console.warn(`shader reflection dataType not match! var dataType vs : ${aInfo.dataType} , fs : ${bInfo.dataType}`);
                     if (aInfo.dataIsBuiltinType != bInfo.dataIsBuiltinType)
                         console.error(`shader reflection dataIsBuiltinType not match! var dataIsBuiltinType vs : ${aInfo.dataIsBuiltinType} , fs : ${bInfo.dataType}`);
-                    if (!aInfo.dataFields || !bInfo.dataFields) {
-                        console.warn(`shader reflection dataFields is empty! var dataFields vs : ${aInfo.dataFields} , fs : ${bInfo.dataFields}`);
+                    // Samplers and textures legitimately have null dataFields;
+                    // only warn when one side has fields and the other doesn't
+                    // (that's a real VS/FS struct-layout mismatch).
+                    if (!!aInfo.dataFields !== !!bInfo.dataFields) {
+                        console.warn(`shader reflection dataFields mismatch! vs : ${aInfo.dataFields} , fs : ${bInfo.dataFields}`);
                     }
                 }
                 // if (aInfo.dataFields.length != bInfo.dataFields.length)
@@ -218,8 +221,14 @@ export class ShaderReflection {
 
         shaderVariant += '|';
         for (const key in renderShader.shaderState) {
+            const v = renderShader.shaderState[key];
             shaderVariant += key + ':';
-            shaderVariant += renderShader.shaderState[key] + ';';
+            // Object-valued state (stencilFront/stencilBack) must be
+            // serialized structurally — `obj + ''` collapses every object
+            // to `[object Object]`, which would let two materials with
+            // different stencil face configs share one cached pipeline.
+            shaderVariant += (v !== null && typeof v === 'object') ? JSON.stringify(v) : v;
+            shaderVariant += ';';
         }
         return shaderVariant;
     }
@@ -251,7 +260,7 @@ export class ShaderReflection {
             } else {
                 let oldAtt = tmp[newAtt.name];
                 if (oldAtt.location == newAtt.location && oldAtt.name != newAtt.name) {
-                    console.log('location must same!');
+                    console.warn('location must same!');
                 }
             }
         }

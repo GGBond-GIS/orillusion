@@ -2,6 +2,10 @@ import { Vector3 } from "../../../math/Vector3";
 import { QuadAABB } from "./QuadAABB";
 
 
+/**
+ * A single cell (node) of a {@link QuadTree}, holding up to four child cells.
+ * @internal
+ */
 export class QuadTreeCell {
 
     public static NUM_CHILDREN: number = 4;

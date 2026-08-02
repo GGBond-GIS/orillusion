@@ -16,7 +16,7 @@ export let VertexAttributeIndexShader: string = /*wgsl*/ `
     }
 
     struct VertexOutput {
-        @location(auto) index: f32,
+        @location(auto) @interpolate(flat) index: f32,
         @location(auto) varying_UV0: vec2<f32>,
         @location(auto) varying_UV1: vec2<f32>,
         @location(auto) varying_ViewPos: vec4<f32>,
@@ -92,6 +92,10 @@ export let VertexAttributeIndexShader: string = /*wgsl*/ `
 
         var viewPosition = ORI_MATRIX_V * worldPos;
         var clipPosition = ORI_MATRIX_P * viewPosition ;
+
+        #if USE_LOGDEPTH
+            clipPosition.z = log2Depth(clipPosition.w, globalUniform.near, globalUniform.far);
+        #endif
 
         ORI_VertexOut.varying_UV0 = vertex.uv.xy ;
         ORI_VertexOut.varying_UV1 = vertex.TEXCOORD_1.xy;

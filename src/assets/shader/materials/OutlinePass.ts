@@ -58,6 +58,10 @@ export let OutlinePass: string = /*wgsl*/ `
                 var viewPosition = ORI_MATRIX_V * worldPos;
                 var clipPosition = ORI_MATRIX_P * viewPosition ;
 
+                #if USE_LOGDEPTH
+                    clipPosition.z = log2Depth(clipPosition.w, globalUniform.near, globalUniform.far);
+                #endif
+
                 ORI_VertexOut.varying_UV0 = vertex.uv.xy ;
                 ORI_VertexOut.varying_UV1 = vertex.TEXCOORD_1.xy;
                 ORI_VertexOut.varying_ViewPos = viewPosition / viewPosition.w;
