@@ -1,3 +1,71 @@
+## [0.9.2](https://github.com/Orillusion/orillusion/compare/v0.8.4...v0.9.2) (2026-07-31)
+
+
+### Features
+
+* **engine:** v2 engine refactor — RenderGraph rewrite, Rapier physics, three.js-aligned math ([7fdecee](https://github.com/Orillusion/orillusion/commit/7fdecee0e1596600155f23f07d9bdbf48a0e2e4c))
+  * **RenderGraph:** typed `RenderTarget` / `RenderPass` / `ComputePass` handles; passes split into single-responsibility units (pre-depth, clear, transparent, present…); pass scheduling driven by reads/writes + explicit `dependsOn` edges (`RenderStage` removed); transient resource subsystem with lifetime-aware aliasing pool (HiZ, SceneColorPyramid, OIT/DDP, MotionVector); runtime pass hot-swap that survives canvas resize
+  * **physics:** new `@orillusion/physics-rapier` backend with snapshot save/restore, vehicle controller, kinematic/dynamic body handling
+  * **math:** three.js-aligned math library — canonical method names, mutator-style arithmetic, three.js standard instance methods + tests
+  * **rendering:** logarithmic depth + relative-to-eye (RTE) precision for ECEF/large-scale scenes; built-in projected decals; opt-in stencil buffer; `VisibleLayer` bitmask filtering; earth sky & atmosphere renderers; shader preprocessor with boolean `#if`/`#elseif` and Int32 uniforms; multi-engine / per-`Context3D` resources; spot/point/contact shadow fixes; sRGB panorama decoding
+  * **samples & tests:** new alpha/transparency, sprite, navmesh, skeleton IK, lightbulb and Rapier samples; new test infrastructure under `test/multi` (+ playwright runners); TypeDoc 0.28
+* **packages:** update all plugin packages to the v2 engine APIs ([0698014](https://github.com/Orillusion/orillusion/commit/06980144041ad677e48a13ec82f6754653b44b18))
+* **RTE:** add relative-to-eye (RTE) rendering, double-precision matrix support and CSM shadow updates for large-coordinate scenes ([b1009d5](https://github.com/Orillusion/orillusion/commit/b1009d58ca134e4e937ba74658c9e3ae1779a89f))
+* **particle:** particle system supports RTE rendering ([945709a](https://github.com/Orillusion/orillusion/commit/945709ae14efd66384446a3b341bc79063227c3b))
+* **overlay:** added OverlayView with a dedicated overlay color pass ([675d415](https://github.com/Orillusion/orillusion/commit/675d4155544a8155e66a7df09552a7db782ef804))
+* **matrix:** added an index recycling pool to `Matrix4` ([893b342](https://github.com/Orillusion/orillusion/commit/893b34248f4ec4e530674506ec14099978f1185c))
+* **matrix:** move `wasm-matrix` into core ([0f1d38e](https://github.com/Orillusion/orillusion/commit/0f1d38e9ce5622753d9a7f526ae0d64ce6247270))
+* **TextGeometry:** support single sided text ([#492](https://github.com/Orillusion/orillusion/issues/492)) ([a54c302](https://github.com/Orillusion/orillusion/commit/a54c302be425cfb0e46f28883d31d3c8e2c2d5e9))
+
+
+### Bug Fixes
+
+* **engine:** improve pause/resume handling ([edee564](https://github.com/Orillusion/orillusion/commit/edee5643901b47fa9a0cf17fd66fc6c13f0439e2))
+* **canvas:** render to transparent canvas with correct alpha blending ([dce2948](https://github.com/Orillusion/orillusion/commit/dce29481de5a793d1315da8d6d657559ba28823a))
+* **material:** fix background transparency in PBR transmission shader ([de726d3](https://github.com/Orillusion/orillusion/commit/de726d3c159bac54f33ab1a8f1ef277fb6cbecb2))
+* **lambert:** fix lambert material opacity ([df914e9](https://github.com/Orillusion/orillusion/commit/df914e90341ccda032af374bbcaae9eab646be03))
+* **gltf:** fix `KHR_materials_volume` parsing ([951a1d4](https://github.com/Orillusion/orillusion/commit/951a1d4fbf014f884d41945ae935299c72b7f7b3))
+* **gltf:** problems during glb file parsing ([#489](https://github.com/Orillusion/orillusion/issues/489)) ([d78d4bf](https://github.com/Orillusion/orillusion/commit/d78d4bfad36aae35ea5585b16111817f0c1caa9b))
+* **shadow:** fix shadow pass cull mode ([42ba979](https://github.com/Orillusion/orillusion/commit/42ba979d18e0396c4ac0e17e3421a9209080618c))
+* **bloom:** fix bloom effect ([189d833](https://github.com/Orillusion/orillusion/commit/189d8335f8e1a33fca872ba56b39e1273c5acc78))
+* **taa:** resolve persistent camera drift under TAA post-processing ([2aa531f](https://github.com/Orillusion/orillusion/commit/2aa531f5f9818367a5db557ec62f0d65683c94fe))
+* **sky:** sky rendering with ortho camera ([#467](https://github.com/Orillusion/orillusion/issues/467)) ([8004339](https://github.com/Orillusion/orillusion/commit/8004339b115154f9f1d81ec9f6cd97d183600fad))
+* **camera:** fix orthogonal camera rendering error ([#466](https://github.com/Orillusion/orillusion/issues/466)) ([5dedb08](https://github.com/Orillusion/orillusion/commit/5dedb08a877f11012048e555857d48d4e4864cf2))
+* **atmospheric:** fix atmospheric sky on Apple M3 chips ([#465](https://github.com/Orillusion/orillusion/issues/465)) ([9fa23b4](https://github.com/Orillusion/orillusion/commit/9fa23b403f945ef1390eb74414ffb56a0d3aa441))
+* **matrix:** fixed wasmMatrix continuous rotation ([29fef40](https://github.com/Orillusion/orillusion/commit/29fef40e86d22c6809519e5e3c17211112640301))
+* **lookAt:** update matrix by quaternion ([beccb4f](https://github.com/Orillusion/orillusion/commit/beccb4ff69189c4eb4333e270c67518eb706e4c8))
+* **frustum:** fixed intersection test of bounding box and frustum ([6338c2f](https://github.com/Orillusion/orillusion/commit/6338c2f9deba1f931cabce24539abd0e63c56894))
+* **particle:** fixed particle billboard matrix ([553bf0a](https://github.com/Orillusion/orillusion/commit/553bf0a1fb807e7988928b3ba7663900b670e61b))
+* **vertexBuffer:** split vertex data and vertex layout ([faded84](https://github.com/Orillusion/orillusion/commit/faded845a777b213fa1e8b6beb9a2dd27ed67b91))
+* **geometry:** fix geometry destroy ([2ae787d](https://github.com/Orillusion/orillusion/commit/2ae787d82f061ced65c4238bd93229c4703ca4cb))
+* **InstanceDraw:** fix InstanceDrawComponent ([64485cf](https://github.com/Orillusion/orillusion/commit/64485cf01f3da81943e048594379660eda1cbee2))
+* **texture:** unable to force destroy texture ([#457](https://github.com/Orillusion/orillusion/issues/457)) ([3d62dc6](https://github.com/Orillusion/orillusion/commit/3d62dc65c39dc0338a230eb1d9b64cfd49d5c0ec))
+* **envMap:** fix environment map reference count error ([95052f9](https://github.com/Orillusion/orillusion/commit/95052f93f598ae0ff294e58f9f1a01af84106bff))
+* **graphic:** fix depth test for graphic lines ([e8257bc](https://github.com/Orillusion/orillusion/commit/e8257bcaff5f0f77f79871d47cb2167f459b6a85))
+* **pick:** fix the precision of pixelPick meshID ([1801b05](https://github.com/Orillusion/orillusion/commit/1801b054aecdab888165d7161475d64221ea1737))
+* **pixelRatio:** reset pixelRatio on resize ([1d8d23b](https://github.com/Orillusion/orillusion/commit/1d8d23be93e0809d07f151006addfb9ff4b686f2))
+* **pointerEvent:** remove middle pointer events ([c5e369f](https://github.com/Orillusion/orillusion/commit/c5e369fe6271488ab2dd048cb640e12448f3c49c))
+* **event:** CEventDispatcher properly throws the exception message ([c5b345c](https://github.com/Orillusion/orillusion/commit/c5b345c728b3f251957610dd879c97324f044f15))
+* **umd:** fix packages umd names ([4828b65](https://github.com/Orillusion/orillusion/commit/4828b65257fcaa6df35a735aa42e67fded757ce4))
+* **sample:** fix sample depth texture ([#484](https://github.com/Orillusion/orillusion/issues/484)) ([0400ab1](https://github.com/Orillusion/orillusion/commit/0400ab16b637b33e94082b7ffa4964fdbf2d2e8d))
+* **sample:** fix Shape3D / BunnySimulator / ClothSimulator / grass color samples ([54539e6](https://github.com/Orillusion/orillusion/commit/54539e6d72759b85418cfcbf4630bd64e918943d), [e2bd519](https://github.com/Orillusion/orillusion/commit/e2bd519897d7f8816940b965d797f3f73fb44143), [65ecca1](https://github.com/Orillusion/orillusion/commit/65ecca16125a8a254705138ee1927dbb45af8a50), [f4bea6d](https://github.com/Orillusion/orillusion/commit/f4bea6d20c1c8f68919cca1d5ab9b302eeacd607))
+
+
+### Performance Improvements
+
+* **preprocessor:** add shader parse cache to ShaderLib/Preprocessor ([230c342](https://github.com/Orillusion/orillusion/commit/230c3428b2e6a7546c9bc860641cde9c053d888d))
+* **matrix4:** external epsilon for matrix4 ([#486](https://github.com/Orillusion/orillusion/issues/486)) ([2befb43](https://github.com/Orillusion/orillusion/commit/2befb433e0cfaa28a55156bb7a91017af1f8fdff))
+* **geometry:** change default `GeometryVertexType` to `split` ([696277b](https://github.com/Orillusion/orillusion/commit/696277b2b5877bd417b79fe397ca2e2a0cab36b5))
+
+
+### BREAKING CHANGES
+
+* **math:** methods renamed to three.js canonical names with mutator-style semantics; duplicate aliases collapsed
+* **renderJob:** `RenderPass`/`RenderTarget` APIs redesigned around typed handles; `RenderStage` removed
+* **renderLayer:** `renderLayer` → `visibleLayer`; `RenderLayer` enum → `VisibleLayer`
+
+
+
 ## [0.8.4](https://github.com/Orillusion/orillusion/compare/v0.8.3...v0.8.4) (2024-11-27)
 
 
