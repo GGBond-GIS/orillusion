@@ -1,6 +1,5 @@
 import {
     CEventDispatcher,
-    Matrix4,
     Object3D,
     PointerEvent3D,
     Vector3,
@@ -21,6 +20,7 @@ export class SceneRayPick extends CEventDispatcher {
     private lastFocus: Object3D = null;
     private lastDownTarget: Object3D = null;
     private started = false;
+    private destroyed = false;
 
     constructor(private readonly view: View3D) {
         super();
@@ -28,6 +28,7 @@ export class SceneRayPick extends CEventDispatcher {
 
     /** Begin listening to the owning engine's pointer events. */
     public start(): this {
+        if (this.destroyed) throw new Error('SceneRayPick has been destroyed');
         if (this.started) return this;
         const input = this.view.engine3D?.inputSystem;
         if (!input) throw new Error('SceneRayPick requires a started View3D');
@@ -55,6 +56,14 @@ export class SceneRayPick extends CEventDispatcher {
         return this;
     }
 
+    /** Stop input listeners and release every registered PICK_* listener. */
+    public destroy(): void {
+        if (this.destroyed) return;
+        this.stop();
+        super.destroy();
+        this.destroyed = true;
+    }
+
     /** Return all intersections under the current pointer, nearest first. */
     public pick(): RaycastHit[] {
         const input = this.view.engine3D.inputSystem;
@@ -68,9 +77,8 @@ export class SceneRayPick extends CEventDispatcher {
 
     private hitData(hit: RaycastHit): any {
         if (!hit) return null;
-        const worldNormal = hit.normal
-            ? Matrix4.transformVector(hit.object.transform.worldMatrix, hit.normal, new Vector3()).normalize()
-            : Vector3.ZERO;
+        const worldNormal = hit.worldNormal
+            || (hit.normal ? this.raycaster.transformNormalToWorld(hit.object, hit.normal, new Vector3()) : Vector3.ZERO);
         return {
             worldPos: hit.point,
             worldNormal,

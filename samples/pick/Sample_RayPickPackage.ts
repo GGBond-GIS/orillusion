@@ -50,6 +50,7 @@ interface HitDisplay {
     faceIndex: number;
     point: Vector3;
     uv?: Vector2;
+    /** Normal in world space, suitable for debug drawing. */
     normal?: Vector3;
     barycoord?: Vector3;
 }
@@ -290,8 +291,26 @@ export class Sample_RayPickPackage {
             scene.addChild(plane);
 
             let renderer = plane.addComponent(MeshRenderer);
-            renderer.geometry = new PlaneGeometry(9, 9, 1, 1, Vector3.Z_AXIS);
-            renderer.material = new LitMaterial();
+            let geometry = new PlaneGeometry(9, 9, 1, 1, Vector3.Z_AXIS);
+            // Split the two triangles into separate material slots. Their
+            // colors and cull modes make material-aware picking visible.
+            geometry.subGeometries.length = 0;
+            geometry.addSubGeometry({
+                indexStart: 0, indexCount: 3, vertexStart: 0, vertexCount: 0,
+                firstStart: 0, index: 0, topology: 0,
+            });
+            geometry.addSubGeometry({
+                indexStart: 3, indexCount: 3, vertexStart: 0, vertexCount: 0,
+                firstStart: 0, index: 0, topology: 0,
+            });
+            renderer.geometry = geometry;
+            let leftMaterial = new LitMaterial();
+            leftMaterial.baseColor = new Color(0.15, 0.55, 1, 1);
+            leftMaterial.cullMode = 'back';
+            let rightMaterial = new LitMaterial();
+            rightMaterial.baseColor = new Color(1, 0.45, 0.15, 1);
+            rightMaterial.cullMode = 'none';
+            renderer.materials = [leftMaterial, rightMaterial];
             plane.addComponent(MaterialStateComponent);
             this.pickRenderers.push(renderer);
         }
@@ -823,7 +842,8 @@ export class Sample_RayPickPackage {
         let raycaster = new Raycaster();
         raycaster.setFromCamera(canvas.clientWidth / 2, canvas.clientHeight / 2, this.camera);
         let hits = raycaster.intersectObject(this.scene, true);
-        this.setLastHit(hits[0] || null);
+        let hit = hits[0];
+        this.setLastHit(hit ? { ...hit, normal: hit.worldNormal || hit.normal } : null);
     }
 
     // ------------------------------------------------------------------
@@ -864,7 +884,7 @@ export class Sample_RayPickPackage {
             faceIndex: data.faceIndex,
             point: data.worldPos,
             uv: data.uv,
-            normal: data.normal,
+            normal: data.worldNormal || data.normal,
             barycoord: data.barycoord,
         };
     }

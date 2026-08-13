@@ -1,6 +1,5 @@
 import {
     ArrayBufferData,
-    BoundingBox,
     Camera3D,
     Matrix4,
     Object3D,
@@ -14,6 +13,30 @@ import type { RaycastHit } from './RaycastHit';
 
 interface RaycastComponent {
     raycast?(raycaster: Raycaster, intersects: RaycastHit[]): void;
+}
+
+class RaycasterScratch {
+    public readonly matrix = new Matrix4();
+    public readonly localRay = new Ray();
+    public readonly point = new Vector3();
+    public readonly pointWorld = new Vector3();
+    public readonly vA = new Vector3();
+    public readonly vB = new Vector3();
+    public readonly vC = new Vector3();
+    public readonly e0 = new Vector3();
+    public readonly barycoord = new Vector3();
+    public readonly b0 = new Vector3();
+    public readonly b1 = new Vector3();
+    public readonly b2 = new Vector3();
+    public readonly faceNormal = new Vector3();
+    public readonly normal = new Vector3();
+    public readonly uv = new Vector2();
+    public readonly uv1 = new Vector2();
+    public normalMatrices = new WeakMap<Object3D, Matrix4>();
+
+    public reset(): void {
+        this.normalMatrices = new WeakMap<Object3D, Matrix4>();
+    }
 }
 
 /**
@@ -52,38 +75,39 @@ export class Raycaster {
      */
     public far: number = Infinity;
 
-    /**
-     * @internal
-     */
-    public static _matrix: Matrix4;
-    /**
-     * @internal
-     */
-    public static _localRay: Ray;
-    /**
-     * @internal
-     */
-    public static _point: Vector3;
-    /**
-     * @internal
-     */
-    public static _boundWorld: BoundingBox;
-    private static _vA: Vector3;
-    private static _vB: Vector3;
-    private static _vC: Vector3;
-    private static _e0: Vector3;
-    /**
-     * @internal
-     */
-    public static _pointWorld: Vector3;
-    private static _barycoord: Vector3;
-    private static _b0: Vector3;
-    private static _b1: Vector3;
-    private static _b2: Vector3;
-    private static _faceNormal: Vector3;
-    private static _normal: Vector3;
-    private static _uv: Vector2;
-    private static _uv1: Vector2;
+    private readonly _scratchStack: RaycasterScratch[] = [];
+    private readonly _scratchPool: RaycasterScratch[] = [];
+    private readonly _idleScratch = new RaycasterScratch();
+
+    private get _activeScratch(): RaycasterScratch | null {
+        return this._scratchStack[this._scratchStack.length - 1] || null;
+    }
+
+    private get _scratch(): RaycasterScratch {
+        return this._activeScratch || this._idleScratch;
+    }
+
+    /** @internal Active query's inverse world matrix scratch. */
+    public get _matrix(): Matrix4 { return this._scratch.matrix; }
+    /** @internal Active query's local ray scratch. */
+    public get _localRay(): Ray { return this._scratch.localRay; }
+    /** @internal Active query's intersection point scratch. */
+    public get _point(): Vector3 { return this._scratch.point; }
+    /** @internal Active query's world intersection point scratch. */
+    public get _pointWorld(): Vector3 { return this._scratch.pointWorld; }
+
+    private get _vA(): Vector3 { return this._scratch.vA; }
+    private get _vB(): Vector3 { return this._scratch.vB; }
+    private get _vC(): Vector3 { return this._scratch.vC; }
+    private get _e0(): Vector3 { return this._scratch.e0; }
+    private get _barycoord(): Vector3 { return this._scratch.barycoord; }
+    private get _b0(): Vector3 { return this._scratch.b0; }
+    private get _b1(): Vector3 { return this._scratch.b1; }
+    private get _b2(): Vector3 { return this._scratch.b2; }
+    private get _faceNormal(): Vector3 { return this._scratch.faceNormal; }
+    private get _normal(): Vector3 { return this._scratch.normal; }
+    private get _uv(): Vector2 { return this._scratch.uv; }
+    private get _uv1(): Vector2 { return this._scratch.uv1; }
 
     /**
      * @constructor
@@ -127,11 +151,15 @@ export class Raycaster {
      * @returns an array holding the intersection results
      */
     public intersectObject(object: Object3D, recursive: boolean = true): RaycastHit[] {
-        Raycaster._initScratch();
-        let intersects: RaycastHit[] = [];
-        _intersect(object, this, intersects, recursive);
-        intersects.sort(ascSort);
-        return intersects;
+        this._beginQuery();
+        try {
+            const intersects: RaycastHit[] = [];
+            _intersect(object, this, intersects, recursive);
+            intersects.sort(ascSort);
+            return intersects;
+        } finally {
+            this._endQuery();
+        }
     }
 
     /**
@@ -142,13 +170,17 @@ export class Raycaster {
      * @returns an array holding the intersection results
      */
     public intersectObjects(objects: Object3D[], recursive: boolean = true): RaycastHit[] {
-        Raycaster._initScratch();
-        let intersects: RaycastHit[] = [];
-        for (const object of objects) {
-            _intersect(object, this, intersects, recursive);
+        this._beginQuery();
+        try {
+            const intersects: RaycastHit[] = [];
+            for (const object of objects) {
+                _intersect(object, this, intersects, recursive);
+            }
+            intersects.sort(ascSort);
+            return intersects;
+        } finally {
+            this._endQuery();
         }
-        intersects.sort(ascSort);
-        return intersects;
     }
 
     /**
@@ -160,82 +192,90 @@ export class Raycaster {
         return this.intersectObject(scene, true);
     }
 
+    private _beginQuery(): void {
+        const scratch = this._scratchPool.pop() || new RaycasterScratch();
+        scratch.reset();
+        this._scratchStack.push(scratch);
+    }
+
+    private _endQuery(): void {
+        const scratch = this._scratchStack.pop();
+        if (scratch) this._scratchPool.push(scratch);
+    }
+
     /**
+     * Convert this ray to object space and cache the inverse-transpose normal
+     * matrix. The inverse is calculated once per object per query.
      * @internal
      */
-    public static _initScratch() {
-        if (Raycaster._matrix) return;
-        Raycaster._matrix = new Matrix4();
-        Raycaster._localRay = new Ray();
-        Raycaster._vA = new Vector3();
-        Raycaster._vB = new Vector3();
-        Raycaster._vC = new Vector3();
-        Raycaster._e0 = new Vector3();
-        Raycaster._point = new Vector3();
-        Raycaster._pointWorld = new Vector3();
-        Raycaster._barycoord = new Vector3();
-        Raycaster._b0 = new Vector3();
-        Raycaster._b1 = new Vector3();
-        Raycaster._b2 = new Vector3();
-        Raycaster._faceNormal = new Vector3();
-        Raycaster._normal = new Vector3();
-        Raycaster._uv = new Vector2();
-        Raycaster._uv1 = new Vector2();
-        Raycaster._boundWorld = new BoundingBox();
+    public prepareObject(object: Object3D): boolean {
+        const worldMatrix = object.transform.worldMatrix;
+        if (!Matrix4.invert(worldMatrix, this._matrix)) return false;
+        this._localRay.copy(this.ray).applyMatrix(this._matrix);
+        this._localRay.direction.normalize();
+
+        const activeScratch = this._activeScratch;
+        if (activeScratch && !activeScratch.normalMatrices.has(object)) {
+            const normalMatrix = new Matrix4().copy(this._matrix);
+            normalMatrix.transpose();
+            activeScratch.normalMatrices.set(object, normalMatrix);
+        }
+        return true;
     }
 
     /**
      * Test a single triangle and fill a {@link RaycastHit} when intersected.
-     * Shared scratch is used, so this must only be called from within a
-     * `raycast` dispatch (single-threaded, sequential).
+     * Scratch state belongs to this Raycaster instance, so independent
+     * Raycaster queries cannot corrupt each other.
      * @internal
      */
-    public static _checkTriangle(raycaster: Raycaster, object: Object3D, a: number, b: number, c: number, positionData: ArrayBufferData, positionStride: number, uvAttr: VertexAttributeData, uv1Attr: VertexAttributeData, normalAttr: VertexAttributeData, backfaceCulling: boolean, reversed: boolean): RaycastHit {
-        const vA = Raycaster._vA.set(positionData[a * positionStride], positionData[a * positionStride + 1], positionData[a * positionStride + 2]);
-        const vB = Raycaster._vB.set(positionData[b * positionStride], positionData[b * positionStride + 1], positionData[b * positionStride + 2]);
-        const vC = Raycaster._vC.set(positionData[c * positionStride], positionData[c * positionStride + 1], positionData[c * positionStride + 2]);
+    public _checkTriangle(object: Object3D, a: number, b: number, c: number, positionData: ArrayBufferData, positionStride: number, uvAttr: VertexAttributeData, uv1Attr: VertexAttributeData, normalAttr: VertexAttributeData, backfaceCulling: boolean, reversed: boolean): RaycastHit {
+        const vA = this._vA.set(positionData[a * positionStride], positionData[a * positionStride + 1], positionData[a * positionStride + 2]);
+        const vB = this._vB.set(positionData[b * positionStride], positionData[b * positionStride + 1], positionData[b * positionStride + 2]);
+        const vC = this._vC.set(positionData[c * positionStride], positionData[c * positionStride + 1], positionData[c * positionStride + 2]);
 
-        const point = Raycaster._intersectTriangle(Raycaster._localRay, reversed ? vC : vA, vB, reversed ? vA : vC, backfaceCulling, Raycaster._point);
+        const point = this._intersectTriangle(this._localRay, reversed ? vC : vA, vB, reversed ? vA : vC, backfaceCulling, this._point);
         if (point === null) return null;
 
         // Transform the hit point to world space and compute the world-space distance
-        Raycaster._pointWorld.copy(point);
-        Matrix4.transformPoint(object.transform.worldMatrix, Raycaster._pointWorld, Raycaster._pointWorld);
-        const distance = Vector3.distance(raycaster.ray.origin, Raycaster._pointWorld);
-        if (distance < raycaster.near || distance > raycaster.far) return null;
+        this._pointWorld.copy(point);
+        Matrix4.transformPoint(object.transform.worldMatrix, this._pointWorld, this._pointWorld);
+        const distance = Vector3.distance(this.ray.origin, this._pointWorld);
+        if (distance < this.near || distance > this.far) return null;
 
         const hit: RaycastHit = {
             distance: distance,
-            point: Raycaster._pointWorld.clone(),
+            point: this._pointWorld.clone(),
             object: object,
             faceIndex: 0,
         };
 
         // Barycentric coordinates, mapping to vertices (a, b, c)
-        const barycoord = Raycaster._getBarycoord(point, vA, vB, vC, Raycaster._barycoord);
+        const barycoord = this._getBarycoord(point, vA, vB, vC, this._barycoord);
         if (barycoord) {
             hit.barycoord = barycoord.clone();
 
             if (uvAttr) {
-                hit.uv = Raycaster._interpolateAttribute2(uvAttr.data, 2, a, b, c, barycoord, Raycaster._uv).clone();
+                hit.uv = this._interpolateAttribute2(uvAttr.data, 2, a, b, c, barycoord, this._uv).clone();
             }
             if (uv1Attr) {
-                hit.uv1 = Raycaster._interpolateAttribute2(uv1Attr.data, 2, a, b, c, barycoord, Raycaster._uv1).clone();
+                hit.uv1 = this._interpolateAttribute2(uv1Attr.data, 2, a, b, c, barycoord, this._uv1).clone();
             }
             if (normalAttr) {
-                const normal = Raycaster._interpolateAttribute3(normalAttr.data, 3, a, b, c, barycoord, Raycaster._normal);
+                const normal = this._interpolateAttribute3(normalAttr.data, 3, a, b, c, barycoord, this._normal);
                 // Flip the normal when it faces away from the ray
-                if (Vector3.dot(normal, Raycaster._localRay.direction) > 0) {
+                if (Vector3.dot(normal, this._localRay.direction) > 0) {
                     normal.multiplyScalar(-1);
                 }
                 hit.normal = normal.clone();
+                hit.worldNormal = this.transformNormalToWorld(object, normal, new Vector3());
             }
         }
 
-        const faceNormal = Raycaster._faceNormal;
+        const faceNormal = this._faceNormal;
         Vector3.sub(vC, vB, faceNormal);
-        Vector3.sub(vA, vB, Raycaster._e0);
-        Vector3.cross(faceNormal, Raycaster._e0, faceNormal);
+        Vector3.sub(vA, vB, this._e0);
+        Vector3.cross(faceNormal, this._e0, faceNormal);
         if (faceNormal.lengthSquared > 0) {
             faceNormal.normalize();
         } else {
@@ -253,12 +293,35 @@ export class Raycaster {
     }
 
     /**
+     * Transform an object-space normal to world space. Normals require the
+     * inverse-transpose matrix so they remain perpendicular to the surface
+     * under non-uniform scale.
+     * @internal
+     */
+    public transformNormalToWorld(object: Object3D, normal: Vector3, target: Vector3): Vector3 {
+        const activeScratch = this._activeScratch;
+        let normalMatrix = activeScratch?.normalMatrices.get(object);
+        if (!normalMatrix) {
+            const inverse = new Matrix4();
+            if (!Matrix4.invert(object.transform.worldMatrix, inverse)) {
+                return Matrix4.transformVector(object.transform.worldMatrix, normal, target).normalize();
+            }
+            inverse.transpose();
+            normalMatrix = inverse;
+            // Cache only inside a bounded query. Query-external calls must see
+            // transforms changed since their previous invocation.
+            activeScratch?.normalMatrices.set(object, normalMatrix);
+        }
+        return Matrix4.transformVector(normalMatrix, normal, target).normalize();
+    }
+
+    /**
      * Watertight ray/triangle intersection, ported from three.js `Ray.intersectTriangle`
      * (Woop, Benthin, Wald, "Watertight Ray/Triangle Intersection", JCGT vol. 2 no. 1 (2013)).
      * The intersection point is computed in the local space of the object.
      * @internal
      */
-    private static _intersectTriangle(ray: Ray, a: Vector3, b: Vector3, c: Vector3, backfaceCulling: boolean, target: Vector3): Vector3 {
+    private _intersectTriangle(ray: Ray, a: Vector3, b: Vector3, c: Vector3, backfaceCulling: boolean, target: Vector3): Vector3 {
         const origin = ray.origin;
         const direction = ray.direction;
 
@@ -349,11 +412,11 @@ export class Raycaster {
      * `point = a * x + b * y + c * z`.
      * @internal
      */
-    private static _getBarycoord(point: Vector3, a: Vector3, b: Vector3, c: Vector3, target: Vector3): Vector3 {
+    private _getBarycoord(point: Vector3, a: Vector3, b: Vector3, c: Vector3, target: Vector3): Vector3 {
         // based on: http://www.blackpawn.com/texts/pointinpoly/default.html
-        const v0 = Raycaster._b0;
-        const v1 = Raycaster._b1;
-        const v2 = Raycaster._b2;
+        const v0 = this._b0;
+        const v1 = this._b1;
+        const v2 = this._b2;
         Vector3.sub(c, a, v0);
         Vector3.sub(b, a, v1);
         Vector3.sub(point, a, v2);
@@ -385,7 +448,7 @@ export class Raycaster {
      * ported from three.js `Triangle.getInterpolatedAttribute`.
      * @internal
      */
-    private static _interpolateAttribute2(data: ArrayBufferData, stride: number, i0: number, i1: number, i2: number, barycoord: Vector3, target: Vector2): Vector2 {
+    private _interpolateAttribute2(data: ArrayBufferData, stride: number, i0: number, i1: number, i2: number, barycoord: Vector3, target: Vector2): Vector2 {
         return target.set(
             data[i0 * stride] * barycoord.x + data[i1 * stride] * barycoord.y + data[i2 * stride] * barycoord.z,
             data[i0 * stride + 1] * barycoord.x + data[i1 * stride + 1] * barycoord.y + data[i2 * stride + 1] * barycoord.z
@@ -397,7 +460,7 @@ export class Raycaster {
      * ported from three.js `Triangle.getInterpolatedAttribute`.
      * @internal
      */
-    private static _interpolateAttribute3(data: ArrayBufferData, stride: number, i0: number, i1: number, i2: number, barycoord: Vector3, target: Vector3): Vector3 {
+    private _interpolateAttribute3(data: ArrayBufferData, stride: number, i0: number, i1: number, i2: number, barycoord: Vector3, target: Vector3): Vector3 {
         return target.set(
             data[i0 * stride] * barycoord.x + data[i1 * stride] * barycoord.y + data[i2 * stride] * barycoord.z,
             data[i0 * stride + 1] * barycoord.x + data[i1 * stride + 1] * barycoord.y + data[i2 * stride + 1] * barycoord.z,

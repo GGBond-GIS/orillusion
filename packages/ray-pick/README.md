@@ -5,6 +5,7 @@
 ## Features
 
 - Explicit, reversible renderer injection with no import-time side effects.
+- Isolated, pooled query contexts support independent and same-instance nested queries.
 - Recursive scene or object picking, sorted from nearest to farthest.
 - Indexed and non-indexed mesh geometry.
 - World transforms, `near` / `far`, material culling, UVs, normals, face indices and barycentric coordinates.
@@ -123,8 +124,11 @@ cube.addEventListener(
     null,
 );
 
-// Stop listening when the picker is no longer needed.
+// Temporarily stop listening while retaining PICK_* listeners.
 scenePicker.stop();
+
+// Permanently release input and PICK_* listeners.
+scenePicker.destroy();
 ```
 
 `SceneRayPick` processes input while `engine.setting.pick.mode` is `ray`. Because `ray` is supplied by this external package and older core versions only declare `pixel | bound`, configure it with a narrow cast:
@@ -172,9 +176,10 @@ Each result identifies the individual instance `Object3D`, not the shared render
 | `face` | Triangle vertex indices and geometric normal. |
 | `uv`, `uv1` | Barycentrically interpolated texture coordinates when available. |
 | `normal` | Interpolated normal in object space when available. |
+| `worldNormal` | Interpolated normal transformed by the inverse-transpose world matrix. |
 | `barycoord` | Barycentric weights corresponding to face vertices `(a, b, c)`. |
 
-The `worldNormal` field emitted by `SceneRayPick` is transformed to world space. The raw `normal` field remains in object space.
+`RaycastHit.worldNormal` and the `worldNormal` emitted by `SceneRayPick` are in world space. The raw `normal` field remains in object space.
 
 ## Material culling
 
@@ -184,7 +189,11 @@ Ray picking follows the first material's `cullMode`:
 - `front`: reverse the tested winding.
 - `none`: test both sides.
 
-Disabled renderers and sky renderers are ignored.
+For multi-material meshes, each sub-geometry uses its corresponding material
+slot and `face.materialIndex` identifies that slot. As in `RenderNode`, a
+missing material or sub-geometry falls back to slot `0`.
+
+Disabled renderers, disabled materials and sky renderers are ignored.
 
 ## Removing the injection
 

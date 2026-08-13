@@ -31,6 +31,7 @@ export interface RaycastFace {
  * - faceIndex: triangle index of the intersected face
  * - uv / uv1: barycentric-interpolated uv at the intersection point
  * - normal: interpolated vertex normal in object space (flipped toward the ray when facing away)
+ * - worldNormal: the interpolated normal transformed by the inverse-transpose world matrix
  * - barycoord: barycentric coordinates of the intersection point, mapping to vertices (a, b, c)
  *
  * @group IO
@@ -68,6 +69,10 @@ export interface RaycastHit {
      * interpolated normal at the intersection point (object space, flipped toward the ray when facing away)
      */
     normal?: Vector3;
+    /**
+     * interpolated normal transformed to world space with the inverse-transpose world matrix
+     */
+    worldNormal?: Vector3;
     /**
      * barycentric coordinates of the intersection point inside the triangle, mapping to (a, b, c)
      */

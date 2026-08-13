@@ -49,13 +49,8 @@ function raycastMesh(
     raycaster: Raycaster,
     intersects: RaycastHit[],
 ): void {
-    const material = renderer.materials[0];
-    if (!renderer.enable || !geometry || !material) return;
-
-    Raycaster._initScratch();
-    Raycaster._matrix.copy(object.transform.worldMatrix).invert();
-    Raycaster._localRay.copy(raycaster.ray).applyMatrix(Raycaster._matrix);
-    Raycaster._localRay.direction.normalize();
+    if (!renderer.enable || !geometry || !renderer.materials[0]) return;
+    if (!raycaster.prepareObject(object)) return;
 
     let positionData;
     let positionStride: number;
@@ -74,40 +69,60 @@ function raycastMesh(
     const uvAttr: VertexAttributeData = geometry.getAttribute(VertexAttributeName.uv);
     const uv1Attr: VertexAttributeData = geometry.getAttribute(VertexAttributeName.TEXCOORD_1);
     const normalAttr: VertexAttributeData = geometry.getAttribute(VertexAttributeName.normal);
-    const backfaceCulling = material.cullMode !== 'none';
-    const reversed = material.cullMode === 'front';
     const indexAttr = geometry.getAttribute(VertexAttributeName.indices);
+    const indices = indexAttr?.data;
+    const subGeometries = geometry.subGeometries || [];
 
-    if (indexAttr?.data?.length) {
-        const indices = indexAttr.data;
-        for (let faceIndex = 0; faceIndex < indices.length / 3; faceIndex++) {
-            const a = indices[faceIndex * 3];
-            const b = indices[faceIndex * 3 + 1];
-            const c = indices[faceIndex * 3 + 2];
-            const hit = Raycaster._checkTriangle(
-                raycaster, object, a, b, c, positionData, positionStride,
+    const testRange = (
+        materialIndex: number,
+        start: number,
+        count: number,
+        indexed: boolean,
+    ): void => {
+        const resolvedMaterialIndex = renderer.materials[materialIndex] ? materialIndex : 0;
+        const material = renderer.materials[resolvedMaterialIndex];
+        if (!material?.enable) return;
+        const backfaceCulling = material.cullMode !== 'none';
+        const reversed = material.cullMode === 'front';
+        const end = Math.min(start + count, indexed ? indices.length : positionData.length / positionStride);
+
+        for (let offset = start; offset + 2 < end; offset += 3) {
+            const a = indexed ? indices[offset] : offset;
+            const b = indexed ? indices[offset + 1] : offset + 1;
+            const c = indexed ? indices[offset + 2] : offset + 2;
+            const hit = raycaster._checkTriangle(
+                object, a, b, c, positionData, positionStride,
                 uvAttr, uv1Attr, normalAttr, backfaceCulling, reversed,
             );
-            if (hit) {
-                hit.faceIndex = faceIndex;
-                intersects.push(hit);
-            }
+            if (!hit) continue;
+            hit.faceIndex = Math.floor(offset / 3);
+            hit.face.materialIndex = resolvedMaterialIndex;
+            intersects.push(hit);
+        }
+    };
+
+    if (subGeometries.length > 0) {
+        // Mirror RenderNode: iterate the larger collection, falling back to
+        // material 0 or sub-geometry 0 where one side has fewer entries.
+        const slotCount = Math.max(renderer.materials.length, subGeometries.length);
+        for (let slot = 0; slot < slotCount; slot++) {
+            const materialIndex = slot < renderer.materials.length ? slot : 0;
+            const subGeometry = subGeometries[slot] || subGeometries[0];
+            const lod = subGeometry?.lodLevels?.[renderer.lodLevel]
+                || subGeometry?.lodLevels?.[0];
+            if (!lod) continue;
+            testRange(materialIndex, lod.indexStart, lod.indexCount, !!indices?.length);
         }
         return;
     }
 
-    for (let i = 0; i < positionData.length / positionStride; i += 3) {
-        const hit = Raycaster._checkTriangle(
-            raycaster, object, i, i + 1, i + 2, positionData, positionStride,
-            uvAttr, uv1Attr, normalAttr, backfaceCulling, reversed,
-        );
-        if (hit) {
-            hit.faceIndex = Math.floor(i / 3);
-            intersects.push(hit);
-        }
-    }
+    testRange(
+        0,
+        0,
+        indices?.length || positionData.length / positionStride,
+        !!indices?.length,
+    );
 }
-
 function meshRaycast(this: MeshRenderer, raycaster: Raycaster, intersects: RaycastHit[]): void {
     raycastMesh(this, this.object3D, this.geometry, raycaster, intersects);
 }
@@ -115,18 +130,15 @@ function meshRaycast(this: MeshRenderer, raycaster: Raycaster, intersects: Rayca
 function spriteRaycast(this: SpriteRenderer, raycaster: Raycaster, intersects: RaycastHit[]): void {
     if (!this.enable || !this.geometry || !this.materials[0]) return;
 
-    Raycaster._initScratch();
-    Raycaster._matrix.copy(this.transform.worldMatrix).invert();
-    Raycaster._localRay.copy(raycaster.ray).applyMatrix(Raycaster._matrix);
-    Raycaster._localRay.direction.normalize();
+    if (!raycaster.prepareObject(this.object3D)) return;
 
-    const directionZ = Raycaster._localRay.direction.z;
+    const directionZ = raycaster._localRay.direction.z;
     if (Math.abs(directionZ) < 1e-8) return;
-    const t = -Raycaster._localRay.origin.z / directionZ;
+    const t = -raycaster._localRay.origin.z / directionZ;
     if (t < 0) return;
 
-    const localX = Raycaster._localRay.origin.x + Raycaster._localRay.direction.x * t;
-    const localY = Raycaster._localRay.origin.y + Raycaster._localRay.direction.y * t;
+    const localX = raycaster._localRay.origin.x + raycaster._localRay.direction.x * t;
+    const localY = raycaster._localRay.origin.y + raycaster._localRay.direction.y * t;
     const pivot = this.pivot;
     const size = this.size.clone();
     if (this.distanceInvariantSize) {
@@ -142,17 +154,14 @@ function spriteRaycast(this: SpriteRenderer, raycaster: Raycaster, intersects: R
         localY < centerY - halfHeight || localY > centerY + halfHeight
     ) return;
 
-    const point = Raycaster._pointWorld.copy(Raycaster._localRay.origin)
-        .addScaledVector(Raycaster._localRay.direction, t);
+    const point = raycaster._pointWorld.copy(raycaster._localRay.origin)
+        .addScaledVector(raycaster._localRay.direction, t);
     Matrix4.transformPoint(this.transform.worldMatrix, point, point);
     const distance = Vector3.distance(raycaster.ray.origin, point);
     if (distance < raycaster.near || distance > raycaster.far) return;
 
-    const normal = Matrix4.transformVector(
-        this.transform.worldMatrix,
-        new Vector3(0, 0, 1),
-        new Vector3(),
-    ).normalize();
+    const normal = new Vector3(0, 0, 1);
+    const worldNormal = raycaster.transformNormalToWorld(this.object3D, normal, new Vector3());
     intersects.push({
         distance,
         point: point.clone(),
@@ -163,6 +172,7 @@ function spriteRaycast(this: SpriteRenderer, raycaster: Raycaster, intersects: R
             (localY - (centerY - halfHeight)) / size.y,
         ),
         normal,
+        worldNormal,
     });
 }
 
