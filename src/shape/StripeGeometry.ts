@@ -30,6 +30,25 @@ export class StripeGeometry extends GeometryBase {
     private buildGeometry(): void {
 
         this.bounds = new BoundingBox();
+        // Tight bounds from the segment endpoints: a unit box at the origin
+        // would reject ray hits on ribbon parts far from it (raycaster
+        // pre-cull discards anything outside the bounds).
+        let min = this.bounds.min;
+        let max = this.bounds.max;
+        min.set(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE);
+        max.set(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
+        for (let item of this.segments) {
+            for (let p of item) {
+                min.x = Math.min(min.x, p.x);
+                min.y = Math.min(min.y, p.y);
+                min.z = Math.min(min.z, p.z);
+                max.x = Math.max(max.x, p.x);
+                max.y = Math.max(max.y, p.y);
+                max.z = Math.max(max.z, p.z);
+            }
+        }
+        this.bounds.setFromMinMax(min, max);
+
         let numIndices = (this.segments.length - 1) * 2 * 3;
 
         let vertexCount = this.segments.length * 2;

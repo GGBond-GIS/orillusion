@@ -201,7 +201,10 @@ export class GeometryBase {
             if (!this._vertexBuffer?.needsRebuild(shaderReflection)) return;
         }
         this._onChange = false;
-        this._indicesBuffer.upload(this.getAttribute(VertexAttributeName.indices).data);
+        let indicesAttr = this.getAttribute(VertexAttributeName.indices);
+        if (indicesAttr) {
+            this._indicesBuffer.upload(indicesAttr.data);
+        }
         this._vertexBuffer.createVertexBuffer(this._attributeMap, shaderReflection);
         this._vertexBuffer.updateAttributes(this._attributeMap);
         this.vertexCount = this._vertexBuffer.vertexCount;

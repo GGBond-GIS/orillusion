@@ -485,7 +485,7 @@ export class Engine3D {
             let postProcessing = view.scene.getOrAddComponent(PostProcessingComponent);
             postProcessing.addPost(FXAAPost);
         }
-        if (this.setting.pick.mode == `pixel` || this.setting.pick.mode == `bound`) {
+        if (this.setting.pick.mode == `pixel` || this.setting.pick.mode == `bound` || this.setting.pick.mode == `ray`) {
             view.enablePick = true;
         }
         return renderJob;

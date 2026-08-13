@@ -14,6 +14,8 @@ import { SphereGeometry } from '../../shape/SphereGeometry';
 import { Object3D } from '../../core/entities/Object3D';
 import { SphereReflection } from './SphereReflection';
 import { CameraType } from '../../core/CameraType';
+import type { Raycaster } from '../../io/Raycaster';
+import type { RaycastHit } from '../../io/RaycastHit';
 
 /**
  *
@@ -60,6 +62,17 @@ export class SkyRenderer extends MeshRenderer {
             EntityCollect.instance.setSky(this.transform.scene3D, null);
         }
         super.onDisable();
+    }
+
+    /**
+     * The sky dome must not intercept picking rays: a full sphere around the
+     * camera would otherwise be the nearest hit for any ray pointing above the
+     * horizon. Override {@link MeshRenderer.raycast} to opt out of ray picking.
+     * @param raycaster the raycaster
+     * @param intersects the target array that holds the intersection results
+     */
+    public raycast(raycaster: Raycaster, intersects: RaycastHit[]) {
+        return;
     }
 
     public nodeUpdate(view: View3D, passType: PassType, renderPassState: RendererPassState, clusterLightingBuffer?: ClusterLightingBuffer) {

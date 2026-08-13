@@ -5,6 +5,8 @@ import { RendererMask } from '../../gfx/renderJob/passRenderer/state/RendererMas
 import { EarthSkyMaterial } from '../../materials/EarthSkyMaterial';
 import { Vector3 } from '../../math/Vector3';
 import { SphereGeometry } from '../../shape/SphereGeometry';
+import type { Raycaster } from '../../io/Raycaster';
+import type { RaycastHit } from '../../io/RaycastHit';
 
 /**
  * Earth Sky Renderer Component
@@ -45,6 +47,16 @@ export class EarthSkyRenderer extends MeshRenderer {
         // EarthSkyMaterial's constructor binds Engine3D.resFor().defaultSky
         // as a placeholder, so the pipeline is valid even before `map` is set.
         this.material = this.earthSkyMaterial;
+    }
+
+    /**
+     * The sky dome must not intercept picking rays (same rationale as
+     * {@link SkyRenderer.raycast}): it is a full sphere around the camera.
+     * @param raycaster the raycaster
+     * @param intersects the target array that holds the intersection results
+     */
+    public raycast(raycaster: Raycaster, intersects: RaycastHit[]) {
+        return;
     }
 
     /**

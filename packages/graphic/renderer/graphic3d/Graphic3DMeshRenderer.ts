@@ -1,4 +1,5 @@
 import { MeshRenderer, StorageGPUBuffer, GeometryBase, BitmapTexture2DArray, Object3D, ComputeShader, UnLitTexArrayMaterial, Vector3, Color, Vector4, GeometryUtil, View3D } from "@orillusion/core";
+import type { Raycaster, RaycastHit } from "@orillusion/core";
 
 export class Graphic3DMeshRenderer extends MeshRenderer {
     public transformBuffer: StorageGPUBuffer;
@@ -13,7 +14,23 @@ export class Graphic3DMeshRenderer extends MeshRenderer {
         super.init();
     }
 
+    /**
+     * GPU-instanced raycast: the rendered geometry is a merged copy of
+     * `sourceGeometry`, while every instance's transform lives on a child
+     * Object3D (mirrored into the storage buffer for the shader). Intersect
+     * the source geometry once per instance so hit points land on the
+     * instances' real world positions and `hit.object` identifies the
+     * instance.
+     */
+    public raycast(raycaster: Raycaster, intersects: RaycastHit[]) {
+        if (!this.enable || !this.sourceGeometry || !this.materials[0]) return;
+        for (let i = 0; i < this.object3Ds.length; i++) {
+            this._raycastGeometry(this.object3Ds[i], this.sourceGeometry, raycaster, intersects);
+        }
+    }
+
     public create(source: GeometryBase, tex: BitmapTexture2DArray, num: number) {
+        this.sourceGeometry = source;
         let mat = new UnLitTexArrayMaterial();
         mat.baseMap = tex;
         this.material = mat;

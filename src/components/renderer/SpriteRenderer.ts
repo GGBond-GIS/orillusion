@@ -5,11 +5,14 @@ import { PlaneGeometry } from '../../shape/PlaneGeometry';
 import { Context3D } from '../../gfx/graphics/webGpu/Context3D';
 import { Texture } from '../../gfx/graphics/webGpu/core/texture/Texture';
 import { Color } from '../../math/Color';
+import { Matrix4 } from '../../math/Matrix4';
 import { Vector2 } from '../../math/Vector2';
 import { Vector3 } from '../../math/Vector3';
 import { Vector4 } from '../../math/Vector4';
 import { SpriteMaterial } from '../../materials/SpriteMaterial';
 import { RegisterComponent } from '../../util/SerializeDecoration';
+import { Raycaster } from '../../io/Raycaster';
+import type { RaycastHit } from '../../io/RaycastHit';
 import { RenderNode } from './RenderNode';
 
 /**
@@ -224,6 +227,79 @@ export class SpriteRenderer extends RenderNode {
     /** Alias for `enable` — `visible = false` stops rendering without destroying the component. */
     public get visible(): boolean { return this.enable; }
     public set visible(value: boolean) { this.enable = value; }
+
+    /**
+     * Ray pick in `ray` mode: intersects the sprite's world quad. The size /
+     * pivot are applied in the vertex shader, so the pickable rectangle is
+     * the unit quad scaled by `size` and centered at `(0.5 - pivot) * size`
+     * in local space (matches the shader's `(unitPos + 0.5 - pivot) * size`);
+     * the world matrix carries the object transform plus any
+     * `BillboardComponent` orientation.
+     */
+    public raycast(raycaster: Raycaster, intersects: RaycastHit[]) {
+        if (!this.enable || !this._geometry || !this._spriteMaterial()) return;
+
+        // NOTE: no world-bounds pre-cull here — the shared quad geometry has
+        // unit bounds (±0.5), while the rendered/pickable quad is `size`
+        // (applied in the vertex shader), so a bound pre-cull would reject
+        // hits outside the tiny unit box. The quad-plane test below is exact.
+
+        // convert the ray to the sprite's local space
+        Raycaster._initScratch();
+        Raycaster._matrix.copy(this.transform.worldMatrix).invert();
+        Raycaster._localRay.copy(raycaster.ray).applyMatrix(Raycaster._matrix);
+        Raycaster._localRay.direction.normalize();
+
+        // intersect the z=0 quad plane
+        const dirZ = Raycaster._localRay.direction.z;
+        if (Math.abs(dirZ) < 1e-8) return; // ray parallel to the quad
+        const t = -Raycaster._localRay.origin.z / dirZ;
+        if (t < 0) return;
+        const lx = Raycaster._localRay.origin.x + Raycaster._localRay.direction.x * t;
+        const ly = Raycaster._localRay.origin.y + Raycaster._localRay.direction.y * t;
+
+        // the quad spans [(0.5-pivot) - 0.5, (0.5-pivot) + 0.5] * pickSize in
+        // local space — same transform the vertex shader applies. When
+        // `distanceInvariantSize` is on, the shader additionally scales the
+        // quad by `camDist / 10` to keep a constant on-screen size (three.js
+        // does the same with `sizeAttenuation = false`, scaling by the camera
+        // depth); the pickable rectangle must match, or the hit region drifts
+        // from the rendered sprite.
+        const pivot = this.pivot;
+        let pickSize = this._size;
+        if (this.distanceInvariantSize) {
+            const camDist = Vector3.distance(raycaster.ray.origin, this.transform.worldPosition);
+            pickSize = new Vector2(this._size.x * (camDist / 10), this._size.y * (camDist / 10));
+        }
+        const cx = (0.5 - pivot.x) * pickSize.x;
+        const cy = (0.5 - pivot.y) * pickSize.y;
+        const hw = pickSize.x / 2;
+        const hh = pickSize.y / 2;
+        if (lx < cx - hw || lx > cx + hw || ly < cy - hh || ly > cy + hh) return;
+
+        // world hit point & distance
+        const point = Raycaster._pointWorld.copy(Raycaster._localRay.origin).addScaledVector(Raycaster._localRay.direction, t);
+        Matrix4.transformPoint(this.transform.worldMatrix, point, point);
+        const distance = Vector3.distance(raycaster.ray.origin, point);
+        if (distance < raycaster.near || distance > raycaster.far) return;
+
+        // sprite normal: +Z in local space, transformed to world
+        const normal = new Vector3(0, 0, 1);
+        Matrix4.transformVector(this.transform.worldMatrix, normal, normal);
+        normal.normalize();
+
+        // uv from the local hit position (quad uv spans 0..1)
+        const uv = new Vector2((lx - (cx - hw)) / pickSize.x, (ly - (cy - hh)) / pickSize.y);
+
+        intersects.push({
+            distance: distance,
+            point: point.clone(),
+            object: this.object3D,
+            faceIndex: -1, // sprites have no mesh faces (three.js leaves it undefined)
+            uv: uv,
+            normal: normal,
+        });
+    }
 
     // ---------- Internal ----------
 

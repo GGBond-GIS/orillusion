@@ -500,6 +500,7 @@ export class RenderNode extends ComponentBase {
                         ProfilerUtil.viewCount_pipeline(view, PassType[passType]);
                     }
                     let subGeometry = i >= renderNode._geometry.subGeometries.length ? renderNode._geometry.subGeometries[0] : renderNode._geometry.subGeometries[i];
+                    if (!subGeometry) continue;
                     let lodInfos = subGeometry.lodLevels;
                     let lodInfo = lodInfos[renderNode.lodLevel];
 
@@ -567,6 +568,7 @@ export class RenderNode extends ComponentBase {
                     if (matPass.pipeline) {
                         gpu.bindPipeline(encoder, matPass);
                         const subGeometry = i >= subGeometries.length ? subGeometries[0] : subGeometries[i];
+                        if (!subGeometry) continue;
                         let lodInfos = subGeometry.lodLevels;
                         let lodInfo = lodInfos[node.lodLevel];
                         if (this.instanceCount > 0) {
@@ -605,6 +607,7 @@ export class RenderNode extends ComponentBase {
                 const renderShader = passes[j];
                 gpu.bindPipeline(encoder, renderShader);
                 const subGeometry = i >= subGeometries.length ? subGeometries[0] : subGeometries[i];
+                if (!subGeometry) continue;
                 let lodInfos = subGeometry.lodLevels;
                 let lodInfo = lodInfos[node.lodLevel];
                 gpu.drawIndexed(encoder, lodInfo.indexCount, 1, lodInfo.indexStart, 0, worldMatrix.index);

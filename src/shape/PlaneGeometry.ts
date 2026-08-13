@@ -57,7 +57,20 @@ export class PlaneGeometry extends GeometryBase {
         var tw: number = this.segmentW + 1;
         var numVertices: number = (this.segmentH + 1) * tw;
 
-        this.bounds = new BoundingBox(Vector3.ZERO.clone(), new Vector3(this.width, 1.0, this.height));
+        // The bounding box must follow the `up` axis: the geometry is laid
+        // out in the plane perpendicular to `up`, with a 1-unit thickness
+        // along it. A fixed (width, 1, height) box would reject ray hits on
+        // planes created with up=Z_AXIS / X_AXIS (their real extent differs
+        // from the box, so the raycaster pre-cull would discard valid hits).
+        let size = new Vector3(this.width, 1.0, this.height);
+        if (Math.abs(axis.x) > 0.5) {
+            // plane in the YZ plane: thickness along x, width along y
+            size.set(1.0, this.width, this.height);
+        } else if (Math.abs(axis.z) > 0.5) {
+            // plane in the XY plane: thickness along z, height along y
+            size.set(this.width, this.height, 1.0);
+        }
+        this.bounds = new BoundingBox(Vector3.ZERO.clone(), size);
         numIndices = this.segmentH * this.segmentW * 6;
 
         let vertexCount = (this.segmentW + 1) * (this.segmentH + 1);

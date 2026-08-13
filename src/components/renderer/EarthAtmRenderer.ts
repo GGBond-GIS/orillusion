@@ -4,6 +4,8 @@ import { EarthAtmMaterial } from '../../materials/EarthAtmMaterial';
 import { Vector3 } from '../../math/Vector3';
 import { SphereGeometry } from '../../shape/SphereGeometry';
 import { BlendMode } from '../../materials/BlendMode';
+import type { Raycaster } from '../../io/Raycaster';
+import type { RaycastHit } from '../../io/RaycastHit';
 
 /**
  * Earth Atm Renderer Component
@@ -41,6 +43,16 @@ export class EarthAtmRenderer extends MeshRenderer {
         this.earthAtmMaterial.transparent = true;
         this.earthAtmMaterial.blendMode = BlendMode.ALPHA;
         this.material = this.earthAtmMaterial;
+    }
+
+    /**
+     * The atmosphere dome must not intercept picking rays (same rationale as
+     * {@link SkyRenderer.raycast}): it is a full sphere around the camera.
+     * @param raycaster the raycaster
+     * @param intersects the target array that holds the intersection results
+     */
+    public raycast(raycaster: Raycaster, intersects: RaycastHit[]) {
+        return;
     }
 
     /**

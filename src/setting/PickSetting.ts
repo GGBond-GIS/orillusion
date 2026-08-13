@@ -10,9 +10,13 @@ export type PickSetting = {
      */
     enable: boolean;
     /**
-     * pick mode: use pixel mode, or bound mode
+     * pick mode: use pixel mode, bound mode, or ray mode
+     * - `pixel`: GPU picking against the GBuffer
+     * - `bound`: CPU picking against collider bounding shapes
+     * - `ray`: CPU picking against mesh geometry (three.js `Raycaster` style),
+     *   returns per-triangle results with uv / faceIndex / barycoord / normal
      */
-    mode: `pixel` | `bound`;
+    mode: `pixel` | `bound` | `ray`;
     /**
      * @internal
      */
