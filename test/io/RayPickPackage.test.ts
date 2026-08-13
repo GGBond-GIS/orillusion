@@ -1,6 +1,6 @@
 import { test, expect, end } from '../util';
-import { BoxGeometry, Engine3D, GeometryBase, LitMaterial, MeshRenderer, Object3D, Ray, Vector3 } from '@orillusion/core';
-import { installGraphicRayPick, installRayPick, Raycaster, uninstallRayPick } from '@orillusion/ray-pick';
+import { BoxGeometry, CameraUtil, Engine3D, GeometryBase, LitMaterial, MeshRenderer, Object3D, Ray, Scene3D, Vector3, View3D } from '@orillusion/core';
+import { installGraphicRayPick, installRayPick, Raycaster, SceneRayPick, uninstallRayPick } from '@orillusion/ray-pick';
 
 const engine = await Engine3D.init();
 engine.frameRate = 10;
@@ -82,6 +82,28 @@ await test('external instanced renderer can be injected without a package depend
     expect(hits.length).toEqual(4);
     expect(hits[0].object).tobe(instance);
     expect(hits[0].point.x).toSubequal(4, 0.001);
+});
+
+await test('scene pointer bridge casts through the active camera', async () => {
+    installRayPick();
+    const scene = new Scene3D();
+    const camera = CameraUtil.createCamera3DObject(scene, 'ray-pick-camera');
+    camera.perspective(60, engine.aspect, 0.1, 100);
+    camera.lookAt(new Vector3(0, 0, 10), Vector3.ZERO, Vector3.Y_AXIS);
+    const view = new View3D();
+    view.scene = scene;
+    view.camera = camera;
+    engine.startRenderView(view);
+
+    const box = createBox();
+    scene.addChild(box);
+    engine.inputSystem.mouseX = engine.inputSystem.canvas.clientWidth / 2;
+    engine.inputSystem.mouseY = engine.inputSystem.canvas.clientHeight / 2;
+
+    const hits = new SceneRayPick(view).pick();
+    expect(hits.length).toEqual(4);
+    expect(hits[0].object).tobe(box);
+    expect(hits[0].point.z).toSubequal(1, 0.05);
 });
 
 setTimeout(end, 100);
