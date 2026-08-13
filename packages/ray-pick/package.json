@@ -7,7 +7,7 @@
     "module": "./dist/ray-pick.es.js",
     "module:dev": "./index.ts",
     "types": "./dist/index.d.ts",
-    "files": ["dist"],
+    "files": ["dist", "README.md"],
     "scripts": {
         "build": "vite build && npm run build:types && npm run build:clean",
         "build:types": "tsc --emitDeclarationOnly --experimentalDecorators -p tsconfig.json",
